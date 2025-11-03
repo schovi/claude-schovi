@@ -1,0 +1,36 @@
+{
+  "name": "problem-analyzer",
+  "version": "1.0.0",
+  "description": "Comprehensive problem analysis workflow for bugs and features with deep codebase exploration, flow mapping, and multi-option solution proposals",
+  "author": "David Schovanec",
+  "license": "MIT",
+  "homepage": "https://github.com/schovi/claude-schovi",
+  "components": {
+    "commands": ["analyze-problem"]
+  },
+  "settings": {
+    "defaultModel": "sonnet",
+    "allowedTools": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Task",
+      "mcp__jira__*",
+      "mcp__jetbrains__*"
+    ]
+  },
+  "requirements": {
+    "mcpServers": [
+      {
+        "name": "jira",
+        "optional": false,
+        "description": "Required for fetching Jira issue details"
+      },
+      {
+        "name": "jetbrains",
+        "optional": true,
+        "description": "Optional for enhanced IDE integration"
+      }
+    ]
+  }
+}
