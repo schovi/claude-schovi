@@ -105,15 +105,15 @@ This prevents massive Jira payloads from polluting your context.
 
 **If GitHub PR Provided**:
 ```
-IMPORTANT: Delegate to the pr-analyzer subagent to prevent context pollution.
+IMPORTANT: Delegate to the gh-pr-analyzer subagent to prevent context pollution.
 
 1. Acknowledge detection:
    🛠️ **[Analyze-Problem]** Detected GitHub PR: [PR reference]
-   ⏳ Fetching PR details via pr-analyzer...
+   ⏳ Fetching PR details via gh-pr-analyzer...
 
-2. Use the Task tool to invoke the pr-analyzer subagent:
+2. Use the Task tool to invoke the gh-pr-analyzer subagent:
    prompt: "Fetch and summarize GitHub PR [URL, owner/repo#123, or #123]"
-   subagent_type: "schovi:pr-analyzer:pr-analyzer"
+   subagent_type: "schovi:gh-pr-analyzer:gh-pr-analyzer"
    description: "Fetching GitHub PR summary"
 
 3. The subagent will:

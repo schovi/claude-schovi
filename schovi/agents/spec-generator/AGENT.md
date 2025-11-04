@@ -229,11 +229,25 @@ Standard deployment process applies. No special rollout coordination needed.
 ```
 
 ##### Section 9: References (Optional)
-If available from analysis:
-- Link to Jira issue
-- Related PRs or commits
-- Architecture docs
-- External references
+Keep this section brief - avoid repeating detailed file paths from analysis:
+- Link to Jira issue (if applicable)
+- Link to analysis document (if from `/schovi:analyze-problem`)
+- Related PRs or commits (if mentioned in analysis)
+- Architecture docs (only if critical to understanding)
+
+**Do NOT repeat**:
+- File paths already listed in Technical Overview
+- Code locations already in Implementation Tasks
+- Detailed flow diagrams (reference analysis instead)
+
+Example:
+```markdown
+## References
+
+- **Jira Issue**: [EC-1234](https://productboard.atlassian.net/browse/EC-1234)
+- **Analysis**: See analysis.md for detailed flow diagrams and code locations
+- **Related**: PR #456 (previous mapping refactor)
+```
 
 #### For Minimal Template:
 
@@ -452,9 +466,7 @@ created_by: N/A
 
 **Rationale**: Centralized validation approach ensures consistency across all mapping endpoints. Minimal code changes required and aligns with existing validation patterns in the codebase.
 
-**Alternatives Considered**:
-- Option 2: Frontend validation only (rejected: not secure, backend must enforce)
-- Option 3: Database constraint (rejected: harder to rollback, less clear error messages)
+**Alternatives Considered**: Frontend-only validation and database constraints were rejected due to security concerns and rollback complexity respectively.
 
 ## Technical Overview
 
@@ -515,26 +527,17 @@ If invalid → Error response (400)
 
 ## Testing Strategy
 
-### Unit Tests
-- **FieldMappingValidator.spec.ts**
-  - Test: Boolean type returns validation error
-  - Test: Number type passes validation
-  - Test: Text type passes validation
-  - Test: String type passes validation (alias for text)
-  - Test: Error message is correct format
+### Tests to Update/Create
 
-### Integration Tests
-- **MappingController.integration.spec.ts**
-  - Test: POST /mapping with boolean field returns 400
-  - Test: Error response includes clear message
-  - Test: Valid types still create mappings successfully
+**Unit Tests** (modified/new):
+- `services/FieldMappingValidator.spec.ts` - Add boolean rejection test, verify number/text types pass, check error message format
+- `api/controllers/MappingController.spec.ts` - Update existing tests to handle new validation error case
 
-### Manual Testing
-- [ ] Create mapping with boolean field via UI → See error
-- [ ] Create mapping with number field → Success
-- [ ] Create mapping with text field → Success
-- [ ] Verify 3 production mappings are migrated
-- [ ] Check error message displays in UI correctly
+**Integration Tests** (modified/new):
+- `integration/MappingController.integration.spec.ts` - Test POST /mapping with boolean returns 400, verify error response includes clear message, ensure valid types still work
+
+**E2E Tests** (if needed):
+- `e2e/mapping-creation.spec.ts` - Verify error message displays correctly in UI for boolean rejection
 
 ## Risks & Mitigations
 
@@ -547,11 +550,17 @@ If invalid → Error response (400)
 - **Risk**: Validation is too strict and blocks valid use cases
   - *Mitigation*: Review with product team before implementation
 
+## Deployment & Rollout
+
+Standard deployment process applies. Migration script will run as part of deployment.
+
+**Migration**: Run `scripts/migrate-boolean-mappings.ts` before enabling new validation to handle 3 existing production mappings.
+
 ## References
 
-- Jira issue: IS-8046
-- Related: IS-8055 (Field mapping refactor)
-- Validation pattern: See `services/validators/` directory for similar examples
+- **Jira Issue**: [IS-8046](https://productboard.atlassian.net/browse/IS-8046)
+- **Analysis**: See analysis.md for detailed flow diagrams
+- **Related**: IS-8055 (Field mapping refactor)
 
 ╭─────────────────────────────────────────────╮
   ✅ Spec generated | ~1850 tokens | 142 lines
