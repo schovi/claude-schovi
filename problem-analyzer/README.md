@@ -6,6 +6,7 @@ A comprehensive problem analysis workflow plugin that performs deep codebase exp
 
 The Problem Analyzer plugin helps you systematically analyze complex problems by:
 
+- **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
 - **Smart Clarification**: Automatically detects ambiguous inputs and asks targeted questions before analysis
 - **Context-Isolated Jira Fetching**: Uses a specialized subagent to fetch and summarize Jira issues without polluting main context (reduces token usage by ~9k per analysis)
@@ -154,15 +155,17 @@ The plugin follows Claude Code's standard structure:
 ```
 ~/work/claude-schovi/
 ├── .claude/
-│   └── agents/
-│       └── jira-analyzer/        # Context-isolated Jira subagent
-│           └── AGENT.md
+│   ├── agents/
+│   │   └── jira-analyzer/        # Context-isolated Jira subagent
+│   │       └── AGENT.md
+│   └── skills/
+│       └── jira-auto-detector/   # Automatic Jira detection skill
+│           └── SKILL.md
 └── problem-analyzer/
     ├── .claude-plugin/
     │   └── plugin.json           # Plugin metadata (required)
     ├── commands/
     │   └── analyze-problem.md    # Main analysis command
-    ├── skills/                    # (future) Auto-invoked capabilities
     └── README.md
 ```
 
@@ -257,6 +260,84 @@ Located at: `.claude/agents/jira-analyzer/AGENT.md`
 ```
 
 **Token Budget:** Max 1000 tokens output (typically ~800)
+
+---
+
+## 🤖 Automatic Jira Detection
+
+### Three-Tier Architecture
+
+The workflow system provides multiple ways to work with Jira issues:
+
+#### **Tier 1: Automatic Detection (Skill)** ⭐ Primary
+
+**jira-auto-detector Skill** - Works across ALL conversations
+
+**Location**: `.claude/skills/jira-auto-detector/SKILL.md`
+
+**How it works:**
+- Automatically detects when you mention Jira issues
+- Intelligently evaluates if context is needed
+- Spawns jira-analyzer subagent automatically
+- Seamless - just mention "EC-1234" and get context
+
+**Use cases:**
+- Casual questions: "What's EC-1234 about?"
+- Quick checks: "Is IS-8046 high priority?"
+- Comparisons: "Compare EC-1234 and IS-8046"
+- Any conversation where Jira is mentioned
+
+**Intelligence:**
+- ✅ Fetch when you ask about an issue
+- ❌ Don't fetch when you mention it in past tense ("fixed EC-1234")
+- ✅ Reuse context if already fetched in session
+- ❌ Avoid false positives (endpoint names, identifiers)
+
+#### **Tier 2: Explicit Command** - Guaranteed workflow
+
+**/analyze-problem Command** - Structured analysis workflow
+
+**Location**: `problem-analyzer/commands/analyze-problem.md`
+
+**How it works:**
+- User explicitly invokes: `/problem-analyzer:analyze-problem EC-1234`
+- Guaranteed to fetch Jira issue
+- Proceeds with full problem analysis workflow
+- Part of documented Flow 1
+
+**Use cases:**
+- Formal problem analysis
+- When you want guaranteed fetch
+- When Skill doesn't activate
+- Explicit workflow control
+
+#### **Tier 3: Manual Subagent** - Direct access
+
+**jira-analyzer Subagent** - Low-level tool
+
+**Location**: `.claude/agents/jira-analyzer/AGENT.md`
+
+**How it works:**
+- Directly spawn via Task tool
+- Use when you need fine control
+- Handles actual Jira fetching logic
+
+**Use cases:**
+- Custom workflows
+- Debugging
+- Advanced scenarios
+
+### Comparison
+
+| Approach | Activation | Intelligence | Use Case |
+|----------|-----------|--------------|----------|
+| **Skill** | Automatic | LLM-powered | General conversations |
+| **Command** | Explicit `/` | Workflow-driven | Structured analysis |
+| **Subagent** | Manual Task | None (execution only) | Custom workflows |
+
+**Recommendation**: Let the Skill handle detection automatically. Use the Command for explicit analysis workflows.
+
+---
 
 ## ⚙️ Configuration
 
