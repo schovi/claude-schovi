@@ -4,15 +4,21 @@ Personal workflow automation and tools for software engineering. Includes proble
 
 ## 🎯 Overview
 
-The Schovi plugin helps you systematically analyze complex problems and streamline your development workflow by:
+The Schovi plugin provides an end-to-end workflow for software engineering: from problem analysis to specification to autonomous implementation.
 
+**Complete Workflow**:
+1. **Analysis** (`/schovi:analyze-problem`) - Understand the problem, explore codebase, propose solutions
+2. **Specification** (`/schovi:create-spec`) - Document decisions, structure implementation, define success
+3. **Implementation** (`/schovi:implement`) - Execute tasks autonomously, validate, commit changes
+
+**Key Features**:
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Automatic GitHub PR Detection**: Intelligent Skill that detects PR mentions and fetches condensed context (reviews, CI status, code changes) without polluting main context
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
 - **Smart Clarification**: Automatically detects ambiguous inputs and asks targeted questions before analysis
 - **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues and GitHub PRs without polluting main context (reduces token usage by 75-80%)
 - **Multi-Option Solutions**: Proposes 2-3 solution approaches with comprehensive pros/cons analysis
-- **Implementation Guidance**: Provides step-by-step plans, testing requirements, and rollout strategies
+- **Autonomous Implementation**: Executes implementation tasks with full autonomy, creates commits, runs validation
 
 ## 📦 Installation
 
@@ -78,6 +84,44 @@ Generates actionable implementation specifications from problem analysis. Bridge
 - `--quiet` - Suppress terminal output
 
 **Default**: Displays in terminal + saves to `./spec-[jira-id].md`
+
+#### `/schovi:implement` - Implementation Execution
+
+```bash
+/schovi:implement [spec-file|jira-id]
+```
+
+Autonomously executes implementation tasks from specification with validation and commits.
+
+**Input Options:**
+- `spec-file` - Path to specification file (e.g., `./spec-EC-1234.md`)
+- `jira-id` - Fetch spec from Jira issue comments
+- No args - Auto-detect from recent conversation
+
+**Execution Flow:**
+1. Parse spec to extract implementation tasks and acceptance criteria
+2. Execute tasks sequentially with full autonomy (no task-by-task approval)
+3. Create phase-based git commits with descriptive messages
+4. Run validation (linting, type checking, tests)
+5. Verify acceptance criteria
+6. Report completion status and suggest next steps
+
+**Features:**
+- Full autonomy mode (configured via user preferences)
+- Project type detection (Node.js, Python, Go, Ruby, Rust)
+- Automatic validation and fixing attempts
+- Phase-based git commits
+- Comprehensive error handling and reporting
+
+**Model**: Uses Haiku for efficient execution
+
+**Current Scope (v1.3.0)**:
+- ✅ Implementation execution with full autonomy
+- ✅ Validation (linting + testing)
+- ✅ Phase-based git commits
+- ⏳ Git worktree setup (coming in v1.4.0)
+- ⏳ Jira status updates (coming in v1.4.0)
+- ⏳ PR creation (coming in v1.4.0)
 
 ### Examples
 
@@ -149,6 +193,53 @@ This will:
 2. Generate minimal spec (goal, tasks, acceptance criteria)
 3. Save to `./spec-[timestamp].md`
 4. Quick specs for simple tasks
+
+#### Example 7: Implement from Spec File
+
+```bash
+/schovi:implement ./spec-EC-1234.md
+```
+
+This will:
+1. Parse spec to extract 9 tasks across 3 phases
+2. Execute Phase 1: Backend Service (3 tasks)
+3. Create commit: "Phase 1: Backend Service"
+4. Execute Phase 2: Integration (3 tasks)
+5. Create commit: "Phase 2: Integration"
+6. Execute Phase 3: Testing (3 tasks)
+7. Create commit: "Phase 3: Testing"
+8. Run validation: linting, type check, tests
+9. Verify acceptance criteria
+10. Report completion and suggest PR creation
+
+#### Example 8: Implement from Jira with Auto-Detection
+
+```bash
+/schovi:implement
+```
+
+This will:
+1. Search conversation for recent spec from `/schovi:create-spec`
+2. Auto-detect spec generated 3 messages ago
+3. Execute all implementation tasks autonomously
+4. Create phase-based commits
+5. Run full validation suite
+6. Display completion summary with next steps
+
+#### Example 9: Implement with Validation Fixes
+
+```bash
+/schovi:implement EC-1234
+```
+
+This will:
+1. Fetch spec from Jira issue comments
+2. Execute all implementation tasks
+3. Run linting → finds 3 issues → auto-fixes with `--fix`
+4. Run tests → 2 failures → analyzes and fixes test expectations
+5. Re-runs validation → all passing
+6. Creates additional fix commits
+7. Reports successful completion
 
 ## 📋 What the Analysis Includes
 
@@ -980,7 +1071,22 @@ If analysis seems shallow:
 
 ## 📝 Version History
 
-### v1.2.0 (Current)
+### v1.3.0 (Current)
+- Added Implementation Execution
+  - `/schovi:implement` command for autonomous task execution
+  - Parse specs to extract implementation tasks and acceptance criteria
+  - Execute tasks with full autonomy (no interruptions)
+  - Phase-based git commits with descriptive messages
+  - Project type detection (Node.js, Python, Go, Ruby, Rust)
+  - Automatic validation (linting, type checking, tests)
+  - Auto-fix validation issues when possible
+  - Acceptance criteria verification
+  - Uses Haiku model for efficient execution
+  - Comprehensive error handling and progress reporting
+- Updated workflow documentation in CLAUDE.md (Phase 4 added)
+- Completes the workflow: Analysis → Spec → Implementation
+
+### v1.2.0
 - Added Specification Generation
   - `/schovi:create-spec` command for implementation spec generation
   - `spec-generator` subagent for context-isolated spec creation
