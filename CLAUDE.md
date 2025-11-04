@@ -39,7 +39,8 @@ schovi/
 │   ├── analyze-problem.md        # Deep problem analysis workflow
 │   ├── create-spec.md            # Specification generation workflow
 │   ├── implement.md              # Implementation execution workflow
-│   └── commit.md                 # Structured git commit creation
+│   ├── commit.md                 # Structured git commit creation
+│   └── create-pr.md              # GitHub pull request creation
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (max 1200 tokens)
@@ -121,6 +122,62 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 **Integration**: Can be used standalone or called from implement flow for phase-based commits
+
+### Command: `/schovi:create-pr`
+
+**Location**: `schovi/commands/create-pr.md`
+
+**Purpose**: Create GitHub pull requests with automated branch pushing and smart description generation
+
+**Workflow**:
+1. **Phase 1: Input Parsing** - Parse Jira ID, spec file, flags; auto-detect from branch name
+2. **Phase 2: Git State Validation** - Check branch (block main/master), validate naming, check uncommitted changes
+3. **Phase 3: Branch Pushing** - Auto-push with upstream tracking, verify push succeeded
+4. **Phase 4: Description Source Detection** - Search for spec file → Jira issue → commit history
+5. **Phase 5: PR Description Generation** - Create structured description (Problem/Solution/Changes/Other)
+6. **Phase 6: PR Title Generation** - Format with Jira ID or from commits (50-100 chars)
+7. **Phase 7: PR Creation & Verification** - Execute gh pr create, verify, display URL, run confetti
+
+**Input Options**:
+- Jira ID (EC-1234)
+- Spec file path (./spec-EC-1234.md)
+- Flags: --draft, --base, --title, --no-push, --spec
+
+**Key Features**:
+- **Auto-Push**: Always push branch before creating PR (unless --no-push)
+- **Smart Description**: Auto-detects best source (spec → Jira → commits priority)
+- **Structured Format**: Problem/Solution/Changes/Other sections
+- **Branch Validation**: Blocks main/master, warns on naming mismatch
+- **Clean State**: Requires no uncommitted changes
+- **Confetti**: Runs confetti celebration on successful PR creation
+
+**Description Source Intelligence**:
+```
+Priority 1: Spec file (./spec-EC-1234.md)
+  - Problem from spec Problem section
+  - Solution from Technical Overview
+  - Changes from Implementation Tasks
+  - Other from Testing Strategy
+
+Priority 2: Jira issue (via jira-analyzer)
+  - Problem from issue description
+  - Changes from acceptance criteria
+  - Solution from commits + context
+
+Priority 3: Commit history (git log)
+  - Problem from commit summary
+  - Changes from commit list
+  - Solution from technical analysis
+```
+
+**PR Creation Format**:
+```bash
+gh pr create --title "EC-1234: Description" \
+             --base main \
+             --body "$(cat <<'EOF' ... EOF)"
+```
+
+**Integration**: Standalone manual command (not auto-executed by implement)
 
 ### Subagents
 
@@ -314,6 +371,7 @@ Follow the proven three-tier pattern:
 - `schovi/commands/create-spec.md`
 - `schovi/commands/implement.md`
 - `schovi/commands/commit.md`
+- `schovi/commands/create-pr.md`
 
 **Skills**:
 - `schovi/skills/jira-auto-detector/SKILL.md`

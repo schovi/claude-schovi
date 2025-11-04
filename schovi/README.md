@@ -11,12 +11,14 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 2. **Specification** (`/schovi:create-spec`) - Document decisions, structure implementation, define success
 3. **Implementation** (`/schovi:implement`) - Execute tasks autonomously, validate, commit changes
 4. **Commit Management** (`/schovi:commit`) - Create structured commits with validation and smart analysis
+5. **Pull Request** (`/schovi:create-pr`) - Create GitHub PR with auto-push and smart description generation
 
 **Key Features**:
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Automatic GitHub PR Detection**: Intelligent Skill that detects PR mentions and fetches condensed context (reviews, CI status, code changes) without polluting main context
 - **GitHub Issue Support**: Fetch and analyze GitHub issues with the same context-isolated approach as Jira and PRs
 - **Smart Git Commits**: Create structured commits with conventional format, branch validation, and automatic change analysis
+- **PR Creation**: Automated PR creation with auto-push, smart description generation from specs/Jira/commits, and validation
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
 - **Smart Clarification**: Automatically detects ambiguous inputs and asks targeted questions before analysis
 - **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues, GitHub PRs, and GitHub issues without polluting main context (reduces token usage by 75-80%)
@@ -201,6 +203,87 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - Analyzes changes to determine commit type
 - Generates descriptive multi-line commit message
 - Verifies commit created successfully
+
+#### `/schovi:create-pr` - Pull Request Creation
+
+```bash
+/schovi:create-pr [jira-id|spec-file] [--draft] [--base branch] [--title "text"]
+```
+
+Creates GitHub pull requests with automatic branch pushing, smart description generation, and comprehensive validation.
+
+**Input Options:**
+- `jira-id` - Include Jira context in PR (e.g., EC-1234)
+- `spec-file` - Use specific spec file for description (e.g., ./spec-EC-1234.md)
+- No args - Auto-detect from branch name, spec files, or commits
+
+**Flags:**
+- `--draft` - Create as draft PR (work in progress)
+- `--base <branch>` - Specify base branch (default: main)
+- `--title "text"` - Override auto-generated title
+- `--no-push` - Skip auto-push, require branch already pushed
+- `--spec <path>` - Explicitly specify spec file to use
+
+**Features:**
+- **Auto-Push**: Automatically pushes branch before creating PR
+- **Smart Description**: Auto-detects best source (spec → Jira → commits)
+- **Validation**: Ensures clean state, proper branch, no conflicts
+- **Confetti Completion**: Celebrates successful PR creation per workflow requirements
+
+**Description Sources** (priority order):
+1. **Spec file**: Most comprehensive (from `/schovi:create-spec`)
+2. **Jira issue**: Structured context (issue description + acceptance criteria)
+3. **Commit history**: Fallback (analyzes git log)
+
+**PR Description Format:**
+```markdown
+## Problem
+[What problem this solves - from spec/Jira/commits]
+
+## Solution
+[Approach taken - from spec/Jira/commits]
+
+## Changes
+- [Specific change 1]
+- [Specific change 2]
+- [Specific change 3]
+
+## Other
+[Testing notes, deployment steps, breaking changes]
+
+---
+Related to: [JIRA-ID if available]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Validation Rules:**
+- ❌ Blocks PR creation from main/master branches
+- ❌ Errors if uncommitted changes exist (must be clean)
+- ❌ Errors if GitHub CLI not authenticated
+- ⚠️  Warns if branch name doesn't match Jira ID
+
+**Workflow Integration:**
+- Standalone manual command (not auto-executed by implement)
+- Run after implementation and commits complete
+- Automatically runs confetti celebration on success
+
+**Usage Flow:**
+```bash
+# Complete workflow
+/schovi:analyze-problem EC-1234
+/schovi:create-spec EC-1234
+/schovi:implement ./spec-EC-1234.md
+/schovi:create-pr              # Auto-detects spec and Jira
+
+# Standalone after manual work
+/schovi:commit EC-1234
+/schovi:create-pr EC-1234
+
+# Advanced usage
+/schovi:create-pr --draft --base develop --title "WIP: Feature"
+```
 
 ### Examples
 
