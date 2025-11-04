@@ -36,10 +36,14 @@ Main Context → Spawn Subagent (Task tool) → Isolated Context (fetch 10-50k p
 schovi/
 ├── .claude-plugin/plugin.json    # Plugin metadata
 ├── commands/
-│   └── analyze-problem.md        # Deep problem analysis workflow
+│   ├── analyze-problem.md        # Deep problem analysis workflow
+│   ├── create-spec.md            # Specification generation workflow
+│   └── implement.md              # Implementation execution workflow
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
-│   └── pr-analyzer/AGENT.md      # Fetch & summarize GitHub PR (max 1200 tokens)
+│   ├── pr-analyzer/AGENT.md      # Fetch & summarize GitHub PR (max 1200 tokens)
+│   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
+│   └── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
 └── skills/                        # Auto-detection intelligence
     ├── jira-auto-detector/SKILL.md   # Detects EC-1234, IS-8046, etc.
     └── gh-pr-auto-detector/SKILL.md  # Detects PR URLs, owner/repo#123, #123
@@ -54,9 +58,15 @@ schovi/
 **Purpose**: Comprehensive problem analysis with codebase exploration
 
 **Workflow**:
-1. **Phase 1: Input Processing** - Parse Jira ID or description, fetch details via `jira-analyzer` subagent
+1. **Phase 1: Input Processing** - Parse Jira ID, GitHub issue, GitHub PR, or description; fetch details via appropriate subagent
 2. **Phase 2: Deep Codebase Analysis** - Use Task tool with Plan subagent to map user flows, data flows, dependencies, code quality
 3. **Phase 3: Structured Output** - Problem summary, current state, 2-3 solution proposals with pros/cons, implementation guidance
+
+**Input Sources**:
+- Jira issues (via `jira-analyzer` subagent)
+- GitHub issues (via `gh-issue-analyzer` subagent)
+- GitHub PRs (via `pr-analyzer` subagent)
+- Free-form descriptions
 
 **Quality Gates** (all must be met):
 - All affected files with `file:line` references
@@ -78,6 +88,18 @@ schovi/
 - Uses: `gh` CLI via Bash tool
 - Output: ~800-1000 token summary (core info, description 500 chars, top 5 changed files, failed CI checks only, max 3 reviews, max 5 comments)
 - Token budget: Max 1200 tokens
+
+**gh-issue-analyzer** (`schovi/agents/gh-issue-analyzer/AGENT.md`):
+- Input: GitHub issue URL or `owner/repo#123`
+- Uses: `gh` CLI via Bash tool
+- Output: ~600-800 token summary (core info, description 500 chars, labels, assignees, max 5 key comments, analysis notes)
+- Token budget: Max 1000 tokens
+
+**spec-generator** (`schovi/agents/spec-generator/AGENT.md`):
+- Input: Analysis content (problem, approach, technical details)
+- Uses: Read tool only
+- Output: ~1500-2500 token spec (structured markdown with tasks, criteria, testing, risks)
+- Token budget: Max 3000 tokens
 
 ### Skills
 
@@ -196,7 +218,7 @@ Always use `file:line` format for specificity and navigation:
 
 ### Required
 - **MCP Server: Jira** - For Jira integration (`mcp__jira__*` tools)
-- **GitHub CLI (`gh`)** - For PR integration, must be authenticated (`gh auth login`)
+- **GitHub CLI (`gh`)** - For PR and issue integration, must be authenticated (`gh auth login`)
 
 ### Optional
 - **MCP Server: JetBrains** - Enhanced IDE integration (`mcp__jetbrains__*` tools)
@@ -250,6 +272,8 @@ Follow the proven three-tier pattern:
 **Subagents**:
 - `schovi/agents/jira-analyzer/AGENT.md`
 - `schovi/agents/pr-analyzer/AGENT.md`
+- `schovi/agents/gh-issue-analyzer/AGENT.md`
+- `schovi/agents/spec-generator/AGENT.md`
 
 **Marketplace**:
 - `.claude-plugin/marketplace.json`

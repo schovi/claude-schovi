@@ -87,7 +87,7 @@ created_by: [Email or N/A]
 Extract from chosen approach:
 - **Approach Selected**: Option N - Name
 - **Rationale**: 2-3 sentences on WHY this approach (from pros/cons)
-- **Alternatives Considered**: List rejected options with 1-sentence reason each
+- **Alternatives Considered**: 2-3 sentences total summarizing why other options were rejected (not full list)
 
 Example:
 ```markdown
@@ -97,9 +97,7 @@ Example:
 
 **Rationale**: Maintains consistency with existing event-driven architecture, allows horizontal scaling without blocking UI, and provides natural rate limiting through queue backpressure.
 
-**Alternatives Considered**:
-- Option 1: Synchronous HTTP endpoint (rejected: blocks UI, poor scaling under load)
-- Option 3: Scheduled batch job (rejected: doesn't meet real-time requirement)
+**Alternatives Considered**: Synchronous HTTP and scheduled batch approaches were rejected due to poor UX (blocking) and latency requirements (not real-time).
 ```
 
 ##### Section 3: Technical Overview
@@ -145,11 +143,28 @@ Convert requirements into testable checkboxes:
 - Format: `- [ ] Criterion`
 
 ##### Section 6: Testing Strategy
-Structure from approach details:
-- **Unit Tests**: Which files need tests, key scenarios
-- **Integration Tests**: End-to-end scenarios to cover
-- **Manual Testing**: User-facing verification steps
-- Include edge cases from analysis
+Structure from approach details - **FOCUS ON CODE TESTS ONLY**:
+- **Unit Tests**: Which test files need to be modified/created and what scenarios to test
+- **Integration Tests**: Which integration test files need updates and what scenarios to cover
+- **E2E Tests** (if applicable): Which E2E test files need updates
+- **NO manual testing checklists** - manual verification happens during PR review
+
+Example format:
+```markdown
+## Testing Strategy
+
+### Tests to Update/Create
+
+**Unit Tests** (modified/new):
+- `services/FieldMappingValidator.spec.ts` - Add tests for boolean rejection, verify number/text types still pass
+- `controllers/MappingController.spec.ts` - Update existing tests to cover new validation error
+
+**Integration Tests** (modified/new):
+- `integration/mapping-api.spec.ts` - Test end-to-end API flow with boolean type returns 400 error
+
+**E2E Tests** (if needed):
+- `e2e/mapping-flow.spec.ts` - Verify error message displays correctly in UI
+```
 
 ##### Section 7: Risks & Mitigations
 Extract from approach cons and technical context:
@@ -171,7 +186,49 @@ Example:
   - *Mitigation*: Add rate limiting and monitoring alerts
 ```
 
-##### Section 8: References (Optional)
+##### Section 8: Deployment & Rollout (Conditional)
+**IMPORTANT**: Only include this section if deployment is non-standard.
+
+**Include when**:
+- Feature flag (LaunchDarkly) required for gradual rollout
+- Multiple repositories must be deployed in specific order
+- Database migrations or breaking changes involved
+- Coordination with other teams required
+- Complex monitoring or rollback procedures
+
+**Skip when**: Standard single-repo deployment with no special requirements
+
+**If including, provide**:
+- Feature flag details (name, location, strategy)
+- Deployment sequence (if multi-repo)
+- Critical monitoring metrics (only if specific)
+- Rollback procedure (only if non-trivial)
+
+Example when needed:
+```markdown
+## Deployment & Rollout
+
+**Feature Flag**: `enable-kafka-events` in `config/feature-flags.ts`
+- Strategy: Gradual rollout starting at 10%, monitor for 24h before 100%
+
+**Deployment Sequence**:
+1. Deploy `backend-service` first (adds Kafka producer)
+2. Deploy `event-consumer` second (adds listener)
+3. Enable feature flag
+
+**Critical Monitoring**: Watch Kafka lag and event processing errors
+
+**Rollback**: Disable feature flag, events will queue until re-enabled
+```
+
+Example when not needed:
+```markdown
+## Deployment & Rollout
+
+Standard deployment process applies. No special rollout coordination needed.
+```
+
+##### Section 9: References (Optional)
 If available from analysis:
 - Link to Jira issue
 - Related PRs or commits

@@ -1,6 +1,6 @@
 ---
 description: Generate implementation specification from problem analysis with flexible input sources
-argument-hint: [jira-id|--file path|--from-scratch description]
+argument-hint: [jira-id|github-issue-url|--file path|--from-scratch description]
 allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion", "Write"]
 ---
 
@@ -22,19 +22,24 @@ You are **creating an implementation specification** that bridges problem analys
    - Command: `/schovi:create-spec EC-1234`
    - Action: Fetch from Jira via jira-analyzer subagent
 
-2. **File Path**: Uses `--file` flag
+2. **GitHub Issue URL**: Matches pattern `https://github.com/[owner]/[repo]/issues/\d+` or `[owner]/[repo]#\d+`
+   - Command: `/schovi:create-spec https://github.com/owner/repo/issues/123`
+   - Command: `/schovi:create-spec owner/repo#123`
+   - Action: Fetch from GitHub via gh-issue-analyzer subagent
+
+3. **File Path**: Uses `--file` flag
    - Command: `/schovi:create-spec --file ./analysis.md`
    - Action: Read markdown file from provided path
 
-3. **From Scratch**: Uses `--from-scratch` flag with description
+4. **From Scratch**: Uses `--from-scratch` flag with description
    - Command: `/schovi:create-spec --from-scratch "Build user authentication"`
    - Action: Create minimal spec interactively
 
-4. **No Arguments** (Auto-detect)
+5. **No Arguments** (Auto-detect)
    - Command: `/schovi:create-spec`
    - Action: Search conversation for recent `/schovi:analyze-problem` output
 
-5. **Empty/Unclear**: Missing or ambiguous input
+6. **Empty/Unclear**: Missing or ambiguous input
    - Action: Ask user which input source to use
 
 ### Step 1.2: Parse Output Flags
@@ -94,7 +99,50 @@ Execute based on detected input source:
 
 ---
 
-#### Source B: Jira Issue (ID Provided)
+#### Source B: GitHub Issue (URL Provided)
+
+```
+IMPORTANT: Delegate to gh-issue-analyzer subagent to prevent context pollution.
+
+1. Acknowledge detection:
+   🛠️ **[Create-Spec]** Detected GitHub issue: [OWNER/REPO#NUMBER]
+   ⏳ Fetching issue details via gh-issue-analyzer...
+
+2. Use the Task tool to invoke gh-issue-analyzer subagent:
+   prompt: "Fetch and summarize GitHub issue [GITHUB-ISSUE-URL or owner/repo#number]"
+   subagent_type: "schovi:gh-issue-analyzer:gh-issue-analyzer"
+   description: "Fetching GitHub issue summary"
+
+3. The subagent will return structured summary (~800 tokens) with:
+   - Core information (number, title, url, state, author)
+   - Condensed description
+   - Labels and assignees
+   - Key comments (including requirements/clarifications)
+   - Analysis notes
+
+4. Acknowledge receipt:
+   ✅ **[Create-Spec]** Issue details fetched successfully
+
+5. Extract from summary:
+   - Problem description from issue body
+   - Requirements from comments (if present)
+   - User preferences from comment thread
+   - Labels indicating type (bug, feature, etc.)
+
+6. If GitHub issue contains detailed requirements:
+   - Use requirements as input for spec
+   - Create spec from issue description + comments
+
+7. If GitHub issue lacks detailed analysis:
+   - Create spec from issue description only
+   - Use minimal template (less technical detail)
+
+NEVER fetch GitHub issues directly - always use subagent for context isolation.
+```
+
+---
+
+#### Source C: Jira Issue (ID Provided)
 
 ```
 IMPORTANT: Delegate to jira-analyzer subagent to prevent context pollution.
@@ -136,7 +184,7 @@ NEVER fetch Jira directly - always use subagent for context isolation.
 
 ---
 
-#### Source C: File Path (--file Provided)
+#### Source D: File Path (--file Provided)
 
 ```
 1. Acknowledge file read:
@@ -179,7 +227,7 @@ NEVER fetch Jira directly - always use subagent for context isolation.
 
 ---
 
-#### Source D: From Scratch (--from-scratch Provided)
+#### Source E: From Scratch (--from-scratch Provided)
 
 ```
 1. Acknowledge mode:

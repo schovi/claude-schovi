@@ -1,6 +1,6 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, and solution proposals
-argument-hint: [jira-id|pr-url|#pr-number|description]
+argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description]
 allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
@@ -22,6 +22,9 @@ Determine input type:
   - Full URL: `https://github.com/owner/repo/pull/123`
   - Short reference: `owner/repo#123`
   - Issue number: `#123` (requires git remote detection)
+- **GitHub Issue**: Matches patterns:
+  - Full URL: `https://github.com/owner/repo/issues/123`
+  - Short reference: `owner/repo#123` (disambiguate from PR)
 - **Textual Description**: Free-form problem statement
 - **Empty/Unclear**: Missing or ambiguous input
 
@@ -150,6 +153,54 @@ NEVER fetch PR details directly using gh CLI - always delegate to the subagent.
 This prevents massive PR payloads from polluting your context.
 ```
 
+**If GitHub Issue Provided**:
+```
+IMPORTANT: Delegate to the gh-issue-analyzer subagent to prevent context pollution.
+
+1. Acknowledge detection:
+   🛠️ **[Analyze-Problem]** Detected GitHub issue: [ISSUE reference]
+   ⏳ Fetching issue details via gh-issue-analyzer...
+
+2. Use the Task tool to invoke the gh-issue-analyzer subagent:
+   prompt: "Fetch and summarize GitHub issue [URL or owner/repo#123]"
+   subagent_type: "schovi:gh-issue-analyzer:gh-issue-analyzer"
+   description: "Fetching GitHub issue summary"
+
+3. The subagent will:
+   - Fetch the full issue payload via gh CLI (~5-15k tokens) in its isolated context
+   - Extract ONLY essential information
+   - Return a clean summary (~800 tokens) with visual wrappers:
+
+   ╭─────────────────────────────────────╮
+   │ 🐛 ISSUE ANALYZER                   │
+   ╰─────────────────────────────────────╯
+
+   [Structured summary content]
+
+   ╭─────────────────────────────────────╮
+     ✅ Summary complete | ~[X] tokens
+   ╰─────────────────────────────────────╯
+
+4. After receiving the summary, acknowledge:
+   ✅ **[Analyze-Problem]** Issue details fetched successfully
+
+5. You will receive a structured summary containing:
+   - Core information (issue number, title, state, author)
+   - Condensed description (max 500 chars)
+   - Labels and assignees
+   - Key comments (max 5, requirements prioritized)
+   - Analysis notes (status, activity, type)
+
+6. Use this summary to understand:
+   - What problem needs to be solved (from issue description)
+   - What requirements exist (from comments)
+   - What type of work it is (bug, feature, etc. from labels)
+   - Current status and activity level
+
+NEVER fetch issue details directly using gh CLI - always delegate to the subagent.
+This prevents massive issue payloads from polluting your context.
+```
+
 **If Textual Description Provided**:
 ```
 1. Parse the problem statement carefully
@@ -167,6 +218,7 @@ This prevents massive PR payloads from polluting your context.
 1. Ask user: "Please provide either:
    - A Jira issue ID (e.g., EC-1234)
    - A GitHub PR (URL, owner/repo#123, or #123)
+   - A GitHub Issue (URL or owner/repo#123)
    - A problem description with context"
 2. Wait for response and restart this phase
 ```
@@ -463,73 +515,71 @@ Present your findings in this exact format:
 
 #### Affected Components
 
-List each component with its role and current behavior:
+List each component with its role and issue:
 
 - **`path/to/component.ts:123`** - [Component name]
   - Role: [What it does]
-  - Current behavior: [How it currently works]
   - Issue: [What's wrong or missing]
 
 - **`path/to/service.ts:456`** - [Service name]
   - Role: [What it does]
-  - Current behavior: [How it currently works]
-  - Relationship: [How it connects to other components]
+  - Issue: [What needs to change]
 
 *(Repeat for all affected components)*
 
-#### User Flow
+#### Flow Analysis
+
+Trace the complete user journey and data transformations through the system:
 
 ```
 1. User Action: [What user does]
    ↓
 2. Entry Point: Component A (`path/to/componentA.ts:123`)
+   → Data: [Input format/structure]
    ↓
-3. Processing: Service B (`path/to/serviceB.ts:456`)
+3. Validation: [`path/to/validator.ts:456`]
+   → Checks: [What is validated]
    ↓
-4. Data Layer: Database/API (`path/to/repository.ts:789`)
+4. Processing: Service B (`path/to/serviceB.ts:789`)
+   → Transform: [How data changes]
    ↓
-5. Response: Transform & Return (`path/to/controller.ts:234`)
+5. Persistence: Database/API (`path/to/repository.ts:234`)
+   → Storage: [What is stored/retrieved]
    ↓
-6. UI Update: Component C (`path/to/componentC.ts:567`)
+6. Response: Format & Return (`path/to/controller.ts:567`)
+   → Output: [Response format]
+   ↓
+7. UI Update: Component C (`path/to/componentC.ts:890`)
+   → Display: [How user sees result]
 ```
 
-#### Data Flow
+**Key Touchpoints**:
+- Entry: [Where request enters system]
+- Transformation: [Critical data changes]
+- Integration: [External systems called]
+- Error handling: [Where errors are caught]
 
-```
-Input Source: [Where data originates]
-  ↓
-Validation: [`path/to/validator.ts:123`]
-  ↓
-Transformation: [`path/to/transformer.ts:456`]
-  ↓
-Business Logic: [`path/to/service.ts:789`]
-  ↓
-Persistence: [Database table/collection]
-  ↓
-Retrieval: [`path/to/repository.ts:234`]
-  ↓
-Output Formatting: [`path/to/formatter.ts:567`]
-  ↓
-Destination: [Where data ends up]
-```
+#### Dependencies & External Integrations
 
-#### Dependencies Map
+**IMPORTANT**: Only include this section if the solution involves critical external dependencies. Skip for simple internal changes.
 
-**Direct Dependencies**:
-- Module X - `path/to/moduleX.ts` - [Purpose]
-- Service Y - `path/to/serviceY.ts` - [Purpose]
-- DB Table Z - `schema/table_z.sql` - [Purpose]
+**Include when**:
+- Feature flags (LaunchDarkly) control behavior
+- Multiple repositories must be coordinated
+- External services/APIs are called
+- Kafka topics or async messaging involved
+- Non-standard deployment dependencies
 
-**Indirect Dependencies**:
+**External Dependencies** (if applicable):
+- Feature Flag: `flag-name` - [Checked in: `file:line`]
+- Repository: `other-repo-name` - [How it's affected]
+- External API: Service Name - [Called from: `file:line`]
 - Kafka Topic: `topic-name` - [Producer: `file:line`, Consumer: `file:line`]
+- Third-party: Service Name - [Integration: `file:line`]
+
+**Internal Dependencies** (only if complex):
 - Background Job: `JobName` - [Scheduler: `file:line`, Worker: `file:line`]
 - Cache Layer: Redis key pattern `pattern:*` - [Used in: `file:line`]
-- Feature Flag: `flag-name` - [Checked in: `file:line`]
-
-**External Integration Points**:
-- API: External Service Name - [Called from: `file:line`]
-- Webhook: Event Type - [Handler: `file:line`]
-- Third-party: Service Name - [Integration: `file:line`]
 
 #### Issues Identified
 
@@ -558,20 +608,14 @@ Present at least **2-3 solution options** with comprehensive analysis:
 *[Add ⭐ RECOMMENDED if this is the best option]*
 
 **Approach**:
-[2-3 sentence high-level strategy]
+[2-3 sentence high-level strategy explaining the solution]
 
-**Changes Required**:
-1. **`path/to/file1.ts:123`** - [Specific modification needed]
-   - Current: [What code does now]
-   - New: [What code will do]
-   - Reasoning: [Why this change]
+**Key Changes**:
+- **`path/to/file1.ts:123`**: [Concise description of modification and why]
+- **`path/to/file2.ts:456`**: [Concise description of modification and why]
+- **`path/to/file3.ts:789`**: [Concise description of modification and why]
 
-2. **`path/to/file2.ts:456`** - [Specific modification needed]
-   - Current: [What code does now]
-   - New: [What code will do]
-   - Reasoning: [Why this change]
-
-*(List all affected files)*
+*(3-5 key changes maximum - detailed implementation will be in spec)*
 
 **Pros**:
 - ✅ [Advantage 1 with specific benefit]
@@ -615,104 +659,67 @@ Present at least **2-3 solution options** with comprehensive analysis:
 **Rationale**:
 [2-3 sentences explaining why this option is best, considering effort, risk, impact, and alignment with system architecture]
 
-#### Step-by-Step Implementation Plan
+**Implementation Strategy**:
+[High-level approach - phased rollout, big bang, incremental, etc.]
 
-**Phase 1: Preparation**
-1. [Preparation step 1 - e.g., create feature flag]
-2. [Preparation step 2 - e.g., update database schema]
-3. [Preparation step 3 - e.g., notify stakeholders]
+**Key Considerations**:
+- [Critical consideration 1]
+- [Critical consideration 2]
+- [Critical consideration 3]
 
-**Phase 2: Core Implementation**
-1. **[Component A]** - `path/to/fileA.ts`
-   - Task: [What to implement]
-   - Dependencies: [What must be done first]
-   - Validation: [How to verify]
+*Detailed step-by-step implementation will be in the spec (use `/schovi:create-spec`)*
 
-2. **[Component B]** - `path/to/fileB.ts`
-   - Task: [What to implement]
-   - Dependencies: [What must be done first]
-   - Validation: [How to verify]
+#### Tests to Update/Create
 
-*(Continue for all implementation steps)*
+List test files that need modification or creation to verify changes:
 
-**Phase 3: Integration & Testing**
-1. [Integration step 1]
-2. [Integration step 2]
-3. [Integration step 3]
+**Unit Tests** (modified/new):
+- `path/to/fileA.spec.ts` - [Brief: what needs testing in this file]
+- `path/to/fileB.spec.ts` - [Brief: what needs testing in this file]
+- `path/to/fileC.spec.ts` - [Brief: what needs testing in this file]
 
-**Phase 4: Deployment**
-1. [Deployment step 1]
-2. [Deployment step 2]
-3. [Deployment step 3]
-
-#### Testing Requirements
-
-**Unit Tests**:
-- Test file: `path/to/fileA.spec.ts`
-  - Scenario 1: [What to test]
-  - Scenario 2: [What to test]
-
-- Test file: `path/to/fileB.spec.ts`
-  - Scenario 1: [What to test]
-  - Scenario 2: [What to test]
-
-**Integration Tests**:
-- Test: [Integration scenario 1]
-  - Setup: [Prerequisites]
-  - Execute: [What to run]
-  - Assert: [Expected outcome]
-
-- Test: [Integration scenario 2]
-  - Setup: [Prerequisites]
-  - Execute: [What to run]
-  - Assert: [Expected outcome]
-
-**Manual Testing Checklist**:
-- [ ] [User flow 1 to verify]
-- [ ] [User flow 2 to verify]
-- [ ] [Edge case 1 to test]
-- [ ] [Edge case 2 to test]
-- [ ] [Performance/load testing if applicable]
+**Integration Tests** (modified/new):
+- `path/to/integration.spec.ts` - [Brief: what scenario to cover]
+- `path/to/api-integration.spec.ts` - [Brief: what scenario to cover]
 
 **E2E Tests** (if applicable):
-- Scenario: [End-to-end user journey]
-- Steps: [Detailed test steps]
-- Expected: [Final outcome]
+- `path/to/e2e.spec.ts` - [Brief: what user journey to cover]
 
-#### Rollout Strategy
+*Note: Focus on code tests only. Manual verification will be done during PR review.*
 
-**Feature Flag** (if needed):
+#### Deployment & Rollout
+
+**IMPORTANT**: Only include this section if deployment is non-standard. Skip for simple changes with standard deployment.
+
+**Include when**:
+- Feature flag (LaunchDarkly) required for gradual rollout
+- Multiple repositories must be deployed in specific order
+- Database migrations or breaking changes involved
+- Coordination with other teams required
+- Complex monitoring or rollback procedures
+
+**Standard Deployment**: If none of the above apply, state:
+"Standard deployment process applies. No special rollout coordination needed."
+
+---
+
+**Feature Flag** (if applicable):
 - Flag name: `feature-xyz-enabled`
 - Location: `path/to/feature-flags.ts`
-- Strategy: [Gradual rollout / Canary / A/B test]
+- Strategy: [Gradual rollout / Canary / A/B test / Kill switch]
 
-**Staged Rollout Plan**:
-1. **Stage 1**: Internal testing (0% production traffic)
-   - Duration: [Time period]
-   - Success criteria: [Metrics to watch]
+**Deployment Sequence** (if multi-repo or dependencies):
+1. [Repository/service 1] - [What to deploy first]
+2. [Repository/service 2] - [What to deploy second]
+3. [Repository/service 3] - [What to deploy last]
 
-2. **Stage 2**: Limited rollout (5-10% users)
-   - Duration: [Time period]
-   - Success criteria: [Metrics to watch]
-   - Rollback plan: [How to revert]
+**Critical Monitoring** (only if specific metrics required):
+- [Metric 1]: [What could go wrong]
+- [Metric 2]: [What could go wrong]
 
-3. **Stage 3**: Expanded rollout (50% users)
-   - Duration: [Time period]
-   - Success criteria: [Metrics to watch]
-
-4. **Stage 4**: Full rollout (100% users)
-   - Success criteria: [Final validation]
-
-**Monitoring & Alerts**:
-- Metric 1: [What to monitor] - [Alert threshold]
-- Metric 2: [What to monitor] - [Alert threshold]
-- Metric 3: [What to monitor] - [Alert threshold]
-- Dashboard: [Link or description]
-
-**Rollback Plan**:
-- Trigger conditions: [When to rollback]
-- Rollback steps: [How to revert]
-- Data cleanup: [Any necessary cleanup]
+**Rollback Procedure** (only if non-trivial):
+- Trigger: [When to rollback]
+- Steps: [How to revert]
 
 ---
 

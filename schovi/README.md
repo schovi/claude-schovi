@@ -14,9 +14,10 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 **Key Features**:
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Automatic GitHub PR Detection**: Intelligent Skill that detects PR mentions and fetches condensed context (reviews, CI status, code changes) without polluting main context
+- **GitHub Issue Support**: Fetch and analyze GitHub issues with the same context-isolated approach as Jira and PRs
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
 - **Smart Clarification**: Automatically detects ambiguous inputs and asks targeted questions before analysis
-- **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues and GitHub PRs without polluting main context (reduces token usage by 75-80%)
+- **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues, GitHub PRs, and GitHub issues without polluting main context (reduces token usage by 75-80%)
 - **Multi-Option Solutions**: Proposes 2-3 solution approaches with comprehensive pros/cons analysis
 - **Autonomous Implementation**: Executes implementation tasks with full autonomy, creates commits, runs validation
 
@@ -58,21 +59,28 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 #### `/schovi:analyze-problem` - Problem Analysis
 
 ```bash
-/schovi:analyze-problem [jira-id|description]
+/schovi:analyze-problem [jira-id|pr-url|github-issue-url|description]
 ```
 
 Performs comprehensive problem analysis with codebase exploration and solution proposals.
 
+**Input Options:**
+- `jira-id` - Analyze from Jira issue (e.g., EC-1234)
+- `pr-url` - Analyze from GitHub PR (full URL, owner/repo#123, or #123)
+- `github-issue-url` - Analyze from GitHub issue (full URL or owner/repo#123)
+- `description` - Analyze from free-form problem description
+
 #### `/schovi:create-spec` - Specification Generation
 
 ```bash
-/schovi:create-spec [jira-id|--file path|--from-scratch description]
+/schovi:create-spec [jira-id|github-issue-url|--file path|--from-scratch description]
 ```
 
 Generates actionable implementation specifications from problem analysis. Bridges exploration and execution.
 
 **Input Options:**
 - `jira-id` - Generate from Jira issue (with or without prior analysis)
+- `github-issue-url` - Generate from GitHub issue (full URL or owner/repo#123)
 - No args - Auto-detect from recent conversation analysis
 - `--file path.md` - Generate from analysis file
 - `--from-scratch "description"` - Create minimal spec interactively
