@@ -1,0 +1,17 @@
+{
+  "name": "schovi-workflows",
+  "version": "1.0.0",
+  "description": "David Schovanec's personal Claude Code workflow plugins",
+  "owner": {
+    "name": "David Schovanec",
+    "email": "david.schovanec@productboard.com"
+  },
+  "plugins": [
+    {
+      "name": "problem-analyzer",
+      "description": "Comprehensive problem analysis workflow for bugs and features",
+      "version": "1.0.0",
+      "source": "./problem-analyzer"
+    }
+  ]
+}
