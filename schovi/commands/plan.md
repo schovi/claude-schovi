@@ -1,6 +1,6 @@
 ---
 description: Generate implementation specification from problem analysis with flexible input sources
-argument-hint: [jira-id|github-issue-url|--file path|--from-scratch description]
+argument-hint: [jira-id|github-issue-url|--input path|--from-scratch description]
 allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion", "Write"]
 ---
 
@@ -30,8 +30,8 @@ Parse arguments first. If any explicit input provided, use it immediately.
    - Command: `/schovi:plan owner/repo#123`
    - Action: Fetch from GitHub via gh-issue-analyzer subagent
 
-3. **File Path**: Uses `--file` flag
-   - Command: `/schovi:plan --file ./analysis.md`
+3. **File Path**: Uses `--input` flag
+   - Command: `/schovi:plan --input ./analysis.md`
    - Action: Read markdown file from provided path
 
 4. **From Scratch**: Uses `--from-scratch` flag with description
@@ -272,7 +272,7 @@ NEVER fetch Jira directly - always use subagent for context isolation.
 
 ---
 
-#### Source D: File Path (--file Provided)
+#### Source D: File Path (--input Provided)
 
 ```
 1. Acknowledge file read:

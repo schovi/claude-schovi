@@ -16,12 +16,13 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 **Key Features**:
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Automatic GitHub PR Detection**: Intelligent Skill that detects PR mentions and fetches condensed context (reviews, CI status, code changes) without polluting main context
+- **Automatic Datadog Detection**: Intelligent Skill that detects Datadog URLs and observability queries, fetching condensed metrics, logs, traces, and incidents
 - **GitHub Issue Support**: Fetch and analyze GitHub issues with the same context-isolated approach as Jira and PRs
 - **Smart Git Commits**: Create structured commits with conventional format, branch validation, and automatic change analysis
 - **PR Creation**: Automated PR creation with auto-push, smart description generation from specs/Jira/commits, and validation
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
 - **Smart Clarification**: Automatically detects ambiguous inputs and asks targeted questions before analysis
-- **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues, GitHub PRs, and GitHub issues without polluting main context (reduces token usage by 75-80%)
+- **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues, GitHub PRs, GitHub issues, and Datadog observability data without polluting main context (reduces token usage by 75-80%)
 - **Multi-Option Solutions**: Proposes 2-3 solution approaches with comprehensive pros/cons analysis
 - **Autonomous Implementation**: Executes implementation tasks with full autonomy, creates commits, runs validation
 
@@ -32,6 +33,7 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 - Claude Code CLI installed
 - MCP Server: Jira (required for Jira integration)
 - GitHub CLI (`gh`) authenticated (required for PR integration)
+- MCP Server: Datadog (optional, for observability integration)
 - MCP Server: JetBrains (optional, for enhanced IDE integration)
 
 ### Install Plugin
@@ -63,7 +65,7 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 #### `/schovi:analyze` - Problem Analysis
 
 ```bash
-/schovi:analyze [jira-id|pr-url|github-issue-url|description] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
+/schovi:analyze [jira-id|pr-url|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
 ```
 
 Performs comprehensive problem analysis with codebase exploration, solution proposals, and structured output artifacts.
@@ -73,6 +75,7 @@ Performs comprehensive problem analysis with codebase exploration, solution prop
 - `pr-url` - Analyze from GitHub PR (full URL, owner/repo#123, or #123)
 - `github-issue-url` - Analyze from GitHub issue (full URL or owner/repo#123)
 - `description` - Analyze from free-form problem description
+- `--input PATH` - Read problem description from file
 
 **Output Options:**
 - `--output PATH` - Save analysis to specific file path
@@ -90,7 +93,7 @@ Performs comprehensive problem analysis with codebase exploration, solution prop
 #### `/schovi:plan` - Specification Generation
 
 ```bash
-/schovi:plan [jira-id|github-issue-url|--file path|--from-scratch description]
+/schovi:plan [jira-id|github-issue-url|--input path|--from-scratch description]
 ```
 
 Generates actionable implementation specifications from problem analysis. Bridges exploration and execution.
@@ -99,7 +102,7 @@ Generates actionable implementation specifications from problem analysis. Bridge
 - `jira-id` - Generate from Jira issue (with or without prior analysis)
 - `github-issue-url` - Generate from GitHub issue (full URL or owner/repo#123)
 - No args - Auto-detect from recent conversation analysis
-- `--file path.md` - Generate from analysis file
+- `--input path.md` - Generate from analysis file
 - `--from-scratch "description"` - Create minimal spec interactively
 
 **Output Options:**
@@ -113,7 +116,7 @@ Generates actionable implementation specifications from problem analysis. Bridge
 #### `/schovi:implement` - Implementation Execution
 
 ```bash
-/schovi:implement [spec-file|jira-id]
+/schovi:implement [spec-file|jira-id] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira]
 ```
 
 Autonomously executes implementation tasks from specification with validation and commits.
@@ -122,6 +125,13 @@ Autonomously executes implementation tasks from specification with validation an
 - `spec-file` - Path to specification file (e.g., `./spec-EC-1234.md`)
 - `jira-id` - Fetch spec from Jira issue comments
 - No args - Auto-detect from recent conversation
+- `--input PATH` - Read spec from specific file path
+
+**Output Options:**
+- `--output PATH` - Save execution log to specific file
+- `--no-file` - Skip execution log creation
+- `--quiet` - Suppress verbose terminal output
+- `--post-to-jira` - Post execution summary to Jira
 
 **Execution Flow:**
 1. Parse spec to extract implementation tasks and acceptance criteria
@@ -207,7 +217,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 #### `/schovi:publish` - Pull Request Creation
 
 ```bash
-/schovi:publish [jira-id|spec-file] [--draft] [--base branch] [--title "text"]
+/schovi:publish [jira-id|spec-file] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--draft] [--base branch] [--title "text"] [--no-push]
 ```
 
 Creates GitHub pull requests with automatic branch pushing, smart description generation, and comprehensive validation.
@@ -216,13 +226,19 @@ Creates GitHub pull requests with automatic branch pushing, smart description ge
 - `jira-id` - Include Jira context in PR (e.g., EC-1234)
 - `spec-file` - Use specific spec file for description (e.g., ./spec-EC-1234.md)
 - No args - Auto-detect from branch name, spec files, or commits
+- `--input <path>` - Explicitly specify spec file to use
 
-**Flags:**
+**Output Options:**
+- `--output <path>` - Save PR description to file
+- `--no-file` - Skip saving PR description
+- `--quiet` - Suppress verbose terminal output
+- `--post-to-jira` - Post PR link as Jira comment
+
+**PR Flags:**
 - `--draft` - Create as draft PR (work in progress)
 - `--base <branch>` - Specify base branch (default: main)
 - `--title "text"` - Override auto-generated title
 - `--no-push` - Skip auto-push, require branch already pushed
-- `--spec <path>` - Explicitly specify spec file to use
 
 **Features:**
 - **Auto-Push**: Automatically pushes branch before creating PR
@@ -956,6 +972,198 @@ while #456 uses JWT tokens. Key differences: [comparison analysis]..."
 
 ---
 
+## 📊 Datadog Integration
+
+### The Problem: Massive Observability Data Payloads
+
+Datadog observability queries can return enormous amounts of data:
+- Log searches with thousands of entries (10k+ tokens)
+- Metrics with detailed timeseries data (5k-20k tokens)
+- APM traces with complete span trees (10k-30k tokens)
+- Incident details with full history and comments (5k-15k tokens)
+- Dashboard definitions with all widgets and queries (10k-50k tokens)
+
+A single Datadog query can return 10k-50k tokens, overwhelming the context window and making it difficult to analyze observability data alongside code.
+
+### The Solution: Datadog Analyzer Subagent
+
+The plugin uses a **specialized subagent** (`datadog-analyzer`) that operates in isolated context:
+
+```
+User mentions: "Check error rate of pb-backend-web service"
+       ↓
+datadog-auto-detector Skill activates
+       ↓
+Parses intent (metrics query) and parameters
+       ↓
+Spawns datadog-analyzer subagent (Task tool)
+       ↓
+Subagent Context (Isolated):
+  - Uses Datadog MCP tools to fetch data
+  - Fetches 10-50k token observability payload
+  - Analyzes and condenses to key findings
+  - Burns tokens privately
+       ↓
+Returns clean summary (~800-1200 tokens)
+       ↓
+Main Context receives summary
+       ↓
+User gets relevant observability insights
+  (Main context stays clean!)
+```
+
+### Benefits
+
+- **75-80% Token Reduction**: Saves 8-40k tokens per observability query
+- **Comprehensive Resource Support**: Logs, metrics, traces, incidents, monitors, services, dashboards, events, RUM
+- **URL Parsing**: Automatically extracts query parameters from Datadog URLs
+- **Natural Language Queries**: Understands "error rate of service", "logs for service", "active incidents"
+- **Intent Classification**: Full Context, Specific Query, Quick Status, Investigation, Comparison
+- **Smart Context Management**: Avoids duplicate fetches, reuses recent data
+- **Cleaner Context**: Main workflow focuses on problem-solving, not raw observability data
+
+### Automatic Datadog Detection
+
+#### **Tier 1: Automatic Detection (Skill)** ⭐ Primary
+
+**datadog-auto-detector Skill** - Works across ALL conversations
+
+**Location**: `schovi/skills/datadog-auto-detector/SKILL.md`
+
+**How it works:**
+- Detects Datadog URL patterns (logs, APM, metrics, dashboards, incidents, monitors)
+- Detects natural language queries ("error rate of service", "logs for service")
+- Parses service names and time ranges from context
+- Intelligently evaluates if context is needed
+- Classifies user intent (Full Context, Specific Query, Investigation, etc.)
+- Spawns datadog-analyzer subagent with appropriate parameters
+- Seamless - just mention Datadog resources and get context
+
+**Use cases:**
+- Natural queries: "Check error rate of pb-backend-web in last hour"
+- URL sharing: "Look at this: https://app.datadoghq.com/.../logs?..."
+- Investigations: "Users report 500 errors, check Datadog"
+- Status checks: "Is pb-backend-web healthy?"
+- Comparisons: "Compare error rates of pb-backend-web and pb-frontend"
+
+**Intelligence:**
+- ✅ Fetch when you ask about observability data
+- ❌ Don't fetch for past tense ("Datadog showed X yesterday")
+- ✅ Parse URLs to extract query parameters
+- ✅ Construct queries from natural language
+- ✅ Reuse context if already fetched in session
+- ❌ Avoid fetching for vague references
+
+**Detection Patterns:**
+- **URLs**: All Datadog resource URLs (logs, APM, metrics, dashboards, monitors, incidents)
+- **Natural Language**: "error rate", "logs for", "traces for", "active incidents", "monitor status"
+- **Service References**: Service names in observability context
+
+#### **Tier 2: Manual Subagent** - Direct access
+
+**datadog-analyzer Subagent** - Low-level tool
+
+**Location**: `schovi/agents/datadog-analyzer/AGENT.md`
+
+**How it works:**
+- Directly spawn via Task tool
+- Use when you need fine control
+- Handles actual Datadog data fetching
+
+**Use cases:**
+- Custom workflows
+- Debugging
+- Advanced scenarios
+
+### Examples
+
+#### Example 1: Natural Language Query
+```
+User: "Check the error rate of pb-backend-web service in the last hour"
+
+Skill Process:
+✅ Detect: "error rate" + "pb-backend-web" + "last hour"
+✅ Classify: Metrics query, time range specified
+✅ Construct: Query for error-related metrics, service filter
+✅ Spawn datadog-analyzer subagent
+✅ Receive metrics summary with trend analysis
+✅ Present findings
+
+Response:
+"I've checked the error rate for pb-backend-web in the last hour.
+The service has seen 247 errors (0.8% error rate), up from the
+baseline of 0.3%. Key issues: [error patterns]..."
+```
+
+#### Example 2: Datadog URL
+```
+User: "Look at this: https://app.datadoghq.com/.../logs?query=service:pb-backend-web status:error"
+
+Skill Process:
+✅ Detect: Datadog logs URL
+✅ Parse: service=pb-backend-web, status=error, time range from URL
+✅ Classify: Investigation (error logs)
+✅ Spawn datadog-analyzer with parsed parameters
+✅ Receive log summary with error patterns
+✅ Present condensed findings
+
+Response:
+"I've analyzed the error logs for pb-backend-web. Found 156 errors
+in the last 15 minutes. Top patterns: [error summaries]..."
+```
+
+#### Example 3: Investigation Context
+```
+User: "Users are reporting 500 errors on checkout. Can you investigate?"
+
+Skill Process:
+✅ Detect: "500 errors" + "checkout" (observability issue)
+✅ Classify: Investigation (requires logs + traces)
+✅ Construct: Multi-query (logs with status:500, traces for checkout service)
+✅ Spawn datadog-analyzer with investigation intent
+✅ Receive combined summary (logs, traces, affected endpoints)
+✅ Provide root cause analysis
+
+Response:
+"I've investigated the 500 errors in checkout. Found 43 errors in last
+30 minutes affecting /api/checkout/complete endpoint. Root cause:
+Database connection timeout. Traces show: [details]..."
+```
+
+#### Example 4: Active Incidents
+```
+User: "Show me active SEV-1 and SEV-2 incidents"
+
+Skill Process:
+✅ Detect: "incidents" + "SEV-1" + "SEV-2"
+✅ Classify: Incident query with severity filter
+✅ Construct: Query for active incidents with severity:(SEV-1 OR SEV-2)
+✅ Spawn datadog-analyzer
+✅ Receive incident summary
+✅ List incidents with key details
+
+Response:
+"Found 2 active high-severity incidents:
+1. SEV-1: Payment Gateway Timeout (started 15m ago)
+2. SEV-2: Dashboard Loading Slow (started 1h ago)
+Details: [incident summaries]..."
+```
+
+### Comparison with Other Integrations
+
+| Feature | Jira Analyzer | PR Analyzer | Datadog Analyzer |
+|---------|---------------|-------------|------------------|
+| **Data Source** | Jira MCP tools | `gh` CLI | Datadog MCP tools |
+| **Typical Payload** | 10-15k tokens | 20-50k tokens | 10-50k tokens |
+| **Summary Size** | ~800 tokens | ~800-1000 tokens | ~800-1200 tokens |
+| **Token Savings** | ~75% | ~80-95% | ~75-95% |
+| **Auto-Detection** | jira-auto-detector Skill | gh-pr-auto-detector Skill | datadog-auto-detector Skill |
+| **Intent Classification** | No (always full) | Yes (reviews/CI/full) | Yes (logs/metrics/investigation/etc.) |
+| **URL Parsing** | Issue key only | PR URL/number | Complex URL parsing (all resource types) |
+| **Natural Language** | Limited | Limited | Extensive (service queries, error rates, etc.) |
+
+---
+
 ## 📋 Specification Generation Architecture
 
 ### The Problem: Analysis to Implementation Gap
@@ -1107,6 +1315,7 @@ The plugin has access to:
 - `Read`, `Grep`, `Glob` - Code exploration
 - `Task` - Specialized agent invocation
 - `mcp__jira__*` - Jira integration
+- `mcp__datadog-mcp__*` - Datadog observability integration
 - `mcp__jetbrains__*` - IDE integration
 - `Bash` - Git history and system commands
 - `AskUserQuestion` - Clarification questions

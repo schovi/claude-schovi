@@ -1,7 +1,7 @@
 ---
 description: Create GitHub pull request with smart description generation and validation
-argument-hint: [jira-id|spec-file] [--draft] [--base branch] [--title "text"]
-allowed-tools: ["Bash", "Read", "Glob", "Grep", "Task", "AskUserQuestion"]
+argument-hint: [jira-id|spec-file] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--draft] [--base branch] [--title "text"] [--no-push]
+allowed-tools: ["Bash", "Read", "Glob", "Grep", "Task", "AskUserQuestion", "Write", "mcp__jira__*"]
 ---
 
 # 🚀 Create Pull Request Command
@@ -62,11 +62,20 @@ Parse the user's input to detect:
 1. Jira issue ID pattern: [A-Z]{2,10}-\d{1,6} (e.g., EC-1234, PROJ-567)
 2. Spec file path: ./spec-*.md or any .md file path
 3. Flags:
+   Input flags:
+   - --input <path>: Explicitly specify spec file (overrides positional argument)
+
+   Output flags:
+   - --output <path>: Save PR description to file
+   - --no-file: Skip saving PR description to file
+   - --quiet: Suppress verbose terminal output
+   - --post-to-jira: Post PR link as Jira comment (requires Jira ID)
+
+   PR flags:
    - --draft: Create as draft PR
    - --base <branch>: Specify base branch (default: main)
    - --title "text": Override auto-generated title
    - --no-push: Skip automatic branch pushing
-   - --spec <path>: Explicitly specify spec file
 ```
 
 ### Step 1.2: Auto-detect Jira ID from Branch
@@ -392,7 +401,7 @@ ls spec-EC-1234.md 2>/dev/null
 ls ./spec-EC-1234.md ../spec-EC-1234.md ~/spec-EC-1234.md 2>/dev/null
 ```
 
-B. If spec file path provided via --spec flag:
+B. If spec file path provided via --input flag or positional argument:
 ```bash
 # Verify file exists
 test -f ./path/to/spec.md
@@ -810,7 +819,94 @@ gh pr view $PR_NUMBER --json number,url,title,state
 Great work! 🚀
 ```
 
-### Step 7.6: Run Confetti Command
+### Step 7.6: Output Handling
+
+Handle PR description and context output based on flags:
+
+**If `--output PATH` flag provided**:
+
+1. Write PR description to file:
+   ```markdown
+   # GitHub Pull Request Description
+   **Created**: [Current timestamp]
+   **PR**: #123
+   **URL**: https://github.com/owner/repo/pull/123
+   **Branch**: feature/user-auth → main
+   **Status**: Open / Draft
+
+   ---
+
+   [Full PR description that was used]
+
+   ## Problem
+   ...
+
+   ## Solution
+   ...
+
+   ## Changes
+   ...
+
+   ## Other
+   ...
+
+   ---
+   Related to: EC-1234
+   🤖 Generated with Claude Code
+   ```
+
+2. Use Write tool to save to specified path
+
+3. Acknowledge:
+   ```
+   📄 **[Publish]** PR description saved to: [path]
+   ```
+
+**If `--post-to-jira` flag provided AND Jira ID available**:
+
+1. Format PR link for Jira comment:
+   ```markdown
+   **Pull Request Created**
+
+   🔗 **PR #123**: EC-1234: Add JWT authentication to user login
+
+   **URL**: https://github.com/owner/repo/pull/123
+
+   **Branch**: feature/user-auth → main
+
+   **Status**: Open [or Draft]
+
+   **Description**: Generated from spec file
+
+   **Next Steps**: Review PR, request reviewers, monitor CI checks
+
+   Created by Claude Code
+   ```
+
+2. Post to Jira using mcp__jira__addCommentToJiraIssue:
+   ```
+   cloudId: "productboard.atlassian.net"
+   issueIdOrKey: [Jira ID from context]
+   commentBody: [formatted PR link]
+   ```
+
+3. On success:
+   ```
+   ✅ **[Publish]** PR link posted to Jira: [JIRA-ID]
+   ```
+
+4. On failure:
+   ```
+   ⚠️ **[Publish]** Failed to post to Jira: [error message]
+   ```
+   Continue anyway (don't halt)
+
+**If no Jira ID available for --post-to-jira**:
+```
+⚠️ **[Publish]** Cannot post to Jira: No Jira ID detected
+```
+
+### Step 7.7: Run Confetti Command
 
 ```
 Per CLAUDE.md workflow requirements, always run confetti at end of work.

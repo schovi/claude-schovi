@@ -1,6 +1,6 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, solution proposals, and structured output
-argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
+argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
 allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
@@ -24,8 +24,13 @@ Extract the problem identifier (first non-flag argument):
 - **Text Description**: Free-form problem statement
 - **Empty**: No problem specified
 
-### Output Flags
+### Flags
 Parse optional flags (can appear in any order):
+
+- **`--input PATH`**: Read problem description from file
+  - Example: `--input ~/docs/problem.md`
+  - File should contain problem description or context
+  - Overrides positional argument if both provided
 
 - **`--output PATH`**: Save analysis to specific file path
   - Example: `--output ~/docs/analysis.md`
@@ -50,6 +55,7 @@ Parse optional flags (can appear in any order):
   - Use for straightforward bugs or small features
 
 ### Flag Validation
+- `--input` overrides positional argument if both provided → Use file content
 - `--output` and `--no-file` cannot be used together → Error
 - `--post-to-jira` without Jira ID → Warning, skip Jira posting
 - Unknown flags → Warn user but continue
@@ -65,7 +71,8 @@ If no output flags specified:
 ### Storage for Later Phases
 Store parsed values for use in Phases 3-5:
 ```
-problem_input = [extracted identifier or description]
+input_path = [--input PATH] or [null]
+problem_input = [extracted identifier or description or from file]
 output_path = [--output PATH] or [default filename] or [null if --no-file]
 terminal_output = true (unless --quiet)
 jira_posting = [true if --post-to-jira]
@@ -80,7 +87,17 @@ quick_mode = [true if --quick]
 
 ### Step 1.1: Parse Input
 
-Determine input type:
+**If `--input PATH` flag provided**:
+```
+1. Read file content using Read tool:
+   file_path: [input_path from argument parsing]
+
+2. Use file content as problem_input (overrides positional argument)
+
+3. Continue to determine input type from file content
+```
+
+**Determine input type** (from positional argument or file content):
 - **Jira Issue ID**: Matches pattern `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
 - **GitHub PR**: Matches patterns:
   - Full URL: `https://github.com/owner/repo/pull/123`
