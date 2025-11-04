@@ -147,20 +147,25 @@ Every analysis must pass these checks before presentation:
 - ✅ Implementation plan is actionable
 - ✅ Testing and rollout strategies defined
 
+## 📁 Plugin Structure
+
+The plugin follows Claude Code's standard structure:
+
+```
+problem-analyzer/
+├── .claude-plugin/
+│   └── plugin.json          # Plugin metadata (required)
+├── commands/
+│   └── analyze-problem.md   # Main analysis command
+├── skills/                   # (future) Auto-invoked capabilities
+└── README.md
+```
+
 ## ⚙️ Configuration
 
 ### Model Selection
 
-The plugin uses `sonnet` model by default for thorough analysis. To change:
-
-Edit `plugin.json`:
-```json
-{
-  "settings": {
-    "defaultModel": "opus"  // Change to "opus" for even deeper analysis
-  }
-}
-```
+The plugin uses `sonnet` model by default for thorough analysis in the command frontmatter. To change the model for a specific command, edit the command's markdown file (e.g., `commands/analyze-problem.md`) and modify the `model:` field in the frontmatter.
 
 ### Allowed Tools
 
@@ -243,17 +248,20 @@ To enhance this plugin:
 Create new commands in the `commands/` directory:
 
 ```bash
-echo "Your command prompt here" > commands/new-command.md
+cat > commands/new-command.md <<'EOF'
+---
+description: Brief description of your command
+argument-hint: [optional-args]
+model: sonnet
+---
+
+# Your Command Instructions
+
+Command workflow here...
+EOF
 ```
 
-Update `plugin.json`:
-```json
-{
-  "components": {
-    "commands": ["analyze-problem", "new-command"]
-  }
-}
-```
+Commands are automatically discovered by Claude Code - no registration needed!
 
 ### Adding Skills
 
