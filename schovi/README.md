@@ -59,16 +59,29 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 #### `/schovi:analyze-problem` - Problem Analysis
 
 ```bash
-/schovi:analyze-problem [jira-id|pr-url|github-issue-url|description]
+/schovi:analyze-problem [jira-id|pr-url|github-issue-url|description] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
 ```
 
-Performs comprehensive problem analysis with codebase exploration and solution proposals.
+Performs comprehensive problem analysis with codebase exploration, solution proposals, and structured output artifacts.
 
 **Input Options:**
 - `jira-id` - Analyze from Jira issue (e.g., EC-1234)
 - `pr-url` - Analyze from GitHub PR (full URL, owner/repo#123, or #123)
 - `github-issue-url` - Analyze from GitHub issue (full URL or owner/repo#123)
 - `description` - Analyze from free-form problem description
+
+**Output Options:**
+- `--output PATH` - Save analysis to specific file path
+- `--no-file` - Skip file output, terminal only
+- `--quiet` - Skip terminal output, file only
+- `--post-to-jira` - Post analysis as Jira comment
+- `--quick` - Generate quick analysis (minimal sections) instead of full analysis
+
+**Default**: Displays in terminal + saves to `./analysis-[jira-id].md`
+
+**Analysis Modes**:
+- **Full** (default): Complete analysis with 2-3 solution options, flows, dependencies, comprehensive guidance
+- **Quick** (`--quick` flag): Minimal analysis with single solution for simple bugs/features
 
 #### `/schovi:create-spec` - Specification Generation
 
@@ -141,23 +154,37 @@ Autonomously executes implementation tasks from specification with validation an
 
 This will:
 1. Fetch the Jira issue details
-2. Perform deep codebase analysis
-3. Propose multiple solutions
-4. Provide implementation guidance
+2. Perform deep codebase analysis using Plan subagent
+3. Generate structured analysis with 2-3 solution options via analysis-generator subagent
+4. Save to `./analysis-EC-1234.md` + display in terminal
+5. Provide implementation guidance with recommended approach
 
-#### Example 2: Analyze with Description
+#### Example 2: Analyze with Description and Custom Output
 
 ```bash
-/schovi:analyze-problem "Users report login fails after OAuth provider returns 302 redirect"
+/schovi:analyze-problem "Users report login fails after OAuth provider returns 302 redirect" --output ~/docs/login-bug-analysis.md
 ```
 
 This will:
 1. Parse the problem description
 2. Ask clarifying questions if the description is ambiguous
 3. Explore affected code areas
-4. Propose solutions with trade-off analysis
+4. Generate analysis with solution proposals
+5. Save to custom path: `~/docs/login-bug-analysis.md`
 
-#### Example 3: Interactive Mode
+#### Example 3: Quick Analysis with Jira Posting
+
+```bash
+/schovi:analyze-problem IS-8046 --quick --post-to-jira
+```
+
+This will:
+1. Fetch Jira issue IS-8046
+2. Perform quick analysis (single solution, minimal sections)
+3. Save to `./analysis-IS-8046.md` + display in terminal
+4. Post analysis as comment to Jira issue IS-8046
+
+#### Example 4: Interactive Mode
 
 ```bash
 /schovi:analyze-problem
@@ -165,7 +192,7 @@ This will:
 
 This will prompt you to provide either a Jira ID or problem description.
 
-#### Example 4: Create Spec from Analysis
+#### Example 5: Create Spec from Analysis
 
 ```bash
 # After running analyze-problem and choosing an approach
@@ -173,12 +200,12 @@ This will prompt you to provide either a Jira ID or problem description.
 ```
 
 This will:
-1. Detect recent analysis from conversation
+1. Detect recent analysis from conversation or analysis file
 2. Generate structured implementation spec
 3. Save to `./spec-EC-1234.md`
 4. Display formatted spec in terminal
 
-#### Example 5: Create Spec with Jira Integration
+#### Example 6: Create Spec with Jira Integration
 
 ```bash
 /schovi:create-spec EC-1234 --post-to-jira
@@ -190,7 +217,7 @@ This will:
 3. Save locally AND post to Jira as comment
 4. Ready for team review before implementation
 
-#### Example 6: Create Minimal Spec from Scratch
+#### Example 7: Create Minimal Spec from Scratch
 
 ```bash
 /schovi:create-spec --from-scratch "Add loading spinner to dashboard"
@@ -202,7 +229,7 @@ This will:
 3. Save to `./spec-[timestamp].md`
 4. Quick specs for simple tasks
 
-#### Example 7: Implement from Spec File
+#### Example 8: Implement from Spec File
 
 ```bash
 /schovi:implement ./spec-EC-1234.md
@@ -220,7 +247,7 @@ This will:
 9. Verify acceptance criteria
 10. Report completion and suggest PR creation
 
-#### Example 8: Implement from Jira with Auto-Detection
+#### Example 9: Implement from Jira with Auto-Detection
 
 ```bash
 /schovi:implement
@@ -234,7 +261,7 @@ This will:
 5. Run full validation suite
 6. Display completion summary with next steps
 
-#### Example 9: Implement with Validation Fixes
+#### Example 10: Implement with Validation Fixes
 
 ```bash
 /schovi:implement EC-1234
@@ -1079,7 +1106,20 @@ If analysis seems shallow:
 
 ## 📝 Version History
 
-### v1.3.0 (Current)
+### v1.4.0 (Current)
+- Refactored Analysis Generation
+  - Context isolation for analysis generation via `analysis-generator` subagent
+  - Analysis artifacts saved to files by default (`analysis-[jira-id].md`)
+  - Support for quick vs full analysis modes (`--quick` flag)
+  - Multiple output destinations (terminal/file/Jira)
+  - New output flags: `--output PATH`, `--no-file`, `--quiet`, `--post-to-jira`
+  - Consistent architecture with `create-spec` pattern
+  - Token efficiency: 30-40% savings in main context
+  - Analysis template (`templates/analysis-template.md`) documents structure
+- Updated workflow: Analysis now produces reusable artifacts
+- Matches create-spec pattern: Exploration → Subagent → Output Handling
+
+### v1.3.0
 - Added Implementation Execution
   - `/schovi:implement` command for autonomous task execution
   - Parse specs to extract implementation tasks and acceptance criteria

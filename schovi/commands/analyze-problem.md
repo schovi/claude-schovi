@@ -1,7 +1,7 @@
 ---
-description: Deep analysis of bugs/features with codebase exploration, flow mapping, and solution proposals
-argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description]
-allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
+description: Deep analysis of bugs/features with codebase exploration, flow mapping, solution proposals, and structured output
+argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
+allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
 # Problem Analyzer Workflow
@@ -10,9 +10,73 @@ You are performing a **comprehensive problem analysis** for a bug or feature req
 
 ---
 
-## PHASE 1: INPUT PROCESSING & CLARIFICATION
+## ARGUMENT PARSING
 
 **Input Received**: $ARGUMENTS
+
+Parse command arguments to determine:
+
+### Problem Input
+Extract the problem identifier (first non-flag argument):
+- **Jira Issue ID**: Pattern `[A-Z]+-\d+` (e.g., EC-1234)
+- **GitHub PR**: Full URL, `owner/repo#123`, or `#123`
+- **GitHub Issue**: Full URL or `owner/repo#123`
+- **Text Description**: Free-form problem statement
+- **Empty**: No problem specified
+
+### Output Flags
+Parse optional flags (can appear in any order):
+
+- **`--output PATH`**: Save analysis to specific file path
+  - Example: `--output ~/docs/analysis.md`
+  - Overrides default filename
+
+- **`--no-file`**: Skip file output, terminal only
+  - Mutually exclusive with `--output`
+  - Use when you only want to see analysis, not save it
+
+- **`--quiet`**: Skip terminal output, file only
+  - Still creates file (unless `--no-file`)
+  - Use for automation or when you just want the artifact
+
+- **`--post-to-jira`**: Post analysis as Jira comment
+  - Requires Jira ID in problem input
+  - Fails gracefully if no Jira ID
+  - Posts after successful analysis generation
+
+- **`--quick`**: Generate quick analysis instead of full
+  - Minimal sections for simple problems
+  - Faster, less comprehensive
+  - Use for straightforward bugs or small features
+
+### Flag Validation
+- `--output` and `--no-file` cannot be used together → Error
+- `--post-to-jira` without Jira ID → Warning, skip Jira posting
+- Unknown flags → Warn user but continue
+
+### Defaults
+If no output flags specified:
+- **Default behavior**: Terminal display + save to file
+- **Default filename**:
+  - With Jira ID: `analysis-[JIRA-ID].md` (e.g., `analysis-EC-1234.md`)
+  - Without Jira ID: `analysis-[timestamp].md` (e.g., `analysis-2025-04-11-143022.md`)
+- **Default mode**: Full analysis (unless `--quick` specified)
+
+### Storage for Later Phases
+Store parsed values for use in Phases 3-5:
+```
+problem_input = [extracted identifier or description]
+output_path = [--output PATH] or [default filename] or [null if --no-file]
+terminal_output = true (unless --quiet)
+jira_posting = [true if --post-to-jira]
+quick_mode = [true if --quick]
+```
+
+---
+
+## PHASE 1: INPUT PROCESSING & CLARIFICATION
+
+**Problem Input**: [From argument parsing above]
 
 ### Step 1.1: Parse Input
 
@@ -488,355 +552,310 @@ WORKFLOW:
 
 ---
 
-## PHASE 3: STRUCTURED OUTPUT
+## PHASE 3: ANALYSIS GENERATION
 
-Present your findings in this exact format:
+**CRITICAL**: Use the **Task tool with analysis-generator subagent** for context-isolated analysis generation.
 
----
+This phase transforms Phase 2 exploration results into structured, polished analysis document without polluting main context.
 
-### 🎯 1. PROBLEM SUMMARY
+### Step 3.1: Prepare Subagent Input Context
 
-```
-[2-4 sentence executive summary]
+1. Acknowledge analysis generation:
+   ```
+   ⚙️ **[Analyze-Problem]** Generating structured analysis...
+   ⏳ Spawning analysis-generator subagent...
+   ```
 
-**Core Issue**: [What is broken or needed - one clear sentence]
+2. Prepare input package for subagent:
 
-**Impact**:
-- Users affected: [Who experiences this]
-- Systems affected: [Which components/services]
-- Severity: [Critical/High/Medium/Low - with justification]
+```markdown
+## Input Context
 
-**Urgency**: [Immediate/High/Medium/Low - based on Jira priority or assessment]
-```
+### Problem Context
+[From Phase 1: Jira/PR/Issue summary OR text description]
+- Source: [Jira ID, PR URL, Issue URL, or "User description"]
+- Title: [Brief problem title]
+- Type: [bug|feature|investigation|performance|refactor]
+- Severity: [critical|high|medium|low]
+- Description: [Condensed problem description]
 
----
-
-### 📊 2. CURRENT STATE ANALYSIS
+### Exploration Results
 
 #### Affected Components
+[From Phase 2.1: List of components with file:line references and their roles]
 
-List each component with its role and issue:
+#### User Flow
+[From Phase 2.1: Step-by-step user journey with file:line references]
 
-- **`path/to/component.ts:123`** - [Component name]
-  - Role: [What it does]
-  - Issue: [What's wrong or missing]
+#### Data Flow
+[From Phase 2.2: Data movement and transformations with file:line references]
 
-- **`path/to/service.ts:456`** - [Service name]
-  - Role: [What it does]
-  - Issue: [What needs to change]
-
-*(Repeat for all affected components)*
-
-#### Flow Analysis
-
-Trace the complete user journey and data transformations through the system:
-
-```
-1. User Action: [What user does]
-   ↓
-2. Entry Point: Component A (`path/to/componentA.ts:123`)
-   → Data: [Input format/structure]
-   ↓
-3. Validation: [`path/to/validator.ts:456`]
-   → Checks: [What is validated]
-   ↓
-4. Processing: Service B (`path/to/serviceB.ts:789`)
-   → Transform: [How data changes]
-   ↓
-5. Persistence: Database/API (`path/to/repository.ts:234`)
-   → Storage: [What is stored/retrieved]
-   ↓
-6. Response: Format & Return (`path/to/controller.ts:567`)
-   → Output: [Response format]
-   ↓
-7. UI Update: Component C (`path/to/componentC.ts:890`)
-   → Display: [How user sees result]
-```
-
-**Key Touchpoints**:
-- Entry: [Where request enters system]
-- Transformation: [Critical data changes]
-- Integration: [External systems called]
-- Error handling: [Where errors are caught]
-
-#### Dependencies & External Integrations
-
-**IMPORTANT**: Only include this section if the solution involves critical external dependencies. Skip for simple internal changes.
-
-**Include when**:
-- Feature flags (LaunchDarkly) control behavior
-- Multiple repositories must be coordinated
-- External services/APIs are called
-- Kafka topics or async messaging involved
-- Non-standard deployment dependencies
-
-**External Dependencies** (if applicable):
-- Feature Flag: `flag-name` - [Checked in: `file:line`]
-- Repository: `other-repo-name` - [How it's affected]
-- External API: Service Name - [Called from: `file:line`]
-- Kafka Topic: `topic-name` - [Producer: `file:line`, Consumer: `file:line`]
-- Third-party: Service Name - [Integration: `file:line`]
-
-**Internal Dependencies** (only if complex):
-- Background Job: `JobName` - [Scheduler: `file:line`, Worker: `file:line`]
-- Cache Layer: Redis key pattern `pattern:*` - [Used in: `file:line`]
+#### Dependencies
+[From Phase 2.3: Only if complex - direct, indirect, integration dependencies]
 
 #### Issues Identified
+[From Phase 2: Problems found with evidence and root causes, with file:line references]
 
-1. **Root Cause**: [Primary issue with explanation]
-   - Location: `path/to/file.ts:123`
-   - Impact: [What breaks or degrades]
-   - Evidence: [Git commit, error logs, test failures]
+### Code Locations
+[All file:line references discovered during exploration]
 
-2. **Secondary Issues**: [Related problems discovered]
-   - Location: `path/to/file.ts:456`
-   - Impact: [Potential side effects]
+### Template Type
+[full|quick based on --quick flag from argument parsing]
 
-3. **Technical Debt**: [Existing problems that complicate solution]
-   - Location: `path/to/file.ts:789`
-   - Risk: [How it affects implementation]
+### Metadata
+- Jira ID: [From Phase 1 or N/A]
+- PR URL: [From Phase 1 or N/A]
+- Issue URL: [From Phase 1 or N/A]
+- Created by: [User email if available or N/A]
+- Created date: [Current date YYYY-MM-DD]
+- Problem type: [Inferred from Phase 1]
+- Severity: [Assessed from Phase 1 or exploration]
+```
 
----
+3. Determine template type:
+   - **Full Analysis**: Use unless `--quick` flag was specified
+   - **Quick Analysis**: Use if `--quick` flag present
 
-### 💡 3. SOLUTION PROPOSALS
+### Step 3.2: Spawn Analysis-Generator Subagent
 
-Present at least **2-3 solution options** with comprehensive analysis:
+Use Task tool with the prepared context:
 
----
+```
+subagent_type: "schovi:analysis-generator:analysis-generator"
+description: "Generating problem analysis"
+prompt: "Generate structured problem analysis from exploration results.
 
-#### ✅ Option 1: [Solution Name]
-*[Add ⭐ RECOMMENDED if this is the best option]*
+[PASTE THE FULL INPUT CONTEXT FROM STEP 3.1 HERE]"
+```
 
-**Approach**:
-[2-3 sentence high-level strategy explaining the solution]
+**The subagent will**:
+- Process exploration results in isolated context
+- Extract essential findings
+- Generate 2-3 solution proposals (full mode) or single solution (quick mode)
+- Return clean, structured analysis (~2-3k tokens) with visual wrappers:
 
-**Key Changes**:
-- **`path/to/file1.ts:123`**: [Concise description of modification and why]
-- **`path/to/file2.ts:456`**: [Concise description of modification and why]
-- **`path/to/file3.ts:789`**: [Concise description of modification and why]
+```
+╭─────────────────────────────────────────────╮
+│ 🔍 ANALYSIS GENERATOR                       │
+╰─────────────────────────────────────────────╯
 
-*(3-5 key changes maximum - detailed implementation will be in spec)*
+[YAML frontmatter + all analysis sections]
 
-**Pros**:
-- ✅ [Advantage 1 with specific benefit]
-- ✅ [Advantage 2 with specific benefit]
-- ✅ [Advantage 3 with specific benefit]
+╭─────────────────────────────────────────────╮
+  ✅ Analysis generated | ~[X] tokens | [Y] lines
+╰─────────────────────────────────────────────╯
+```
 
-**Cons**:
-- ⚠️ [Trade-off 1 with impact assessment]
-- ⚠️ [Trade-off 2 with impact assessment]
+### Step 3.3: Receive and Store Analysis
 
-**Effort Estimate**: [Small/Medium/Large]
-- Development: [Time estimate or story points]
-- Testing: [Testing effort]
-- Deployment: [Rollout complexity]
+1. After receiving subagent output, acknowledge:
+   ```
+   ✅ **[Analyze-Problem]** Analysis generated successfully
+   ```
 
-**Risk Level**: [Low/Medium/High]
-- Technical risk: [What could go wrong]
-- Business risk: [Impact if it fails]
-- Mitigation: [How to reduce risk]
+2. Extract the analysis markdown from subagent response:
+   - Remove the visual header/footer wrappers
+   - Store the clean markdown (YAML frontmatter + content)
 
----
+3. Store analysis for Phase 4:
+   ```
+   analysis_markdown = [extracted content without wrappers]
+   ```
 
-#### Option 2: [Alternative Solution Name]
+4. Validate analysis completeness:
+   - [ ] YAML frontmatter present
+   - [ ] Problem summary section exists
+   - [ ] Current state analysis section exists
+   - [ ] Solution proposals exist (2+ for full, 1 for quick)
+   - [ ] Implementation guidance exists
+   - [ ] Resources & references exist
 
-*[Same structure as Option 1]*
-
----
-
-#### Option 3: [Another Alternative]
-
-*[Same structure as Option 1 - only if there's a genuinely different approach]*
-
----
-
-### 🛠️ 4. IMPLEMENTATION GUIDANCE
-
-#### Recommended Approach
-
-**Selected Option**: Option [1/2/3] - [Solution Name]
-
-**Rationale**:
-[2-3 sentences explaining why this option is best, considering effort, risk, impact, and alignment with system architecture]
-
-**Implementation Strategy**:
-[High-level approach - phased rollout, big bang, incremental, etc.]
-
-**Key Considerations**:
-- [Critical consideration 1]
-- [Critical consideration 2]
-- [Critical consideration 3]
-
-*Detailed step-by-step implementation will be in the spec (use `/schovi:create-spec`)*
-
-#### Tests to Update/Create
-
-List test files that need modification or creation to verify changes:
-
-**Unit Tests** (modified/new):
-- `path/to/fileA.spec.ts` - [Brief: what needs testing in this file]
-- `path/to/fileB.spec.ts` - [Brief: what needs testing in this file]
-- `path/to/fileC.spec.ts` - [Brief: what needs testing in this file]
-
-**Integration Tests** (modified/new):
-- `path/to/integration.spec.ts` - [Brief: what scenario to cover]
-- `path/to/api-integration.spec.ts` - [Brief: what scenario to cover]
-
-**E2E Tests** (if applicable):
-- `path/to/e2e.spec.ts` - [Brief: what user journey to cover]
-
-*Note: Focus on code tests only. Manual verification will be done during PR review.*
-
-#### Deployment & Rollout
-
-**IMPORTANT**: Only include this section if deployment is non-standard. Skip for simple changes with standard deployment.
-
-**Include when**:
-- Feature flag (LaunchDarkly) required for gradual rollout
-- Multiple repositories must be deployed in specific order
-- Database migrations or breaking changes involved
-- Coordination with other teams required
-- Complex monitoring or rollback procedures
-
-**Standard Deployment**: If none of the above apply, state:
-"Standard deployment process applies. No special rollout coordination needed."
+If validation fails, report error and halt.
 
 ---
 
-**Feature Flag** (if applicable):
-- Flag name: `feature-xyz-enabled`
-- Location: `path/to/feature-flags.ts`
-- Strategy: [Gradual rollout / Canary / A/B test / Kill switch]
+## PHASE 4: OUTPUT HANDLING
 
-**Deployment Sequence** (if multi-repo or dependencies):
-1. [Repository/service 1] - [What to deploy first]
-2. [Repository/service 2] - [What to deploy second]
-3. [Repository/service 3] - [What to deploy last]
+Handle analysis output based on flags from Argument Parsing:
 
-**Critical Monitoring** (only if specific metrics required):
-- [Metric 1]: [What could go wrong]
-- [Metric 2]: [What could go wrong]
+### Step 4.1: Terminal Output
 
-**Rollback Procedure** (only if non-trivial):
-- Trigger: [When to rollback]
-- Steps: [How to revert]
+**If `terminal_output == true`** (default, unless `--quiet`):
+
+1. Display analysis to terminal:
+   ```
+   [Display the full analysis_markdown with proper formatting]
+   ```
+
+2. Use visual separator before/after for clarity
+
+**If `--quiet` flag present**:
+- Skip terminal display entirely
+
+### Step 4.2: File Output
+
+**If `output_path != null`** (default, unless `--no-file`):
+
+1. Determine filename:
+   - If `--output PATH` specified: Use provided path
+   - Else if Jira ID present: `analysis-[JIRA-ID].md`
+   - Else: `analysis-[YYYY-MM-DD-HHMMSS].md`
+
+2. Write analysis to file:
+   ```
+   Use Write tool:
+   file_path: [determined filename]
+   content: [analysis_markdown]
+   ```
+
+3. Acknowledge file creation:
+   ```
+   📄 **[Analyze-Problem]** Analysis saved to: [filename]
+   ```
+
+**If `--no-file` flag present**:
+- Skip file creation entirely
+
+### Step 4.3: Jira Posting (Optional)
+
+**If `jira_posting == true`** (from `--post-to-jira` flag):
+
+1. Check if Jira ID exists:
+   - If NO Jira ID: Warn user and skip this step
+     ```
+     ⚠️ **[Analyze-Problem]** Cannot post to Jira: No Jira ID provided
+     ```
+   - If Jira ID exists: Proceed
+
+2. Format analysis for Jira:
+   - Wrap in code block for better formatting: \`\`\`markdown ... \`\`\`
+   - Add header: "Problem Analysis - Generated by Claude Code"
+
+3. Post to Jira using mcp__jira__addCommentToJiraIssue:
+   ```
+   cloudId: "productboard.atlassian.net"
+   issueIdOrKey: [Jira ID from Phase 1]
+   commentBody: [formatted analysis]
+   ```
+
+4. Acknowledge posting:
+   ```
+   ✅ **[Analyze-Problem]** Analysis posted to Jira: [JIRA-ID]
+   ```
+
+5. If posting fails:
+   ```
+   ⚠️ **[Analyze-Problem]** Failed to post to Jira: [error message]
+   ```
+   Continue anyway (don't halt workflow)
+
+**If `--post-to-jira` flag NOT present**:
+- Skip this step entirely
 
 ---
 
-### 📚 5. RESOURCES & REFERENCES
+## PHASE 5: COMPLETION & NEXT STEPS
 
-#### Code Locations
+### Step 5.1: Summary
 
-**Entry Points**:
-- Main: `path/to/main-entry.ts:123`
-- API: `path/to/api-controller.ts:456`
-- UI: `path/to/ui-component.tsx:789`
+Present completion summary:
 
-**Core Logic**:
-- Service: `path/to/core-service.ts:234`
-- Repository: `path/to/data-repository.ts:567`
-- Utils: `path/to/utility-functions.ts:890`
+```
+╭─────────────────────────────────────────────╮
+│ ✅ ANALYSIS COMPLETE                        │
+╰─────────────────────────────────────────────╯
 
-**Tests**:
-- Unit: `path/to/unit.spec.ts`
-- Integration: `path/to/integration.spec.ts`
-- E2E: `path/to/e2e.spec.ts`
+**Problem**: [One-line summary]
 
-**Configuration**:
-- Feature Flags: `path/to/feature-flags.ts`
-- Environment: `path/to/config.ts`
-- Database: `path/to/schema.sql`
+**Analysis Type**: [Full|Quick]
 
-#### Related Issues
+**Output**:
+[If file created] - 📄 Saved to: [filename]
+[If posted to Jira] - 📋 Posted to Jira: [JIRA-ID]
+[If terminal only] - 🖥️  Terminal display only
 
-**Jira**:
-- Blocker: [PROJ-123] - [Brief description]
-- Related: [PROJ-456] - [Brief description]
-- Duplicate: [PROJ-789] - [Brief description]
+**Solution Options**: [Number of options provided]
+**Recommended**: [Recommended option name]
+```
 
-**Previous Work**:
-- PR #123 - [Brief description] - [Link]
-- Commit abc1234 - [Brief description]
-- Issue #456 - [Brief description]
+### Step 5.2: Proactive Next Steps
 
-#### Documentation
+Based on analysis output, suggest next actions:
 
-**Internal Docs**:
-- [Architecture overview] - [Link or path]
-- [API documentation] - [Link or path]
-- [Runbook] - [Link or path]
+```
+**Suggested Next Steps**:
 
-**External References**:
-- [Library documentation] - [Link]
-- [Third-party API docs] - [Link]
-- [Relevant blog posts/articles] - [Link]
+1. 📋 **Create Specification**: Use `/schovi:create-spec [analysis-file]` to generate implementation spec
+2. 💬 **Discuss Approach**: Review solution options and select preferred approach
+3. 🔍 **Deep Dive**: Explore specific technical aspects in more detail
+4. 🎯 **Assign Task**: Update Jira issue with analysis and assign to developer
 
-#### Stakeholders
+**Quick Actions**:
+[If Jira ID exists] - Update Jira status to "In Progress"?
+[If analysis saved] - Create spec now using saved analysis?
+```
 
-**Ownership**:
-- Team: [Team name]
-- Tech Lead: [Name]
-- Product Owner: [Name]
+### Step 5.3: User Interaction
 
-**Review Required**:
-- Code review: [Reviewer name/role]
-- Architecture review: [If needed, who]
-- Security review: [If needed, who]
+Ask user for direction (use conversational tone):
 
-**Dependencies on Other Teams**:
-- [Team name] - [What they need to provide/approve]
-- [Team name] - [What they need to provide/approve]
+```
+What would you like to do next?
+- Create implementation spec from this analysis?
+- Discuss solution options in more detail?
+- Explore a specific technical aspect further?
+- Something else?
+```
+
+Wait for user response and proceed accordingly.
 
 ---
 
 ## ✅ QUALITY GATES CHECKLIST
 
-Before presenting the analysis, verify ALL of these are complete:
+Before moving to Phase 4, verify analysis from subagent contains:
 
-- [ ] All affected files identified with specific `file:line` references
-- [ ] User flow is complete, traceable, and includes all touchpoints
-- [ ] Data flow shows full transformation pipeline from source to destination
-- [ ] All dependencies documented (direct, indirect, and integration points)
-- [ ] At least 2 distinct solution options provided
-- [ ] Each solution has comprehensive pros/cons analysis
-- [ ] Effort estimates and risk levels assessed for each solution
-- [ ] Clear recommendation provided with rationale
-- [ ] Step-by-step implementation plan is actionable
-- [ ] Testing requirements cover unit, integration, and E2E scenarios
-- [ ] Rollout strategy includes monitoring and rollback plans
-- [ ] All code locations reference real files (not hypothetical)
-- [ ] Historical context and patterns documented
-- [ ] Stakeholders and ownership identified
+- [ ] YAML frontmatter with all required fields
+- [ ] Problem summary with core issue, impact, severity
+- [ ] Current state analysis with affected components
+- [ ] Flow analysis with file:line references
+- [ ] Issues identified with root causes
+- [ ] Solution proposals (2+ for full, 1 for quick)
+- [ ] Each solution has approach, changes, pros/cons, effort, risk
+- [ ] Implementation guidance with recommended approach
+- [ ] Testing requirements listed
+- [ ] Resources & references with code locations
+- [ ] All file references use file:line format
+- [ ] Recommended solution marked with ⭐ (full mode)
+- [ ] Token count under 4000 (from subagent footer)
 
 ---
 
 ## 💬 INTERACTION GUIDELINES
 
 **Communication Style**:
-- Be thorough but concise - deep analysis with clear presentation
-- Use visual formatting (diagrams, flow charts, bullet points)
-- Highlight critical information with emojis for quick scanning
-- Always use `file:line` references for easy navigation
+- Be clear about what's happening at each phase
+- Use visual formatting for phase transitions
+- Acknowledge long-running operations (spawning subagents)
+- Celebrate completion with clear summary
 
-**Handling Uncertainty**:
-- If analysis is incomplete, clearly state what's missing
-- If assumptions were made, document them explicitly
-- If multiple interpretations exist, present all options
+**Handling Errors**:
+- If subagent fails: Report error clearly, don't attempt to continue
+- If file write fails: Report error, analysis still in terminal
+- If Jira posting fails: Warn but continue (non-critical)
 
-**Proactive Next Steps**:
-After presenting the analysis, ask:
-- "Would you like me to create a Jira task for this work?"
-- "Should I start implementing the recommended solution?"
-- "Do you need me to explore any specific aspect in more detail?"
-- "Would you like me to compare the solution options more thoroughly?"
+**Context Management**:
+- Phase 1-2: Accumulate context (exploration)
+- Phase 3: Delegate to subagent (context isolation)
+- Phase 4-5: Handle output (clean main context)
 
-**Acknowledge Complexity**:
-- If the problem is more complex than initially assessed, say so
-- If additional research is needed, specify what and why
-- If external expertise is required, identify who to consult
+**Token Efficiency**:
+- Subagent processes verbose exploration (~3-5k tokens)
+- Returns clean analysis (~2-3k tokens)
+- Main context stays clean for next task
 
 ---
 
 ## 🚀 BEGIN ANALYSIS
 
-Start with Phase 1: Input Processing & Clarification.
+Start with Argument Parsing, then proceed to Phase 1: Input Processing & Clarification.

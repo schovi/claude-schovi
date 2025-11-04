@@ -1,6 +1,6 @@
 {
   "name": "schovi",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Complete workflow automation for software engineering - problem analysis, specification generation, autonomous implementation, Jira integration, GitHub PR integration, and intelligent code exploration",
   "author": {
     "name": "David Schovanec",
