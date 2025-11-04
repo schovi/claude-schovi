@@ -29,7 +29,12 @@ This command:
 
 ### Step 1.1: Resolve Spec Source
 
-Parse the command argument to determine spec source:
+Parse the command argument to determine spec source (in priority order):
+
+---
+
+**PRIORITY 1: Explicit Arguments** (Highest Priority)
+Parse arguments first. If any explicit input provided, use it immediately.
 
 **Option A: File Path Provided**
 ```bash
@@ -49,27 +54,118 @@ Parse the command argument to determine spec source:
 - Look for spec markdown structure (YAML frontmatter + sections)
 - If not found, suggest running `/schovi:create-spec EC-1234` first
 
-**Option C: No Arguments (Auto-detect)**
-```bash
-/schovi:implement
-```
-- Search conversation history (last 30 messages) for:
-  - Output from `/schovi:create-spec` command
-  - Spec markdown with YAML frontmatter
-  - Implementation tasks section with checkboxes
-- Extract most recent spec found
-- If multiple specs found, show list and ask user to choose
-- If no spec found, report error and suggest:
-  - Provide spec file path
-  - Provide Jira ID
-  - Run `/schovi:create-spec` first
-
 **Option D: Resume Flag**
 ```bash
 /schovi:implement --resume
 ```
 - ⚠️ Not implemented in v1.3.0
 - Show message: "Resume feature coming in future version. For now, re-run command and manually skip completed tasks."
+
+---
+
+**PRIORITY 2: File References in Conversation** (Smart Auto-Detect)
+If no explicit arguments, search conversation for file references from previous commands.
+
+**Option C1: Spec File Reference (Auto-detect)**
+```bash
+/schovi:implement
+```
+
+**Detection Process**:
+1. Acknowledge search:
+   ```
+   🔍 **[Implement]** No explicit arguments provided
+   🔍 **[Implement]** Searching for spec file references...
+   ```
+
+2. Search conversation history (last 30 messages) for file path patterns:
+   - Regex pattern: `\./spec-(?:[A-Z]+-\d+|[a-z0-9-]+)\.md`
+   - Look in contexts:
+     * "saved to [FILE_PATH]"
+     * "Spec saved to [FILE_PATH]"
+     * "Output: [FILE_PATH]"
+     * Standalone mentions: "./spec-EC-1234.md"
+
+3. If file reference found:
+   ```
+   ✅ **[Implement]** Found spec file reference: [FILE_PATH]
+   📄 **[Implement]** Attempting to read spec...
+   ```
+
+   A. Use Read tool to load file
+   B. Verify file validity:
+      - Check file exists (Read succeeds)
+      - Check contains spec structure:
+        * Has YAML frontmatter
+        * Contains "## Implementation Tasks" section
+        * Has checkboxes with tasks
+
+   C. If file valid:
+      ```
+      ✅ **[Implement]** Spec loaded from file ([X] lines)
+      ```
+
+      STOP here - proceed to Step 1.2 (don't search raw conversation)
+
+   D. If file invalid or empty:
+      ```
+      ⚠️ **[Implement]** File found but invalid/empty
+      ⏭️ **[Implement]** Falling back to conversation search...
+      ```
+
+      Continue to Option C2 (raw conversation output)
+
+4. If NO file reference found:
+   ```
+   ℹ️ **[Implement]** No file references detected
+   ⏭️ **[Implement]** Searching raw conversation output...
+   ```
+
+   Continue to Option C2 (raw conversation output)
+
+**Why Priority 2?**
+- Files are complete and structured (no truncation)
+- Files are faster to read than parsing conversation
+- Files are more reliable than extracting from messages
+- When spec was saved to file, that's the source of truth
+
+---
+
+**PRIORITY 3: Raw Conversation Output** (Fallback)
+If no explicit arguments AND no file references found, search for raw command output.
+
+**Option C2: Conversation Context (Auto-detect fallback)**
+```bash
+/schovi:implement
+```
+
+**Detection Process** (only if Priority 2 failed):
+1. Acknowledge search:
+   ```
+   🔍 **[Implement]** Searching conversation for raw spec output...
+   ```
+
+2. Search conversation history (last 30 messages) for:
+   - Output from `/schovi:create-spec` command
+   - Spec markdown with YAML frontmatter
+   - Implementation tasks section with checkboxes
+
+3. Extract most recent spec found
+
+4. If multiple specs found:
+   - Show list and ask user to choose
+
+5. If no spec found:
+   ```
+   ❌ **[Implement]** No spec found in conversation
+
+   **Suggestions**:
+   1. Provide spec file path: /schovi:implement ./spec-EC-1234.md
+   2. Provide Jira ID: /schovi:implement EC-1234
+   3. Create spec first: /schovi:create-spec
+   ```
+
+   Exit with error
 
 ### Step 1.2: Parse Spec Structure
 

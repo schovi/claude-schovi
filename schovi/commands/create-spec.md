@@ -16,7 +16,10 @@ You are **creating an implementation specification** that bridges problem analys
 
 ### Step 1.1: Parse Arguments and Determine Input Source
 
-**Argument Patterns**:
+**Priority Order**:
+
+**PRIORITY 1: Explicit Arguments** (Highest Priority)
+Parse arguments first. If any explicit input provided, use it immediately.
 
 1. **Jira Issue ID**: Matches pattern `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
    - Command: `/schovi:create-spec EC-1234`
@@ -35,11 +38,30 @@ You are **creating an implementation specification** that bridges problem analys
    - Command: `/schovi:create-spec --from-scratch "Build user authentication"`
    - Action: Create minimal spec interactively
 
-5. **No Arguments** (Auto-detect)
-   - Command: `/schovi:create-spec`
-   - Action: Search conversation for recent `/schovi:analyze-problem` output
+**PRIORITY 2: File References in Conversation** (Smart Auto-Detect)
+If no explicit arguments, search conversation for file references from previous commands.
 
-6. **Empty/Unclear**: Missing or ambiguous input
+5. **Analysis File Reference** (Auto-detect)
+   - Command: `/schovi:create-spec`
+   - Detect: Search last 50 messages for patterns like:
+     * "saved to ./analysis-*.md"
+     * "Output: ./analysis-*.md"
+     * Any mention of `./analysis-*.md` or `./problem-*.md`
+   - Action: Read detected file path
+   - Fallback: If file not found or invalid, proceed to Priority 3
+
+**PRIORITY 3: Raw Conversation Output** (Fallback)
+If no explicit arguments AND no file references found, search for raw command output.
+
+6. **Conversation Context** (Auto-detect fallback)
+   - Command: `/schovi:create-spec`
+   - Detect: Search last 50 messages for `/schovi:analyze-problem` output structure
+   - Action: Extract analysis sections from conversation
+   - Fallback: If not found, ask user for input
+
+**PRIORITY 4: User Prompt**
+
+7. **Empty/Unclear**: Missing or ambiguous input
    - Action: Ask user which input source to use
 
 ### Step 1.2: Parse Output Flags
@@ -57,15 +79,81 @@ You are **creating an implementation specification** that bridges problem analys
 
 ### Step 1.3: Fetch Analysis Content
 
-Execute based on detected input source:
+Execute based on detected input source (in priority order):
 
 ---
 
-#### Source A: Conversation Context (No Args Provided)
+#### Source A1: Analysis File Reference (Auto-detected from Conversation)
 
 ```
+PRIORITY 2: Search conversation for file references before parsing raw output.
+
 1. Acknowledge search:
-   🔍 **[Create-Spec]** Searching conversation for recent analysis...
+   🔍 **[Create-Spec]** No explicit arguments provided
+   🔍 **[Create-Spec]** Searching for analysis file references...
+
+2. Search conversation history (last 50 messages) for file path patterns:
+   - Regex pattern: `\./(?:analysis|problem)-[A-Z0-9-]+\.md`
+   - Look in contexts:
+     * "saved to [FILE_PATH]"
+     * "Output: [FILE_PATH]"
+     * "Analysis saved to [FILE_PATH]"
+     * Standalone mentions: "./analysis-EC-1234.md"
+
+3. If file reference found:
+   ✅ **[Create-Spec]** Found file reference: [FILE_PATH]
+   📄 **[Create-Spec]** Attempting to read file...
+
+   A. Use Read tool to load file:
+      - File path: [DETECTED_PATH]
+      - Full content read
+
+   B. Verify file validity:
+      - Check file exists (Read succeeds)
+      - Check contains analysis structure:
+        * Has markdown headers (##, ###)
+        * Contains problem/solution sections
+        * Has technical details or requirements
+
+   C. If file valid:
+      ✅ **[Create-Spec]** Analysis loaded from file ([X] lines)
+
+      Extract same content as Source D (File Path):
+      - Problem statement
+      - Solution options
+      - Technical details (files, flows, dependencies)
+      - User preferences and notes
+
+      STOP here - proceed to Step 1.4 (don't search raw conversation)
+
+   D. If file invalid or empty:
+      ⚠️ **[Create-Spec]** File found but invalid/empty
+      ⏭️ **[Create-Spec]** Falling back to conversation search...
+
+      Continue to Source A (raw conversation output)
+
+4. If NO file reference found:
+   ℹ️ **[Create-Spec]** No file references detected
+   ⏭️ **[Create-Spec]** Searching raw conversation output...
+
+   Continue to Source A (raw conversation output)
+```
+
+**Why Priority 2?**
+- Files are complete and structured (no truncation)
+- Files are faster to read than parsing conversation
+- Files are more reliable than extracting from messages
+- When analysis was saved to file, that's the source of truth
+
+---
+
+#### Source A: Conversation Context (Raw Output Fallback)
+
+```
+PRIORITY 3: Only executed if no explicit args AND no file references found.
+
+1. Acknowledge search:
+   🔍 **[Create-Spec]** Searching conversation for raw analysis output...
 
 2. Search conversation history (last 50 messages) for:
    - Messages containing "/schovi:analyze-problem" command invocation
