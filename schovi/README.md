@@ -62,376 +62,154 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 
 ### Commands
 
+The plugin provides five main commands for the complete development workflow:
+
 #### `/schovi:analyze` - Problem Analysis
 
+Comprehensive problem analysis with codebase exploration, solution proposals, and structured artifacts.
+
+**Input**: Jira ID, GitHub PR/issue URL, or problem description
+**Output**: Terminal + `./analysis-[jira-id].md` (or custom path)
+**Modes**: Full analysis (default) or quick analysis (`--quick`)
+
 ```bash
-/schovi:analyze [jira-id|pr-url|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
+/schovi:analyze EC-1234
+/schovi:analyze "Users report login failures" --quick
 ```
-
-Performs comprehensive problem analysis with codebase exploration, solution proposals, and structured output artifacts.
-
-**Input Options:**
-- `jira-id` - Analyze from Jira issue (e.g., EC-1234)
-- `pr-url` - Analyze from GitHub PR (full URL, owner/repo#123, or #123)
-- `github-issue-url` - Analyze from GitHub issue (full URL or owner/repo#123)
-- `description` - Analyze from free-form problem description
-- `--input PATH` - Read problem description from file
-
-**Output Options:**
-- `--output PATH` - Save analysis to specific file path
-- `--no-file` - Skip file output, terminal only
-- `--quiet` - Skip terminal output, file only
-- `--post-to-jira` - Post analysis as Jira comment
-- `--quick` - Generate quick analysis (minimal sections) instead of full analysis
-
-**Default**: Displays in terminal + saves to `./analysis-[jira-id].md`
-
-**Analysis Modes**:
-- **Full** (default): Complete analysis with 2-3 solution options, flows, dependencies, comprehensive guidance
-- **Quick** (`--quick` flag): Minimal analysis with single solution for simple bugs/features
 
 #### `/schovi:plan` - Specification Generation
 
+Generates actionable implementation specs from analysis. Bridges exploration and execution.
+
+**Input**: Jira ID, GitHub issue, analysis file, or from scratch
+**Output**: Terminal + `./spec-[jira-id].md` (or custom path)
+
 ```bash
-/schovi:plan [jira-id|github-issue-url|--input path|--from-scratch description]
+/schovi:plan EC-1234
+/schovi:plan --from-scratch "Add loading spinner"
 ```
-
-Generates actionable implementation specifications from problem analysis. Bridges exploration and execution.
-
-**Input Options:**
-- `jira-id` - Generate from Jira issue (with or without prior analysis)
-- `github-issue-url` - Generate from GitHub issue (full URL or owner/repo#123)
-- No args - Auto-detect from recent conversation analysis
-- `--input path.md` - Generate from analysis file
-- `--from-scratch "description"` - Create minimal spec interactively
-
-**Output Options:**
-- `--output path.md` - Save to specific file
-- `--post-to-jira` - Post spec as Jira comment
-- `--no-file` - Terminal only
-- `--quiet` - Suppress terminal output
-
-**Default**: Displays in terminal + saves to `./spec-[jira-id].md`
 
 #### `/schovi:implement` - Implementation Execution
 
-```bash
-/schovi:implement [spec-file|jira-id] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira]
-```
+Autonomously executes implementation tasks with validation and phase-based commits.
 
-Autonomously executes implementation tasks from specification with validation and commits.
-
-**Input Options:**
-- `spec-file` - Path to specification file (e.g., `./spec-EC-1234.md`)
-- `jira-id` - Fetch spec from Jira issue comments
-- No args - Auto-detect from recent conversation
-- `--input PATH` - Read spec from specific file path
-
-**Output Options:**
-- `--output PATH` - Save execution log to specific file
-- `--no-file` - Skip execution log creation
-- `--quiet` - Suppress verbose terminal output
-- `--post-to-jira` - Post execution summary to Jira
-
-**Execution Flow:**
-1. Parse spec to extract implementation tasks and acceptance criteria
-2. Execute tasks sequentially with full autonomy (no task-by-task approval)
-3. Create phase-based git commits with descriptive messages
-4. Run validation (linting, type checking, tests)
-5. Verify acceptance criteria
-6. Report completion status and suggest next steps
-
-**Features:**
-- Full autonomy mode (configured via user preferences)
-- Project type detection (Node.js, Python, Go, Ruby, Rust)
-- Automatic validation and fixing attempts
-- Phase-based git commits
-- Comprehensive error handling and reporting
-
-**Model**: Uses Haiku for efficient execution
-
-**Current Scope (v1.3.0)**:
-- ✅ Implementation execution with full autonomy
-- ✅ Validation (linting + testing)
-- ✅ Phase-based git commits
-- ⏳ Git worktree setup (coming in v1.4.0)
-- ⏳ Jira status updates (coming in v1.4.0)
-- ⏳ PR creation (coming in v1.4.0)
-
-#### `/schovi:commit` - Structured Git Commits
-
-```bash
-/schovi:commit [jira-id|github-issue|github-pr|notes] [--message "text"] [--staged-only]
-```
-
-Creates well-structured git commits with automatic change analysis, validation, and optional external context fetching.
-
-**Input Options:**
-- `jira-id` - Include Jira context in commit (e.g., EC-1234)
-- `github-issue` - Include GitHub issue context (URL or owner/repo#123)
-- `github-pr` - Include GitHub PR context (URL or owner/repo#123)
-- `notes` - Free-form notes to guide commit message
-- No args - Auto-analyze staged changes and create commit
-
-**Flags:**
-- `--message "text"` - Override auto-generated message with custom text
-- `--staged-only` - Only commit staged changes (don't auto-stage all)
-- `--type prefix` - Specify commit type (feat, fix, chore, etc.)
-
-**Features:**
-- **Conventional Commits**: Automatic type detection (feat, fix, chore, refactor, docs, test, style, perf)
-- **Smart Validation**: Blocks commits on main/master, validates branch naming against Jira ID
-- **Change Analysis**: Analyzes git diff to generate descriptive commit messages with bullet points
-- **Optional Context Fetching**: Fetches Jira/GitHub context only when diff analysis is unclear
-- **Multi-line Messages**: Title + description paragraph + bullet points + related references + Claude Code footer
-
-**Commit Message Format:**
-```
-PREFIX: Brief title (50-72 chars)
-
-Short paragraph explaining problem/solution/changes
-
-- Bullet point 1 (specific change)
-- Bullet point 2 (specific change)
-- Bullet point 3 (specific change)
-
-Related to: [JIRA-ID or GitHub reference]
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-**Validation Rules:**
-- ❌ Blocks commits on main/master branches
-- ⚠️  Warns if branch name doesn't match Jira issue key
-- ❌ Errors if no changes to commit
-- ❌ Errors if merge conflicts detected
-
-**Default Behavior**:
-- Auto-stages all changes with `git add .`
-- Analyzes changes to determine commit type
-- Generates descriptive multi-line commit message
-- Verifies commit created successfully
-
-#### `/schovi:publish` - Pull Request Creation
-
-```bash
-/schovi:publish [jira-id|spec-file] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--draft] [--base branch] [--title "text"] [--no-push]
-```
-
-Creates GitHub pull requests with automatic branch pushing, smart description generation, and comprehensive validation.
-
-**Input Options:**
-- `jira-id` - Include Jira context in PR (e.g., EC-1234)
-- `spec-file` - Use specific spec file for description (e.g., ./spec-EC-1234.md)
-- No args - Auto-detect from branch name, spec files, or commits
-- `--input <path>` - Explicitly specify spec file to use
-
-**Output Options:**
-- `--output <path>` - Save PR description to file
-- `--no-file` - Skip saving PR description
-- `--quiet` - Suppress verbose terminal output
-- `--post-to-jira` - Post PR link as Jira comment
-
-**PR Flags:**
-- `--draft` - Create as draft PR (work in progress)
-- `--base <branch>` - Specify base branch (default: main)
-- `--title "text"` - Override auto-generated title
-- `--no-push` - Skip auto-push, require branch already pushed
-
-**Features:**
-- **Auto-Push**: Automatically pushes branch before creating PR
-- **Smart Description**: Auto-detects best source (spec → Jira → commits)
-- **Validation**: Ensures clean state, proper branch, no conflicts
-- **Confetti Completion**: Celebrates successful PR creation per workflow requirements
-
-**Description Sources** (priority order):
-1. **Spec file**: Most comprehensive (from `/schovi:plan`)
-2. **Jira issue**: Structured context (issue description + acceptance criteria)
-3. **Commit history**: Fallback (analyzes git log)
-
-**PR Description Format:**
-```markdown
-## Problem
-[What problem this solves - from spec/Jira/commits]
-
-## Solution
-[Approach taken - from spec/Jira/commits]
-
-## Changes
-- [Specific change 1]
-- [Specific change 2]
-- [Specific change 3]
-
-## Other
-[Testing notes, deployment steps, breaking changes]
-
----
-Related to: [JIRA-ID if available]
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-**Validation Rules:**
-- ❌ Blocks PR creation from main/master branches
-- ❌ Errors if uncommitted changes exist (must be clean)
-- ❌ Errors if GitHub CLI not authenticated
-- ⚠️  Warns if branch name doesn't match Jira ID
-
-**Workflow Integration:**
-- Standalone manual command (not auto-executed by implement)
-- Run after implementation and commits complete
-- Automatically runs confetti celebration on success
-
-**Usage Flow:**
-```bash
-# Complete workflow
-/schovi:analyze EC-1234
-/schovi:plan EC-1234
-/schovi:implement ./spec-EC-1234.md
-/schovi:publish              # Auto-detects spec and Jira
-
-# Standalone after manual work
-/schovi:commit EC-1234
-/schovi:publish EC-1234
-
-# Advanced usage
-/schovi:publish --draft --base develop --title "WIP: Feature"
-```
-
-### Examples
-
-#### Example 1: Analyze a Jira Issue
-
-```bash
-/schovi:analyze EC-1234
-```
-
-This will:
-1. Fetch the Jira issue details
-2. Perform deep codebase analysis using Plan subagent
-3. Generate structured analysis with 2-3 solution options via analysis-generator subagent
-4. Save to `./analysis-EC-1234.md` + display in terminal
-5. Provide implementation guidance with recommended approach
-
-#### Example 2: Analyze with Description and Custom Output
-
-```bash
-/schovi:analyze "Users report login fails after OAuth provider returns 302 redirect" --output ~/docs/login-bug-analysis.md
-```
-
-This will:
-1. Parse the problem description
-2. Ask clarifying questions if the description is ambiguous
-3. Explore affected code areas
-4. Generate analysis with solution proposals
-5. Save to custom path: `~/docs/login-bug-analysis.md`
-
-#### Example 3: Quick Analysis with Jira Posting
-
-```bash
-/schovi:analyze IS-8046 --quick --post-to-jira
-```
-
-This will:
-1. Fetch Jira issue IS-8046
-2. Perform quick analysis (single solution, minimal sections)
-3. Save to `./analysis-IS-8046.md` + display in terminal
-4. Post analysis as comment to Jira issue IS-8046
-
-#### Example 4: Interactive Mode
-
-```bash
-/schovi:analyze
-```
-
-This will prompt you to provide either a Jira ID or problem description.
-
-#### Example 5: Create Spec from Analysis
-
-```bash
-# After running analyze and choosing an approach
-/schovi:plan
-```
-
-This will:
-1. Detect recent analysis from conversation or analysis file
-2. Generate structured implementation spec
-3. Save to `./spec-EC-1234.md`
-4. Display formatted spec in terminal
-
-#### Example 6: Create Spec with Jira Integration
-
-```bash
-/schovi:plan EC-1234 --post-to-jira
-```
-
-This will:
-1. Fetch Jira issue (if analysis available, use it; otherwise create from Jira content)
-2. Generate spec with decision rationale and implementation tasks
-3. Save locally AND post to Jira as comment
-4. Ready for team review before implementation
-
-#### Example 7: Create Minimal Spec from Scratch
-
-```bash
-/schovi:plan --from-scratch "Add loading spinner to dashboard"
-```
-
-This will:
-1. Prompt for key requirements interactively
-2. Generate minimal spec (goal, tasks, acceptance criteria)
-3. Save to `./spec-[timestamp].md`
-4. Quick specs for simple tasks
-
-#### Example 8: Implement from Spec File
+**Input**: Spec file, Jira ID, or auto-detect from conversation
+**Output**: Phase-based git commits + execution log
+**Features**: Project type detection, automatic validation, auto-fixing
 
 ```bash
 /schovi:implement ./spec-EC-1234.md
-```
-
-This will:
-1. Parse spec to extract 9 tasks across 3 phases
-2. Execute Phase 1: Backend Service (3 tasks)
-3. Create commit: "Phase 1: Backend Service"
-4. Execute Phase 2: Integration (3 tasks)
-5. Create commit: "Phase 2: Integration"
-6. Execute Phase 3: Testing (3 tasks)
-7. Create commit: "Phase 3: Testing"
-8. Run validation: linting, type check, tests
-9. Verify acceptance criteria
-10. Report completion and suggest PR creation
-
-#### Example 9: Implement from Jira with Auto-Detection
-
-```bash
-/schovi:implement
-```
-
-This will:
-1. Search conversation for recent spec from `/schovi:plan`
-2. Auto-detect spec generated 3 messages ago
-3. Execute all implementation tasks autonomously
-4. Create phase-based commits
-5. Run full validation suite
-6. Display completion summary with next steps
-
-#### Example 10: Implement with Validation Fixes
-
-```bash
 /schovi:implement EC-1234
 ```
 
-This will:
-1. Fetch spec from Jira issue comments
-2. Execute all implementation tasks
-3. Run linting → finds 3 issues → auto-fixes with `--fix`
-4. Run tests → 2 failures → analyzes and fixes test expectations
-5. Re-runs validation → all passing
-6. Creates additional fix commits
-7. Reports successful completion
+#### `/schovi:commit` - Structured Git Commits
+
+Creates conventional commits with smart analysis and validation.
+
+**Input**: Jira ID, GitHub issue/PR, notes, or auto-analyze changes
+**Features**: Conventional format, branch validation, multi-line messages
+
+```bash
+/schovi:commit EC-1234
+/schovi:commit "Add user authentication"
+```
+
+#### `/schovi:publish` - Pull Request Creation
+
+Creates GitHub PRs with auto-push and smart description generation.
+
+**Input**: Jira ID, spec file, or auto-detect from branch/commits
+**Features**: Auto-push, smart descriptions (spec → Jira → commits), validation
+
+```bash
+/schovi:publish
+/schovi:publish --draft --base develop
+```
+
+### Common Flags
+
+All commands support these output control flags:
+
+**Input Flags:**
+- `--input PATH` - Read input from specific file path
+
+**Output Flags:**
+- `--output PATH` - Save output to specific file path
+- `--no-file` - Skip file output, terminal only
+- `--quiet` - Suppress terminal output, file only
+- `--post-to-jira` - Post output as Jira comment
+
+**Command-Specific Flags:**
+
+**/schovi:analyze:**
+- `--quick` - Generate quick analysis instead of full
+
+**/schovi:plan:**
+- `--from-scratch "desc"` - Create minimal spec interactively
+
+**/schovi:commit:**
+- `--message "text"` - Override auto-generated message
+- `--staged-only` - Only commit staged changes
+- `--type prefix` - Specify commit type (feat, fix, etc.)
+
+**/schovi:publish:**
+- `--draft` - Create as draft PR
+- `--base branch` - Target branch (default: main)
+- `--title "text"` - Override auto-generated title
+- `--no-push` - Skip auto-push
+
+Run any command with `--help` for detailed options.
+
+### Examples
+
+#### Complete Workflow: Jira Issue to PR
+
+```bash
+# 1. Analyze the problem
+/schovi:analyze EC-1234
+
+# 2. Generate implementation spec
+/schovi:plan EC-1234
+
+# 3. Execute implementation autonomously
+/schovi:implement ./spec-EC-1234.md
+
+# 4. Create pull request
+/schovi:publish
+```
+
+**What happens:**
+- Analysis fetches Jira, explores codebase, proposes 2-3 solutions
+- Spec documents chosen approach with tasks and acceptance criteria
+- Implementation executes tasks, creates phase-based commits, runs validation
+- Publish auto-pushes branch and creates PR with smart description
+
+#### Quick Analysis with Custom Output
+
+```bash
+/schovi:analyze "Login fails after OAuth 302 redirect" --quick --output ~/docs/login-bug.md
+```
+
+**What happens:**
+- Parses problem description
+- Performs quick analysis (single solution, minimal sections)
+- Saves to custom path for documentation
+
+#### Standalone Commit and PR
+
+```bash
+# After manual implementation
+/schovi:commit EC-1234
+/schovi:commit EC-1234
+
+# Create PR from commits
+/schovi:publish --draft
+```
+
+**What happens:**
+- Commits analyze git diff and create structured messages
+- PR uses commit history to generate description
+- Created as draft for additional review
 
 ## 📋 What the Analysis Includes
 
@@ -551,755 +329,133 @@ The plugin follows Claude Code's standard structure:
     └── README.md
 ```
 
-## 🏗️ Architecture: Context Isolation
+## 🏗️ Architecture: Three-Tier Integration Pattern
 
-### The Problem
+The plugin uses a consistent **three-tier architecture** for all external integrations (Jira, GitHub PRs, Datadog), providing massive token savings through context isolation.
 
-Jira MCP tool returns massive payloads (~10k tokens) containing:
-- Full issue history
-- All comments (often 50+)
-- Verbose metadata, timestamps, formatting
-- Linked issues with full details
+### The Problem: Massive External Payloads
 
-This pollutes the main analysis context, leaving less room for actual codebase exploration.
+External data sources return overwhelming amounts of data:
+- **Jira issues**: 10-15k tokens (full history, 50+ comments, verbose metadata)
+- **GitHub PRs**: 20-50k tokens (complete diffs, review history, CI logs)
+- **Datadog observability**: 10-50k tokens (logs, metrics, traces, incidents)
 
-### The Solution: Subagent Architecture
+This pollutes the main context window, leaving less room for actual codebase analysis.
 
-The plugin uses a **specialized subagent** (`jira-analyzer`) that operates in isolated context:
+### The Solution: Context-Isolated Subagents
+
+The plugin uses **specialized subagents** that operate in isolated contexts:
 
 ```
-User invokes: /analyze EC-1234
+User mentions external resource (e.g., "EC-1234" or "Check error rate")
        ↓
-Main Command detects Jira issue
+Auto-Detection Skill activates (Tier 1)
        ↓
-Delegates to jira-analyzer subagent (Task tool)
+Evaluates intent and classifies context need
+       ↓
+Spawns specialized subagent via Task tool (Tier 3)
        ↓
 Subagent Context (Isolated):
-  - Fetches 10k token Jira payload
+  - Fetches 10-50k token payload
   - Analyzes and extracts essence
-  - Burns tokens privately
-       ↓
-Returns clean summary (~800 tokens)
-       ↓
-Main Command receives summary
-       ↓
-Proceeds with codebase analysis
-  (Main context stays clean!)
-```
-
-### Benefits
-
-- **31% Token Reduction**: Saves ~9.2k tokens per analysis
-- **Cleaner Context**: Main workflow focuses on codebase, not Jira metadata
-- **Better Analysis**: More context window available for code exploration
-- **Scalable**: Handles any Jira issue size (10k-50k tokens)
-
-### How It Works
-
-1. **Detection**: Main command detects Jira issue ID in input
-2. **Delegation**: Uses Task tool to invoke `jira-analyzer` subagent
-3. **Isolation**: Subagent fetches full Jira payload in its own context
-4. **Extraction**: Subagent extracts only essential info:
-   - Core fields (key, title, type, status, priority)
-   - Condensed description (first 500 chars)
-   - Max 3 key comments
-   - Acceptance criteria
-   - Technical context
-5. **Summary**: Subagent returns structured summary (~800 tokens)
-6. **Analysis**: Main command uses summary for codebase exploration
-
-### Subagent: jira-analyzer
-
-Located at: `.claude/agents/jira-analyzer/AGENT.md`
-
-**Responsibilities:**
-- Fetch Jira issues using MCP tools
-- Extract actionable information only
-- Return structured markdown summary
-- Never pollute parent context with full payload
-
-**Output Format:**
-```markdown
-# Jira Issue Summary: EC-1234
-
-## Core Information
-- Issue: EC-1234 - Title
-- Type: Bug | Status: To Do | Priority: High
-
-## Description
-[Condensed, max 500 chars]
-
-## Acceptance Criteria
-1. [Criterion 1]
-2. [Criterion 2]
-
-## Key Comments
-- **Author**: [Summary, max 200 chars]
-
-## Technical Context
-- Affected: [Components mentioned]
-- Environment: [If specified]
-```
-
-**Token Budget:** Max 1000 tokens output (typically ~800)
-
----
-
-## 🤖 Automatic Jira Detection
-
-### Three-Tier Architecture
-
-The workflow system provides multiple ways to work with Jira issues:
-
-#### **Tier 1: Automatic Detection (Skill)** ⭐ Primary
-
-**jira-auto-detector Skill** - Works across ALL conversations
-
-**Location**: `.claude/skills/jira-auto-detector/SKILL.md`
-
-**How it works:**
-- Automatically detects when you mention Jira issues
-- Intelligently evaluates if context is needed
-- Spawns jira-analyzer subagent automatically
-- Seamless - just mention "EC-1234" and get context
-
-**Use cases:**
-- Casual questions: "What's EC-1234 about?"
-- Quick checks: "Is IS-8046 high priority?"
-- Comparisons: "Compare EC-1234 and IS-8046"
-- Any conversation where Jira is mentioned
-
-**Intelligence:**
-- ✅ Fetch when you ask about an issue
-- ❌ Don't fetch when you mention it in past tense ("fixed EC-1234")
-- ✅ Reuse context if already fetched in session
-- ❌ Avoid false positives (endpoint names, identifiers)
-
-#### **Tier 2: Explicit Command** - Guaranteed workflow
-
-**/analyze Command** - Structured analysis workflow
-
-**Location**: `schovi/commands/analyze.md`
-
-**How it works:**
-- User explicitly invokes: `/schovi:analyze EC-1234`
-- Guaranteed to fetch Jira issue
-- Proceeds with full problem analysis workflow
-- Part of documented Flow 1
-
-**Use cases:**
-- Formal problem analysis
-- When you want guaranteed fetch
-- When Skill doesn't activate
-- Explicit workflow control
-
-#### **Tier 3: Manual Subagent** - Direct access
-
-**jira-analyzer Subagent** - Low-level tool
-
-**Location**: `.claude/agents/jira-analyzer/AGENT.md`
-
-**How it works:**
-- Directly spawn via Task tool
-- Use when you need fine control
-- Handles actual Jira fetching logic
-
-**Use cases:**
-- Custom workflows
-- Debugging
-- Advanced scenarios
-
-### Comparison
-
-| Approach | Activation | Intelligence | Use Case |
-|----------|-----------|--------------|----------|
-| **Skill** | Automatic | LLM-powered | General conversations |
-| **Command** | Explicit `/` | Workflow-driven | Structured analysis |
-| **Subagent** | Manual Task | None (execution only) | Custom workflows |
-
-**Recommendation**: Let the Skill handle detection automatically. Use the Command for explicit analysis workflows.
-
----
-
-## 🐙 GitHub PR Integration
-
-### The Problem: Massive PR Payloads
-
-GitHub PRs can include enormous amounts of data:
-- Complete diff for all changed files (often 10k+ lines)
-- Full review history with inline comments (100+ comments)
-- Detailed CI/CD logs and check runs
-- PR discussions, reactions, metadata
-- Linked issues and cross-references
-
-A single `gh pr view` command can return 20k-50k tokens, overwhelming the context window.
-
-### The Solution: PR Analyzer Subagent
-
-Similar to Jira integration, the plugin uses a **specialized subagent** (`gh-pr-analyzer`) that operates in isolated context:
-
-```
-User mentions: "Review anthropics/claude-code#123"
-       ↓
-gh-pr-auto-detector Skill activates
-       ↓
-Evaluates context need & intent
-       ↓
-Spawns gh-pr-analyzer subagent (Task tool)
-       ↓
-Subagent Context (Isolated):
-  - Runs gh CLI commands (pr view, pr checks, pr diff)
-  - Fetches 20-50k token PR payload
-  - Analyzes and extracts essence
-  - Burns tokens privately
-       ↓
-Returns clean summary (~800-1000 tokens)
-       ↓
-Main Context receives summary
-       ↓
-User gets relevant PR context
-  (Main context stays clean!)
-```
-
-### Benefits
-
-- **75-80% Token Reduction**: Saves 15-40k tokens per PR analysis
-- **Intelligent Filtering**: Fetches only reviews, CI, or full context based on user intent
-- **Repository Context Detection**: Automatically resolves #123 to owner/repo#123 from git remote
-- **Cleaner Context**: Main workflow focuses on answering user's question, not PR metadata
-- **Scalable**: Handles PRs of any size
-
-### How It Works
-
-1. **Detection**: Skill detects PR mentions (URLs, owner/repo#123, #123, "PR #123")
-2. **Context Resolution**: For #123, extracts owner/repo from git remote or conversation
-3. **Intent Classification**: Determines what user needs:
-   - Full context (default): reviews + CI + code changes
-   - Reviews focus: "What are the review comments?"
-   - CI focus: "Did tests pass?"
-4. **Delegation**: Uses Task tool to invoke `gh-pr-analyzer` subagent with options
-5. **Isolation**: Subagent fetches PR data via `gh` CLI in its own context
-6. **Extraction**: Subagent condenses:
-   - Description (max 500 chars)
-   - Code changes (top 5 files, line counts)
-   - CI status (overall + failed checks only)
-   - Reviews (max 3 latest, with max 5 key comments)
-   - Analysis notes
-7. **Summary**: Subagent returns structured markdown (~800-1000 tokens)
-8. **Integration**: Main context uses summary to answer user's question
-
-### Subagent: gh-pr-analyzer
-
-Located at: `schovi/agents/gh-pr-analyzer/AGENT.md`
-
-**Responsibilities:**
-- Parse PR identifiers (URL, owner/repo#123, #123)
-- Fetch PR data using `gh` CLI via Bash tool
-- Extract actionable information based on options
-- Return structured markdown summary
-- Never pollute parent context with full payload
-
-**Input Format:**
-```
-Fetch and summarize GitHub PR: anthropics/claude-code#123
-Options: include_reviews=true, include_ci=true
-```
-
-**Output Format:**
-```markdown
-# GitHub PR Summary: anthropics/claude-code#123
-
-## Core Information
-- PR: #123 - Add MCP server support
-- Author: username
-- Status: open | merged | closed
-- Base: main ← Head: feature/mcp-support
-- URL: https://github.com/anthropics/claude-code/pull/123
-
-## Description
-[Condensed description, max 500 chars]
-
-## Code Changes
-- Files changed: 15 (+250, -100)
-- Key files:
-  - src/mcp/server.ts (+120, -30)
-  - src/mcp/client.ts (+80, -20)
-  - tests/mcp.test.ts (+50, -0)
-
-## CI/CD Status
-- Overall: ✅ passing | ❌ failing | ⏳ pending
-- Failed checks:
-  - test-suite: 3 test failures in auth module
-  - lint: 2 style violations
-
-## Reviews
-- Review decision: APPROVED | CHANGES_REQUESTED | PENDING
-- Latest reviews:
-  - **reviewer1** (approved): "LGTM, great work on error handling"
-  - **reviewer2** (changes requested): "Please address async handling in server.ts:45"
-- Key comments:
-  - **reviewer2**: "Line 45: This should use async/await pattern"
-  - **reviewer1**: "Consider caching the connection pool"
-
-## Analysis Notes
-- Large PR focused on MCP integration
-- Some review concerns about error handling
-- CI mostly passing except auth tests
-```
-
-**Token Budget:** Max 1200 tokens output (typically ~800-1000)
-
-### Automatic PR Detection
-
-#### **Tier 1: Automatic Detection (Skill)** ⭐ Primary
-
-**gh-pr-auto-detector Skill** - Works across ALL conversations
-
-**Location**: `schovi/skills/gh-pr-auto-detector/SKILL.md`
-
-**How it works:**
-- Detects PR patterns: URLs, owner/repo#123, #123, "PR #123"
-- Resolves #123 to full identifier using git remote
-- Intelligently evaluates if context is needed
-- Classifies user intent (reviews/CI/full)
-- Spawns gh-pr-analyzer subagent with appropriate options
-- Seamless - just mention a PR and get context
-
-**Use cases:**
-- Questions: "What's anthropics/claude-code#123 about?"
-- Reviews: "What are the review comments on #456?"
-- CI checks: "Did tests pass on #123?"
-- Status: "Is #456 merged?"
-- Comparisons: "Compare #123 and #456 approaches"
-
-**Intelligence:**
-- ✅ Fetch when you ask about a PR
-- ❌ Don't fetch for past tense ("merged #123")
-- ✅ Fetch reviews-only when asking about feedback
-- ✅ Fetch CI-only when asking about tests
-- ✅ Reuse context if already fetched in session
-- ❌ Avoid false positives (endpoint names like "PR-123")
-
-**Repository Context Detection:**
-- For `#123`: Checks current git remote → `productboard/frontend#123`
-- For `owner/repo#123`: Uses as-is
-- For URLs: Parses owner, repo, number
-- If unclear: Asks user to clarify
-
-#### **Tier 2: Manual Subagent** - Direct access
-
-**gh-pr-analyzer Subagent** - Low-level tool
-
-**Location**: `schovi/agents/gh-pr-analyzer/AGENT.md`
-
-**How it works:**
-- Directly spawn via Task tool
-- Use when you need fine control
-- Handles actual PR fetching via `gh` CLI
-
-**Use cases:**
-- Custom workflows
-- Debugging
-- Advanced scenarios
-
-### Examples
-
-#### Example 1: Review Request
-```
-User: "Review anthropics/claude-code#123"
-
-Skill Process:
-✅ Detect pattern: anthropics/claude-code#123
-✅ Evaluate: Review request → full context needed
-✅ Classify: Comprehensive review → include_reviews=true, include_ci=true
-✅ Spawn gh-pr-analyzer subagent
-✅ Receive summary with reviews, CI, code changes
-✅ Provide comprehensive review feedback
-
-Response:
-"I've reviewed anthropics/claude-code#123. This PR adds MCP server support
-with 15 file changes. The CI is passing and there's one review requesting
-changes about async handling. Here's my analysis: [detailed review]..."
-```
-
-#### Example 2: CI Status Check
-```
-User: "Did tests pass on #456?"
-
-Skill Process:
-✅ Detect pattern: #456
-✅ Resolve repo: productboard/frontend#456 (from git remote)
-✅ Evaluate: CI question → context needed
-✅ Classify: CI focus → include_reviews=false, include_ci=true
-✅ Spawn gh-pr-analyzer with CI-only option
-✅ Receive CI summary (no reviews to save tokens)
-✅ Report CI status
-
-Response:
-"I've checked productboard/frontend#456. The build is failing -
-the test-suite check has 3 test errors in the auth module.
-The linter and type checks passed. Here are the failing tests: [details]..."
-```
-
-#### Example 3: Comparison
-```
-User: "Compare #123 and #456 approaches"
-
-Skill Process:
-✅ Detect both PRs
-✅ Resolve repo for both
-✅ Evaluate: Comparison → both contexts needed
-✅ Fetch #123 (full context)
-✅ Fetch #456 (full context)
-✅ Compare approaches based on summaries
-
-Response:
-"I've fetched both PRs. #123 uses session cookies for auth
-while #456 uses JWT tokens. Key differences: [comparison analysis]..."
-```
-
-### Comparison with Jira Integration
-
-| Feature | Jira Analyzer | PR Analyzer |
-|---------|---------------|-------------|
-| **Data Source** | Jira MCP tools | `gh` CLI (Bash) |
-| **Typical Payload** | 10-15k tokens | 20-50k tokens |
-| **Summary Size** | ~800 tokens | ~800-1000 tokens |
-| **Token Savings** | ~75% | ~80-95% |
-| **Auto-Detection** | jira-auto-detector Skill | gh-pr-auto-detector Skill |
-| **Intent Classification** | No (always full) | Yes (reviews/CI/full) |
-| **Context Resolution** | URL or issue key | Git remote detection |
-
----
-
-## 📊 Datadog Integration
-
-### The Problem: Massive Observability Data Payloads
-
-Datadog observability queries can return enormous amounts of data:
-- Log searches with thousands of entries (10k+ tokens)
-- Metrics with detailed timeseries data (5k-20k tokens)
-- APM traces with complete span trees (10k-30k tokens)
-- Incident details with full history and comments (5k-15k tokens)
-- Dashboard definitions with all widgets and queries (10k-50k tokens)
-
-A single Datadog query can return 10k-50k tokens, overwhelming the context window and making it difficult to analyze observability data alongside code.
-
-### The Solution: Datadog Analyzer Subagent
-
-The plugin uses a **specialized subagent** (`datadog-analyzer`) that operates in isolated context:
-
-```
-User mentions: "Check error rate of pb-backend-web service"
-       ↓
-datadog-auto-detector Skill activates
-       ↓
-Parses intent (metrics query) and parameters
-       ↓
-Spawns datadog-analyzer subagent (Task tool)
-       ↓
-Subagent Context (Isolated):
-  - Uses Datadog MCP tools to fetch data
-  - Fetches 10-50k token observability payload
-  - Analyzes and condenses to key findings
   - Burns tokens privately
        ↓
 Returns clean summary (~800-1200 tokens)
        ↓
-Main Context receives summary
+Main Context receives summary (75-95% token savings!)
        ↓
-User gets relevant observability insights
-  (Main context stays clean!)
+User gets relevant context without context pollution
 ```
 
-### Benefits
+### Three-Tier Pattern
 
-- **75-80% Token Reduction**: Saves 8-40k tokens per observability query
-- **Comprehensive Resource Support**: Logs, metrics, traces, incidents, monitors, services, dashboards, events, RUM
-- **URL Parsing**: Automatically extracts query parameters from Datadog URLs
-- **Natural Language Queries**: Understands "error rate of service", "logs for service", "active incidents"
-- **Intent Classification**: Full Context, Specific Query, Quick Status, Investigation, Comparison
-- **Smart Context Management**: Avoids duplicate fetches, reuses recent data
-- **Cleaner Context**: Main workflow focuses on problem-solving, not raw observability data
+All integrations follow the same consistent pattern:
 
-### Automatic Datadog Detection
+#### **Tier 1: Skills** (Auto-Detection)
+Automatic detection across ALL conversations. Just mention a resource and get context.
 
-#### **Tier 1: Automatic Detection (Skill)** ⭐ Primary
+- **jira-auto-detector**: Detects Jira issue patterns (EC-1234, IS-8046)
+- **gh-pr-auto-detector**: Detects PR patterns (URLs, #123, owner/repo#123)
+- **gh-issue-analyzer**: Detects GitHub issue patterns
+- **datadog-auto-detector**: Detects Datadog URLs and natural language queries
 
-**datadog-auto-detector Skill** - Works across ALL conversations
-
-**Location**: `schovi/skills/datadog-auto-detector/SKILL.md`
-
-**How it works:**
-- Detects Datadog URL patterns (logs, APM, metrics, dashboards, incidents, monitors)
-- Detects natural language queries ("error rate of service", "logs for service")
-- Parses service names and time ranges from context
-- Intelligently evaluates if context is needed
-- Classifies user intent (Full Context, Specific Query, Investigation, etc.)
-- Spawns datadog-analyzer subagent with appropriate parameters
-- Seamless - just mention Datadog resources and get context
-
-**Use cases:**
-- Natural queries: "Check error rate of pb-backend-web in last hour"
-- URL sharing: "Look at this: https://app.datadoghq.com/.../logs?..."
-- Investigations: "Users report 500 errors, check Datadog"
-- Status checks: "Is pb-backend-web healthy?"
-- Comparisons: "Compare error rates of pb-backend-web and pb-frontend"
-
-**Intelligence:**
-- ✅ Fetch when you ask about observability data
-- ❌ Don't fetch for past tense ("Datadog showed X yesterday")
-- ✅ Parse URLs to extract query parameters
-- ✅ Construct queries from natural language
+**Intelligence Features:**
+- ✅ Fetch when you ask about resources
+- ❌ Skip for past tense mentions ("fixed EC-1234", "merged #123")
 - ✅ Reuse context if already fetched in session
-- ❌ Avoid fetching for vague references
+- ✅ Classify user intent for targeted fetching
+- ❌ Avoid false positives
 
-**Detection Patterns:**
-- **URLs**: All Datadog resource URLs (logs, APM, metrics, dashboards, monitors, incidents)
-- **Natural Language**: "error rate", "logs for", "traces for", "active incidents", "monitor status"
-- **Service References**: Service names in observability context
+#### **Tier 2: Commands** (Explicit Workflows)
+Guaranteed structured workflows with explicit invocation.
 
-#### **Tier 2: Manual Subagent** - Direct access
+- **/schovi:analyze**: Formal problem analysis with Jira/PR/issue integration
+- **/schovi:plan**: Specification generation from analysis
+- **/schovi:implement**: Autonomous implementation execution
+- **/schovi:commit**: Structured git commits with context
+- **/schovi:publish**: PR creation with smart descriptions
 
-**datadog-analyzer Subagent** - Low-level tool
+#### **Tier 3: Subagents** (Execution Layer)
+Low-level tools spawned by Skills/Commands for actual data fetching.
 
-**Location**: `schovi/agents/datadog-analyzer/AGENT.md`
+- **jira-analyzer**: Fetch and condense Jira issues (~800 tokens)
+- **gh-pr-analyzer**: Fetch and condense GitHub PRs (~800-1000 tokens)
+- **gh-issue-analyzer**: Fetch and condense GitHub issues (~800 tokens)
+- **datadog-analyzer**: Fetch and condense observability data (~800-1200 tokens)
+- **spec-generator**: Generate implementation specs (~1500-2500 tokens)
+- **analysis-generator**: Generate problem analyses (~2000-3000 tokens)
 
-**How it works:**
-- Directly spawn via Task tool
-- Use when you need fine control
-- Handles actual Datadog data fetching
+### Token Savings Comparison
 
-**Use cases:**
-- Custom workflows
-- Debugging
-- Advanced scenarios
+| Integration | Typical Payload | Summary Size | Token Savings | Auto-Detection |
+|-------------|----------------|--------------|---------------|----------------|
+| **Jira** | 10-15k tokens | ~800 tokens | ~75% | Issue keys (EC-1234) |
+| **GitHub PR** | 20-50k tokens | ~800-1000 tokens | ~80-95% | URLs, #123, owner/repo#123 |
+| **GitHub Issues** | 10-20k tokens | ~800 tokens | ~75-90% | Issue URLs, owner/repo#123 |
+| **Datadog** | 10-50k tokens | ~800-1200 tokens | ~75-95% | URLs, natural language |
 
-### Examples
+### Key Benefits
 
-#### Example 1: Natural Language Query
+- **Massive Token Reduction**: 75-95% savings across all integrations
+- **Cleaner Context**: Main workflow focuses on code, not external metadata
+- **Better Analysis**: More context window for codebase exploration
+- **Scalable**: Handles any payload size (10k-50k tokens)
+- **Consistent Pattern**: Same architecture across all integrations
+- **Intelligent Fetching**: Auto-detection with smart intent classification
+- **Context Reuse**: Avoids duplicate fetches in same conversation
+
+### Architecture Details
+
+**Context Isolation Mechanism:**
+1. Detection layer (Skill) identifies external resource mentions
+2. Intent classification determines what data is needed
+3. Task tool spawns subagent in isolated context
+4. Subagent fetches full payload using appropriate tools (MCP, CLI)
+5. Subagent condenses to essential information with strict token budget
+6. Summary returned to main context for use in analysis/workflow
+7. Original payload discarded, keeping main context clean
+
+**Subagent Responsibilities:**
+- Fetch external data using appropriate tools (MCP tools, `gh` CLI)
+- Extract only actionable information
+- Return structured markdown summaries
+- Never pollute parent context with full payloads
+- Respect strict token budgets (800-3000 tokens)
+
+**Example Workflow (Jira Integration):**
+
+```bash
+# User mentions Jira issue
+/schovi:analyze EC-1234
+
+# Tier 1: jira-auto-detector Skill detects "EC-1234"
+# Tier 3: Spawns jira-analyzer subagent via Task tool
+# Subagent: Fetches 10k token Jira payload in isolated context
+# Subagent: Extracts core info, description (500 chars), top 3 comments, criteria
+# Returns: ~800 token summary to main context
+# Command: Proceeds with codebase analysis using summary
+# Result: 75% token savings, cleaner context
 ```
-User: "Check the error rate of pb-backend-web service in the last hour"
-
-Skill Process:
-✅ Detect: "error rate" + "pb-backend-web" + "last hour"
-✅ Classify: Metrics query, time range specified
-✅ Construct: Query for error-related metrics, service filter
-✅ Spawn datadog-analyzer subagent
-✅ Receive metrics summary with trend analysis
-✅ Present findings
-
-Response:
-"I've checked the error rate for pb-backend-web in the last hour.
-The service has seen 247 errors (0.8% error rate), up from the
-baseline of 0.3%. Key issues: [error patterns]..."
-```
-
-#### Example 2: Datadog URL
-```
-User: "Look at this: https://app.datadoghq.com/.../logs?query=service:pb-backend-web status:error"
-
-Skill Process:
-✅ Detect: Datadog logs URL
-✅ Parse: service=pb-backend-web, status=error, time range from URL
-✅ Classify: Investigation (error logs)
-✅ Spawn datadog-analyzer with parsed parameters
-✅ Receive log summary with error patterns
-✅ Present condensed findings
-
-Response:
-"I've analyzed the error logs for pb-backend-web. Found 156 errors
-in the last 15 minutes. Top patterns: [error summaries]..."
-```
-
-#### Example 3: Investigation Context
-```
-User: "Users are reporting 500 errors on checkout. Can you investigate?"
-
-Skill Process:
-✅ Detect: "500 errors" + "checkout" (observability issue)
-✅ Classify: Investigation (requires logs + traces)
-✅ Construct: Multi-query (logs with status:500, traces for checkout service)
-✅ Spawn datadog-analyzer with investigation intent
-✅ Receive combined summary (logs, traces, affected endpoints)
-✅ Provide root cause analysis
-
-Response:
-"I've investigated the 500 errors in checkout. Found 43 errors in last
-30 minutes affecting /api/checkout/complete endpoint. Root cause:
-Database connection timeout. Traces show: [details]..."
-```
-
-#### Example 4: Active Incidents
-```
-User: "Show me active SEV-1 and SEV-2 incidents"
-
-Skill Process:
-✅ Detect: "incidents" + "SEV-1" + "SEV-2"
-✅ Classify: Incident query with severity filter
-✅ Construct: Query for active incidents with severity:(SEV-1 OR SEV-2)
-✅ Spawn datadog-analyzer
-✅ Receive incident summary
-✅ List incidents with key details
-
-Response:
-"Found 2 active high-severity incidents:
-1. SEV-1: Payment Gateway Timeout (started 15m ago)
-2. SEV-2: Dashboard Loading Slow (started 1h ago)
-Details: [incident summaries]..."
-```
-
-### Comparison with Other Integrations
-
-| Feature | Jira Analyzer | PR Analyzer | Datadog Analyzer |
-|---------|---------------|-------------|------------------|
-| **Data Source** | Jira MCP tools | `gh` CLI | Datadog MCP tools |
-| **Typical Payload** | 10-15k tokens | 20-50k tokens | 10-50k tokens |
-| **Summary Size** | ~800 tokens | ~800-1000 tokens | ~800-1200 tokens |
-| **Token Savings** | ~75% | ~80-95% | ~75-95% |
-| **Auto-Detection** | jira-auto-detector Skill | gh-pr-auto-detector Skill | datadog-auto-detector Skill |
-| **Intent Classification** | No (always full) | Yes (reviews/CI/full) | Yes (logs/metrics/investigation/etc.) |
-| **URL Parsing** | Issue key only | PR URL/number | Complex URL parsing (all resource types) |
-| **Natural Language** | Limited | Limited | Extensive (service queries, error rates, etc.) |
-
----
-
-## 📋 Specification Generation Architecture
-
-### The Problem: Analysis to Implementation Gap
-
-After problem analysis, there's often a gap between exploration (understanding the problem) and execution (implementing the solution):
-- Analysis outputs multiple options - which one was chosen?
-- Why was that approach selected over alternatives?
-- What are the specific implementation steps?
-- What are the testable acceptance criteria?
-- How should this be tested and rolled out?
-
-Without a formal spec, implementation can drift from the analyzed approach, decisions are forgotten, and there's no approval gate before coding begins.
-
-### The Solution: Spec Generator Subagent
-
-The plugin uses a **specialized subagent** (`spec-generator`) that operates in isolated context:
-
-```
-User invokes: /schovi:plan
-       ↓
-Command resolves input (conversation/Jira/file)
-       ↓
-Analysis content may be 5-20k tokens
-       ↓
-Spawns spec-generator subagent (Task tool)
-       ↓
-Subagent Context (Isolated):
-  - Processes large analysis payload
-  - Extracts technical details
-  - Structures into template
-  - Generates tasks and criteria
-  - Burns tokens privately
-       ↓
-Returns polished spec (~1.5-2.5k tokens)
-       ↓
-Command handles output (terminal/file/Jira)
-  (Main context stays clean!)
-```
-
-### Benefits
-
-- **Context Isolation**: Analysis processing happens in subagent, main context stays clean
-- **Structured Output**: Consistent spec format with all required sections
-- **Decision Documentation**: Rationale preserved for future reference
-- **Approval Gate**: Formal checkpoint before implementation begins
-- **Flexible Input**: Works from conversation, Jira, files, or from scratch
-- **Multiple Outputs**: Terminal display, file save, Jira posting
-
-### Subagent: spec-generator
-
-Located at: `schovi/agents/spec-generator/AGENT.md`
-
-**Responsibilities:**
-- Process analysis content in isolated context
-- Extract technical details (flows, files, dependencies)
-- Break down approach into actionable tasks
-- Generate testable acceptance criteria
-- Structure risks and mitigation strategies
-- Return formatted markdown spec
-
-**Input Format:**
-```markdown
-## Input Context
-
-### Problem Summary
-[Problem description]
-
-### Chosen Approach
-Option 2: [Solution name]
-[Approach details]
-
-### Technical Details
-- Affected files: [file:line references]
-- User flow: [flow description]
-- Data flow: [flow description]
-
-### Template Type
-[full|minimal]
-```
-
-**Output Format:**
-```markdown
----
-jira_id: EC-1234
-title: "Brief description"
-status: "DRAFT"
-approach_selected: "Option 2: Solution name"
----
-
-# SPEC: EC-1234 Description
-
-## Decision & Rationale
-[Why this approach was chosen]
-
-## Technical Overview
-[Data flows, affected services]
-
-## Implementation Tasks
-- [ ] Phase 1 tasks
-- [ ] Phase 2 tasks
-
-## Acceptance Criteria
-- [ ] Testable criteria
-
-## Testing Strategy
-[Unit, integration, manual tests]
-
-## Risks & Mitigations
-[Known risks and how to address them]
-```
-
-**Token Budget:** Max 3000 tokens output (typically ~1.5-2.5k)
-
-### Workflow Integration
-
-The spec-generator fits between analysis and implementation:
-
-```
-1. Problem Analysis (/analyze)
-   - Understand problem
-   - Explore codebase
-   - Propose options
-
-2. Specification Creation (/plan)  ← NEW STEP
-   - Choose approach
-   - Document decision
-   - Structure implementation
-   - Define success criteria
-
-3. Implementation (start-implementation)
-   - Follow spec
-   - Check off tasks
-   - Verify criteria
-```
-
-This creates a clear handoff: analysis explores possibilities, spec documents decisions, implementation executes the plan.
 
 ---
 
@@ -1456,63 +612,7 @@ If analysis seems shallow:
 
 ## 📝 Version History
 
-### v1.4.0 (Current)
-- Refactored Analysis Generation
-  - Context isolation for analysis generation via `analysis-generator` subagent
-  - Analysis artifacts saved to files by default (`analysis-[jira-id].md`)
-  - Support for quick vs full analysis modes (`--quick` flag)
-  - Multiple output destinations (terminal/file/Jira)
-  - New output flags: `--output PATH`, `--no-file`, `--quiet`, `--post-to-jira`
-  - Consistent architecture with `plan` pattern
-  - Token efficiency: 30-40% savings in main context
-  - Analysis template (`templates/analysis-template.md`) documents structure
-- Updated workflow: Analysis now produces reusable artifacts
-- Matches plan pattern: Exploration → Subagent → Output Handling
-
-### v1.3.0
-- Added Implementation Execution
-  - `/schovi:implement` command for autonomous task execution
-  - Parse specs to extract implementation tasks and acceptance criteria
-  - Execute tasks with full autonomy (no interruptions)
-  - Phase-based git commits with descriptive messages
-  - Project type detection (Node.js, Python, Go, Ruby, Rust)
-  - Automatic validation (linting, type checking, tests)
-  - Auto-fix validation issues when possible
-  - Acceptance criteria verification
-  - Uses Haiku model for efficient execution
-  - Comprehensive error handling and progress reporting
-- Updated workflow documentation in CLAUDE.md (Phase 4 added)
-- Completes the workflow: Analysis → Spec → Implementation
-
-### v1.2.0
-- Added Specification Generation
-  - `/schovi:plan` command for implementation spec generation
-  - `spec-generator` subagent for context-isolated spec creation
-  - Flexible input sources (conversation, Jira, file, from-scratch)
-  - Multiple output options (terminal, file, Jira posting)
-  - Full and minimal spec templates
-  - Bridges analysis and implementation workflow
-- Updated workflow documentation in CLAUDE.md (Phase 2 added)
-
-### v1.1.0
-- Added GitHub PR integration
-  - `gh-pr-analyzer` subagent for context-isolated PR fetching
-  - `gh-pr-auto-detector` skill for automatic PR detection
-  - Intent classification (reviews/CI/full context)
-  - Repository context detection from git remote
-  - 75-80% token reduction for PR analysis
-- Enhanced documentation with PR examples
-
-### v1.0.0
-- Initial release
-- `/analyze` command
-- Smart clarification detection
-- Deep codebase analysis workflow
-- Multi-option solution proposals
-- Jira integration (read-only)
-  - `jira-analyzer` subagent
-  - `jira-auto-detector` skill
-- Sonnet model for thorough analysis
+See [CHANGELOG.md](./CHANGELOG.md) for detailed version history and changes.
 
 ## 📄 License
 
