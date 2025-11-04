@@ -1,6 +1,6 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, and solution proposals
-argument-hint: [jira-id|description]
+argument-hint: [jira-id|pr-url|#pr-number|description]
 allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
@@ -18,6 +18,10 @@ You are performing a **comprehensive problem analysis** for a bug or feature req
 
 Determine input type:
 - **Jira Issue ID**: Matches pattern `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
+- **GitHub PR**: Matches patterns:
+  - Full URL: `https://github.com/owner/repo/pull/123`
+  - Short reference: `owner/repo#123`
+  - Issue number: `#123` (requires git remote detection)
 - **Textual Description**: Free-form problem statement
 - **Empty/Unclear**: Missing or ambiguous input
 
@@ -96,6 +100,56 @@ NEVER fetch Jira directly using mcp__jira__* tools - always delegate to the suba
 This prevents massive Jira payloads from polluting your context.
 ```
 
+**If GitHub PR Provided**:
+```
+IMPORTANT: Delegate to the pr-analyzer subagent to prevent context pollution.
+
+1. Acknowledge detection:
+   🛠️ **[Analyze-Problem]** Detected GitHub PR: [PR reference]
+   ⏳ Fetching PR details via pr-analyzer...
+
+2. Use the Task tool to invoke the pr-analyzer subagent:
+   prompt: "Fetch and summarize GitHub PR [URL, owner/repo#123, or #123]"
+   subagent_type: "schovi:pr-analyzer:pr-analyzer"
+   description: "Fetching GitHub PR summary"
+
+3. The subagent will:
+   - Fetch the full PR payload via gh CLI (~20-50k tokens) in its isolated context
+   - Extract ONLY essential information
+   - Return a clean summary (~800-1000 tokens) with visual wrappers:
+
+   ╭─────────────────────────────────────╮
+   │ 🔍 PR ANALYZER                      │
+   ╰─────────────────────────────────────╯
+
+   [Structured summary content]
+
+   ╭─────────────────────────────────────╮
+     ✅ Summary complete | ~[X] tokens
+   ╰─────────────────────────────────────╯
+
+4. After receiving the summary, acknowledge:
+   ✅ **[Analyze-Problem]** PR details fetched successfully
+
+5. You will receive a structured summary containing:
+   - Core information (PR number, title, state, author, base/head branches)
+   - Condensed description (max 500 chars)
+   - Top 5 changed files with stats
+   - CI check status (failures only)
+   - Key reviews (max 3, failures/blocks prioritized)
+   - Important comments (max 5)
+
+6. Use this summary to understand:
+   - Why the PR is failing (CI checks, review feedback)
+   - What changes were made (affected files and their impact)
+   - What needs to be fixed based on failures
+   - Test failures or build issues
+   - Code quality concerns from reviews
+
+NEVER fetch PR details directly using gh CLI - always delegate to the subagent.
+This prevents massive PR payloads from polluting your context.
+```
+
 **If Textual Description Provided**:
 ```
 1. Parse the problem statement carefully
@@ -112,6 +166,7 @@ This prevents massive Jira payloads from polluting your context.
 ```
 1. Ask user: "Please provide either:
    - A Jira issue ID (e.g., EC-1234)
+   - A GitHub PR (URL, owner/repo#123, or #123)
    - A problem description with context"
 2. Wait for response and restart this phase
 ```
