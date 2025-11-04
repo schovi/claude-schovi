@@ -127,29 +127,31 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Location**: `schovi/commands/publish.md`
 
-**Purpose**: Create GitHub pull requests with automated branch pushing and smart description generation
+**Purpose**: Create or update GitHub pull requests with automated branch pushing and smart description generation
 
 **Workflow**:
 1. **Phase 1: Input Parsing** - Parse Jira ID, spec file, flags; auto-detect from branch name
-2. **Phase 2: Git State Validation** - Check branch (block main/master), validate naming, check uncommitted changes
+2. **Phase 2: Git State Validation** - Check branch (block main/master), validate naming, check uncommitted changes, detect existing PR
 3. **Phase 3: Branch Pushing** - Auto-push with upstream tracking, verify push succeeded
 4. **Phase 4: Description Source Detection** - Search for spec file → Jira issue → commit history
 5. **Phase 5: PR Description Generation** - Create structured description (Problem/Solution/Changes/Other)
 6. **Phase 6: PR Title Generation** - Format with Jira ID or from commits (50-100 chars)
-7. **Phase 7: PR Creation & Verification** - Execute gh pr create, verify, display URL, run confetti
+7. **Phase 7: PR Creation/Update & Verification** - Execute gh pr create (draft by default) or gh pr edit for updates, verify, display URL, run confetti
 
 **Input Options**:
 - Jira ID (EC-1234)
 - Spec file path (./spec-EC-1234.md)
-- Flags: --draft, --base, --title, --no-push, --spec
+- Flags: --ready, --base, --title, --no-push, --spec
 
 **Key Features**:
-- **Auto-Push**: Always push branch before creating PR (unless --no-push)
+- **Draft by Default**: Creates draft PRs by default for safer workflow, use --ready for ready PRs
+- **Update Support**: Automatically detects and updates existing PRs when called multiple times
+- **Auto-Push**: Always push branch before creating/updating PR (unless --no-push)
 - **Smart Description**: Auto-detects best source (spec → Jira → commits priority)
 - **Structured Format**: Problem/Solution/Changes/Other sections
 - **Branch Validation**: Blocks main/master, warns on naming mismatch
 - **Clean State**: Requires no uncommitted changes
-- **Confetti**: Runs confetti celebration on successful PR creation
+- **Confetti**: Runs confetti celebration on successful PR creation or update
 
 **Description Source Intelligence**:
 ```
@@ -172,9 +174,27 @@ Priority 3: Commit history (git log)
 
 **PR Creation Format**:
 ```bash
+# Default: Draft PR
+gh pr create --draft --title "EC-1234: Description" \
+             --base main \
+             --body "$(cat <<'EOF' ... EOF)"
+
+# With --ready flag: Ready PR
 gh pr create --title "EC-1234: Description" \
              --base main \
              --body "$(cat <<'EOF' ... EOF)"
+```
+
+**PR Update Format**:
+```bash
+# Update description
+gh pr edit <number> --body "$(cat <<'EOF' ... EOF)"
+
+# Update title (if --title flag)
+gh pr edit <number> --title "New title"
+
+# Convert draft to ready (if --ready flag)
+gh pr ready <number>
 ```
 
 **Integration**: Standalone manual command (not auto-executed by implement)
