@@ -1,7 +1,6 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, and solution proposals
 argument-hint: [jira-id|description]
-model: sonnet
 allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
