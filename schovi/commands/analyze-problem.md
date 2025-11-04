@@ -116,6 +116,49 @@ This prevents massive Jira payloads from polluting your context.
 2. Wait for response and restart this phase
 ```
 
+### Step 1.4: Handle Additional Context (Error Stacktraces, Logs, etc.)
+
+**If user provides additional context** (error stacktraces, logs, screenshots, etc.):
+
+```
+IMPORTANT: Handle pasted content carefully to avoid tool errors.
+
+1. Acknowledge additional context:
+   📎 **[Analyze-Problem]** Additional context provided: [error stacktrace/logs/etc.]
+
+2. Check if the content is directly accessible:
+   - If user mentions "Pasted text #N" or similar references
+   - This indicates Claude Code has stored pasted content
+   - DO NOT try to access it via Bash commands
+   - DO NOT use heredoc syntax to process it
+
+3. If content is NOT directly accessible:
+   Use AskUserQuestion tool:
+   "I see you've referenced additional context (error stacktrace/logs), but I cannot
+   access pasted text references directly. Could you please:
+   - Copy-paste the full error stacktrace directly in your next message, OR
+   - Save it to a file and provide the file path"
+
+4. If content IS accessible (user pasted directly in message):
+   - Extract the relevant information (stack trace, error messages, line numbers)
+   - Document it for use in Phase 2 analysis
+   - Identify:
+     * Exception type and message
+     * File paths and line numbers mentioned
+     * Root cause indicators
+     * Affected components
+
+5. Store extracted context for Phase 2:
+   - File paths from stack trace → Will guide codebase exploration
+   - Exception types → Will guide error handling analysis
+   - Line numbers → Will provide exact code locations to examine
+
+DO NOT:
+- Use Bash with heredoc to process pasted content
+- Attempt to access "Pasted text #N" references directly
+- Assume pasted content format without verification
+```
+
 ---
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
@@ -131,6 +174,54 @@ This prevents massive Jira payloads from polluting your context.
 **After receiving analysis results:**
 ```
 ✅ **[Analyze-Problem]** Codebase analysis complete
+```
+
+### Tool Selection Strategy: Prefer JetBrains MCP When Available
+
+**IMPORTANT**: Before starting analysis, determine which tools to use:
+
+```
+JetBrains MCP tools (mcp__jetbrains__*) provide semantic understanding vs. text-based tools.
+
+✅ PREFER JetBrains tools when available:
+┌────────────────────────────────────────────────────────────────────┐
+│ Instead of...              │ Use JetBrains MCP...                  │
+├────────────────────────────────────────────────────────────────────┤
+│ Grep (text search)         │ mcp__jetbrains__search_in_files_by_text│
+│                            │ - Faster for large codebases          │
+│                            │ - Respects project structure           │
+│                            │ - Can filter by file mask             │
+├────────────────────────────────────────────────────────────────────┤
+│ Read multiple files        │ mcp__jetbrains__get_symbol_info       │
+│ to understand classes      │ - Quick documentation lookup          │
+│                            │ - Shows signatures, types             │
+│                            │ - Includes usage context              │
+├────────────────────────────────────────────────────────────────────┤
+│ Manual issue detection     │ mcp__jetbrains__get_file_problems     │
+│                            │ - IntelliJ inspections                │
+│                            │ - Type errors, warnings               │
+│                            │ - Suggests what to fix                │
+├────────────────────────────────────────────────────────────────────┤
+│ ls/tree commands           │ mcp__jetbrains__list_directory_tree   │
+│                            │ - Respects .gitignore                 │
+│                            │ - Shows project structure             │
+│                            │ - Formatted tree view                 │
+├────────────────────────────────────────────────────────────────────┤
+│ Glob with manual filtering │ mcp__jetbrains__find_files_by_glob    │
+│                            │ - Project-aware search                │
+│                            │ - Excludes build artifacts            │
+│                            │ - Fast indexed search                 │
+└────────────────────────────────────────────────────────────────────┘
+
+❌ FALLBACK to text tools (Grep, Read, Glob) when:
+- JetBrains MCP not available in this project
+- Need regex patterns (use mcp__jetbrains__search_in_files_by_regex)
+- Simple one-off file reads
+
+WORKFLOW:
+1. For targeted queries (specific file/class): Use JetBrains tools directly
+2. For broad exploration: Use Explore subagent (it will use best available tools)
+3. Document which tool set you're using for transparency
 ```
 
 ### Step 2.1: User Flow Mapping
