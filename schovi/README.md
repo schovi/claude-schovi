@@ -353,7 +353,7 @@ The plugin follows Claude Code's standard structure:
     ├── agents/
     │   ├── jira-analyzer/               # Context-isolated Jira subagent
     │   │   └── AGENT.md
-    │   ├── pr-analyzer/                 # Context-isolated GitHub PR subagent
+    │   ├── gh-pr-analyzer/                 # Context-isolated GitHub PR subagent
     │   │   └── AGENT.md
     │   └── spec-generator/              # Context-isolated spec generation subagent
     │       └── AGENT.md
@@ -552,7 +552,7 @@ A single `gh pr view` command can return 20k-50k tokens, overwhelming the contex
 
 ### The Solution: PR Analyzer Subagent
 
-Similar to Jira integration, the plugin uses a **specialized subagent** (`pr-analyzer`) that operates in isolated context:
+Similar to Jira integration, the plugin uses a **specialized subagent** (`gh-pr-analyzer`) that operates in isolated context:
 
 ```
 User mentions: "Review anthropics/claude-code#123"
@@ -561,7 +561,7 @@ gh-pr-auto-detector Skill activates
        ↓
 Evaluates context need & intent
        ↓
-Spawns pr-analyzer subagent (Task tool)
+Spawns gh-pr-analyzer subagent (Task tool)
        ↓
 Subagent Context (Isolated):
   - Runs gh CLI commands (pr view, pr checks, pr diff)
@@ -593,7 +593,7 @@ User gets relevant PR context
    - Full context (default): reviews + CI + code changes
    - Reviews focus: "What are the review comments?"
    - CI focus: "Did tests pass?"
-4. **Delegation**: Uses Task tool to invoke `pr-analyzer` subagent with options
+4. **Delegation**: Uses Task tool to invoke `gh-pr-analyzer` subagent with options
 5. **Isolation**: Subagent fetches PR data via `gh` CLI in its own context
 6. **Extraction**: Subagent condenses:
    - Description (max 500 chars)
@@ -604,9 +604,9 @@ User gets relevant PR context
 7. **Summary**: Subagent returns structured markdown (~800-1000 tokens)
 8. **Integration**: Main context uses summary to answer user's question
 
-### Subagent: pr-analyzer
+### Subagent: gh-pr-analyzer
 
-Located at: `schovi/agents/pr-analyzer/AGENT.md`
+Located at: `schovi/agents/gh-pr-analyzer/AGENT.md`
 
 **Responsibilities:**
 - Parse PR identifiers (URL, owner/repo#123, #123)
@@ -678,7 +678,7 @@ Options: include_reviews=true, include_ci=true
 - Resolves #123 to full identifier using git remote
 - Intelligently evaluates if context is needed
 - Classifies user intent (reviews/CI/full)
-- Spawns pr-analyzer subagent with appropriate options
+- Spawns gh-pr-analyzer subagent with appropriate options
 - Seamless - just mention a PR and get context
 
 **Use cases:**
@@ -704,9 +704,9 @@ Options: include_reviews=true, include_ci=true
 
 #### **Tier 2: Manual Subagent** - Direct access
 
-**pr-analyzer Subagent** - Low-level tool
+**gh-pr-analyzer Subagent** - Low-level tool
 
-**Location**: `schovi/agents/pr-analyzer/AGENT.md`
+**Location**: `schovi/agents/gh-pr-analyzer/AGENT.md`
 
 **How it works:**
 - Directly spawn via Task tool
@@ -728,7 +728,7 @@ Skill Process:
 ✅ Detect pattern: anthropics/claude-code#123
 ✅ Evaluate: Review request → full context needed
 ✅ Classify: Comprehensive review → include_reviews=true, include_ci=true
-✅ Spawn pr-analyzer subagent
+✅ Spawn gh-pr-analyzer subagent
 ✅ Receive summary with reviews, CI, code changes
 ✅ Provide comprehensive review feedback
 
@@ -747,7 +747,7 @@ Skill Process:
 ✅ Resolve repo: productboard/frontend#456 (from git remote)
 ✅ Evaluate: CI question → context needed
 ✅ Classify: CI focus → include_reviews=false, include_ci=true
-✅ Spawn pr-analyzer with CI-only option
+✅ Spawn gh-pr-analyzer with CI-only option
 ✅ Receive CI summary (no reviews to save tokens)
 ✅ Report CI status
 
@@ -1106,7 +1106,7 @@ If analysis seems shallow:
 
 ### v1.1.0
 - Added GitHub PR integration
-  - `pr-analyzer` subagent for context-isolated PR fetching
+  - `gh-pr-analyzer` subagent for context-isolated PR fetching
   - `gh-pr-auto-detector` skill for automatic PR detection
   - Intent classification (reviews/CI/full context)
   - Repository context detection from git remote

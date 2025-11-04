@@ -41,7 +41,7 @@ schovi/
 │   └── implement.md              # Implementation execution workflow
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
-│   ├── pr-analyzer/AGENT.md      # Fetch & summarize GitHub PR (max 1200 tokens)
+│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (max 1200 tokens)
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   └── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
 └── skills/                        # Auto-detection intelligence
@@ -65,7 +65,7 @@ schovi/
 **Input Sources**:
 - Jira issues (via `jira-analyzer` subagent)
 - GitHub issues (via `gh-issue-analyzer` subagent)
-- GitHub PRs (via `pr-analyzer` subagent)
+- GitHub PRs (via `gh-pr-analyzer` subagent)
 - Free-form descriptions
 
 **Quality Gates** (all must be met):
@@ -83,7 +83,7 @@ schovi/
 - Output: ~800 token summary (core info, description condensed to 500 chars, acceptance criteria max 5, key comments max 3)
 - Token budget: Max 1000 tokens
 
-**pr-analyzer** (`schovi/agents/pr-analyzer/AGENT.md`):
+**gh-pr-analyzer** (`schovi/agents/gh-pr-analyzer/AGENT.md`):
 - Input: PR URL, `owner/repo#123`, or `#123`
 - Uses: `gh` CLI via Bash tool
 - Output: ~800-1000 token summary (core info, description 500 chars, top 5 changed files, failed CI checks only, max 3 reviews, max 5 comments)
@@ -271,7 +271,7 @@ Follow the proven three-tier pattern:
 
 **Subagents**:
 - `schovi/agents/jira-analyzer/AGENT.md`
-- `schovi/agents/pr-analyzer/AGENT.md`
+- `schovi/agents/gh-pr-analyzer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
 

@@ -1,6 +1,6 @@
 ---
 name: gh-pr-auto-detector
-description: Automatically detects GitHub PR mentions (URLs, #123, owner/repo#123) and intelligently fetches condensed context via pr-analyzer subagent when needed for the conversation
+description: Automatically detects GitHub PR mentions (URLs, #123, owner/repo#123) and intelligently fetches condensed context via gh-pr-analyzer subagent when needed for the conversation
 ---
 
 # GitHub PR Auto-Detector Skill
@@ -109,7 +109,7 @@ Enhance user conversations by:
 - "Like we did in #123"
 
 **Already fetched this session:**
-- Check transcript for previous pr-analyzer subagent calls
+- Check transcript for previous gh-pr-analyzer subagent calls
 - Don't re-fetch same PR in same conversation
 - Reuse previously fetched context
 
@@ -182,7 +182,7 @@ For each detected PR, ask yourself:
 - Is it used as an identifier/name?
 
 **Have I already fetched this PR?**
-- Check transcript for `Task` tool calls with "pr-analyzer"
+- Check transcript for `Task` tool calls with "gh-pr-analyzer"
 - Look for "GitHub PR Summary: owner/repo#123" in conversation history
 - If found, reuse that context
 
@@ -217,14 +217,14 @@ When you determine context IS needed:
 ⏳ Fetching PR details...
 ```
 
-**Use the Task tool to spawn pr-analyzer subagent:**
+**Use the Task tool to spawn gh-pr-analyzer subagent:**
 
 ```
 Tool: Task
 Parameters:
   prompt: "Fetch and summarize GitHub PR: [owner/repo#number or URL]
            Options: include_reviews=[true/false], include_ci=[true/false]"
-  subagent_type: "general-purpose"
+  subagent_type: "schovi:gh-pr-analyzer:gh-pr-analyzer"
   description: "Fetching GitHub PR context"
 ```
 
@@ -250,11 +250,11 @@ prompt: "Fetch and summarize GitHub PR: https://github.com/owner/repo/pull/456
 **CRITICAL formatting rules:**
 - Use full identifier format: `owner/repo#number` OR full URL
 - Specify options explicitly when not default
-- Format must be parseable by pr-analyzer subagent
+- Format must be parseable by gh-pr-analyzer subagent
 
 **What you'll receive:**
 
-The pr-analyzer subagent will return a structured summary (~800-1000 tokens) with visual wrappers:
+The gh-pr-analyzer subagent will return a structured summary (~800-1000 tokens) with visual wrappers:
 
 ```markdown
 ╭─────────────────────────────────────╮
@@ -366,7 +366,7 @@ If user mentions multiple PRs (e.g., "Compare #123 and #456"):
 4. ✅ Run: `git remote get-url origin`
 5. ✅ Parse: `https://github.com/productboard/frontend.git` → `productboard/frontend`
 6. ✅ Format: `productboard/frontend#123`
-7. ✅ Spawn pr-analyzer with full identifier
+7. ✅ Spawn gh-pr-analyzer with full identifier
 
 ## Session Memory
 
@@ -459,7 +459,7 @@ When to fetch again even if already fetched:
 
 ✅ **The command will:**
 - Parse PR identifiers from arguments
-- Delegate to pr-analyzer subagent
+- Delegate to gh-pr-analyzer subagent
 - Perform its specific workflow
 
 ✅ **Your role:**
@@ -474,7 +474,7 @@ When to fetch again even if already fetched:
 - "Review anthropics/claude-code#456" → You fetch it
 - "Why did #123 fail CI?" → You fetch it (CI focus)
 
-## Working with pr-analyzer Subagent
+## Working with gh-pr-analyzer Subagent
 
 **Understand the architecture:**
 
@@ -486,7 +486,7 @@ You (Main Claude with Skill)
   ↓ determine repository context
   ↓ spawn subagent via Task tool
   ↓
-pr-analyzer Subagent (Isolated Context)
+gh-pr-analyzer Subagent (Isolated Context)
   ↓ fetches huge PR payload via gh CLI
   ↓ analyzes and extracts essence
   ↓ burns tokens privately
@@ -502,7 +502,7 @@ You receive clean summary
 - **WHAT** to fetch (reviews, CI, full context)
 - **WHAT** to do with summary (integration into response)
 
-**Subagent's responsibilities:**
+**gh-pr-analyzer subagent's responsibilities:**
 - **HOW** to fetch (gh CLI commands, parsing)
 - **WHAT** to extract (summarization, condensing)
 
@@ -520,7 +520,7 @@ You receive clean summary
 3. ✅ Evaluate: Direct question → context needed
 4. ✅ Classify: General question → full context (default)
 5. ✅ Check transcript: Not fetched yet
-6. ✅ Spawn pr-analyzer subagent with full context
+6. ✅ Spawn gh-pr-analyzer subagent with full context
 7. ✅ Receive summary
 8. ✅ Respond with information
 
@@ -545,7 +545,7 @@ You receive clean summary
 4. ✅ Format: `productboard/frontend#456`
 5. ✅ Evaluate: CI question → context needed
 6. ✅ Classify: CI focus → include_reviews=false, include_ci=true
-7. ✅ Spawn pr-analyzer with CI focus
+7. ✅ Spawn gh-pr-analyzer with CI focus
 8. ✅ Receive CI summary
 9. ✅ Respond about CI status
 
@@ -568,7 +568,7 @@ You receive clean summary
 2. ✅ Parse: owner=owner, repo=repo, number=789
 3. ✅ Evaluate: Review request → context needed
 4. ✅ Classify: Review request → full context (reviews + CI + code)
-5. ✅ Spawn pr-analyzer with full context
+5. ✅ Spawn gh-pr-analyzer with full context
 6. ✅ Receive comprehensive summary
 7. ✅ Analyze and provide review feedback
 
@@ -738,7 +738,7 @@ You receive clean summary
 **Trust the architecture:**
 - **You decide WHEN** (intelligence layer)
 - **You decide WHAT** (intent classification)
-- **pr-analyzer decides HOW** (execution layer)
+- **gh-pr-analyzer decides HOW** (execution layer)
 - **User stays in flow** (seamless experience)
 
 **Activation is automatic:**

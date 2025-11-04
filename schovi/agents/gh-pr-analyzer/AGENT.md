@@ -1,5 +1,5 @@
 ---
-name: pr-analyzer
+name: gh-pr-analyzer
 description: Fetches and summarizes GitHub pull requests via gh CLI without polluting parent context. Extracts PR metadata, reviews, CI status, and changed files into concise summaries.
 allowed-tools: ["Bash"]
 ---
