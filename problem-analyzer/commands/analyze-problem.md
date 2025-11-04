@@ -53,15 +53,30 @@ Determine input type:
 
 **If Jira Issue ID Provided**:
 ```
-1. Use mcp__jira__getJiraIssue to fetch full details
-2. Extract:
-   - Summary and description
+IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
+
+1. Use the Task tool to invoke the jira-analyzer subagent:
+   prompt: "Fetch and summarize Jira issue [ISSUE-KEY or URL]"
+   subagent_type: "general-purpose"
+   description: "Fetching Jira issue summary"
+
+2. The subagent will:
+   - Fetch the full Jira payload (~10k tokens) in its isolated context
+   - Extract ONLY essential information
+   - Return a clean summary (~800 tokens)
+
+3. You will receive a structured summary containing:
+   - Core information (key, title, type, status, priority)
+   - Condensed description
    - Acceptance criteria
-   - Affected components/labels
-   - Priority and reporter
-   - Linked issues (blockers, duplicates, related)
-   - Comments with additional context
-3. Use this as the primary source of truth
+   - Key comments (max 3)
+   - Related issues
+   - Technical context
+
+4. Use this summary as the primary source of truth for your analysis
+
+NEVER fetch Jira directly using mcp__jira__* tools - always delegate to the subagent.
+This prevents massive Jira payloads from polluting your context.
 ```
 
 **If Textual Description Provided**:
