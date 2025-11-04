@@ -1,6 +1,6 @@
 ---
 description: Create GitHub pull request with smart description generation and validation
-argument-hint: [jira-id|spec-file] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--draft] [--base branch] [--title "text"] [--no-push]
+argument-hint: [jira-id|spec-file] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--ready] [--base branch] [--title "text"] [--no-push]
 allowed-tools: ["Bash", "Read", "Glob", "Grep", "Task", "AskUserQuestion", "Write", "mcp__jira__*"]
 ---
 
@@ -10,31 +10,39 @@ allowed-tools: ["Bash", "Read", "Glob", "Grep", "Task", "AskUserQuestion", "Writ
 │ /schovi:publish - GitHub PR Creation      │
 ╰─────────────────────────────────────────────╯
 
-Creates GitHub pull requests with automatic branch pushing, smart description generation from specs/Jira/commits, and comprehensive validation.
+Creates GitHub pull requests with automatic branch pushing, smart description generation from specs/Jira/commits, and comprehensive validation. PRs are created as drafts by default for safer workflows, with option to create as ready for review.
 
 ## Command Overview
 
-This command creates GitHub pull requests following these principles:
+This command creates or updates GitHub pull requests following these principles:
+- **Draft by default**: Creates draft PRs by default, use --ready for ready PRs
+- **Update support**: Detects and updates existing PRs when called multiple times
 - **Manual workflow**: Standalone command, not auto-executed by implement
 - **Smart description**: Auto-detects best source (spec → Jira → commits)
 - **Auto-push**: Automatically pushes branch before creating PR
 - **Validation**: Ensures clean state, proper branch, no conflicts
-- **Confetti completion**: Celebrates successful PR creation
+- **Confetti completion**: Celebrates successful PR creation or update
 
 ## Usage Patterns
 
 ```bash
-# Auto-detect everything (spec, Jira, commits)
+# Auto-detect everything (spec, Jira, commits) - creates DRAFT PR
 /schovi:publish
 
-# With Jira context
+# With Jira context - creates DRAFT PR
 /schovi:publish EC-1234
 
-# With specific spec file
+# With specific spec file - creates DRAFT PR
 /schovi:publish ./spec-EC-1234.md
 
-# Create as draft PR
-/schovi:publish --draft
+# Create as READY PR (ready for review)
+/schovi:publish --ready
+
+# Update existing PR (regenerates description)
+/schovi:publish
+
+# Update existing PR and mark as ready
+/schovi:publish --ready
 
 # Specify base branch
 /schovi:publish --base develop
@@ -46,7 +54,7 @@ This command creates GitHub pull requests following these principles:
 /schovi:publish --no-push
 
 # Combine flags
-/schovi:publish EC-1234 --draft --base develop
+/schovi:publish EC-1234 --ready --base develop
 ```
 
 ---
@@ -72,7 +80,7 @@ Parse the user's input to detect:
    - --post-to-jira: Post PR link as Jira comment (requires Jira ID)
 
    PR flags:
-   - --draft: Create as draft PR
+   - --ready: Create as ready for review (default: draft)
    - --base <branch>: Specify base branch (default: main)
    - --title "text": Override auto-generated title
    - --no-push: Skip automatic branch pushing
@@ -262,6 +270,52 @@ git log @{u}..HEAD --oneline
 **Commit Status**:
 - Local commits: 5
 - Unpushed commits: 3 [or "All pushed" if 0]
+
+Proceeding to push branch...
+```
+
+### Step 2.6: Check for Existing PR
+
+Query GitHub to determine if a PR already exists for the current branch:
+
+```bash
+# Check for existing PR on current branch
+gh pr list --head $(git branch --show-current) --json number,url,title,isDraft,state
+```
+
+**Analyze output**:
+- **Empty array []**: No existing PR → **CREATE mode**
+- **PR data returned**: Existing PR found → **UPDATE mode**
+
+**Set mode for subsequent phases**:
+- Store PR number, URL, title, isDraft status if found
+- Flag: `MODE=CREATE` or `MODE=UPDATE`
+
+**Display (if UPDATE mode detected)**:
+```markdown
+╭─────────────────────────────────────────────╮
+│ 🔄 EXISTING PR DETECTED - UPDATE MODE       │
+╰─────────────────────────────────────────────╯
+
+**Existing PR**: #123
+**Title**: EC-1234: Add JWT authentication to user login
+**URL**: https://github.com/owner/repo/pull/123
+**Status**: Draft [or "Ready for review"]
+**State**: Open
+
+This command will UPDATE the existing PR instead of creating a new one.
+
+**What will be updated**:
+- ✅ PR description (regenerated from spec/Jira/commits)
+- ✅ PR title (only if --title flag provided)
+- ✅ Draft/Ready state (only if --ready flag provided and currently draft)
+
+Proceeding with PR update...
+```
+
+**Display (if CREATE mode)**:
+```markdown
+✅ **No existing PR found** - Will create new PR
 
 Proceeding to push branch...
 ```
@@ -709,15 +763,17 @@ git branch -r
 **Suggestion**: Use `--base main` or check branch name spelling
 ```
 
-### Step 7.2: Execute PR Creation
+### Step 7.2: Execute PR Creation (CREATE mode only)
 
 ```
 IMPORTANT: Use HEREDOC format for multi-line PR description.
+IMPORTANT: This step only runs in CREATE mode (no existing PR).
+           For UPDATE mode, skip to Step 7.2b.
 ```
 
-**Command structure**:
+**Default behavior (draft PR)**:
 ```bash
-gh pr create \
+gh pr create --draft \
     --title "EC-1234: Add JWT authentication to user login" \
     --base main \
     --body "$(cat <<'EOF'
@@ -750,12 +806,91 @@ EOF
 )"
 ```
 
-**If --draft flag provided**:
+**If --ready flag provided**:
 ```bash
-gh pr create --draft \
+gh pr create \
     --title "..." \
     --base main \
     --body "$(cat <<'EOF' ... EOF)"
+```
+
+Note: Without --ready flag, --draft is added by default.
+
+### Step 7.2b: Execute PR Update (UPDATE mode only)
+
+```
+IMPORTANT: This step only runs in UPDATE mode (existing PR detected).
+           For CREATE mode, use Step 7.2 instead.
+```
+
+**When existing PR detected in Phase 2.6**:
+
+1. **Update PR description** (always):
+```bash
+gh pr edit <PR_NUMBER> --body "$(cat <<'EOF'
+## Problem
+
+[Full regenerated PR description from spec/Jira/commits]
+
+## Solution
+
+...
+
+## Changes
+
+...
+
+## Other
+
+...
+
+---
+
+Related to: EC-1234
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+```
+
+2. **Update PR title** (only if --title flag provided):
+```bash
+gh pr edit <PR_NUMBER> --title "New custom title"
+```
+
+3. **Convert draft to ready** (only if --ready flag AND PR is currently draft):
+```bash
+# First check if PR is draft
+if [ "$IS_DRAFT" = "true" ]; then
+    gh pr ready <PR_NUMBER>
+fi
+```
+
+**Display (UPDATE mode)**:
+```markdown
+╭─────────────────────────────────────────────╮
+│ ✅ PULL REQUEST UPDATED SUCCESSFULLY        │
+╰─────────────────────────────────────────────╯
+
+🔄 **PR #123**: EC-1234: Add JWT authentication to user login
+🔗 **URL**: https://github.com/owner/repo/pull/123
+🌿 **Branch**: feature/user-auth → main
+💬 **Status**: Draft [or "Ready for review (converted from draft)" if --ready used]
+
+**What was updated**:
+- ✅ PR description regenerated from: [spec file | Jira issue | commit history]
+- ✅ PR title updated [only if --title flag provided]
+- ✅ Marked as ready for review [only if --ready flag provided and was draft]
+
+**Next Steps**:
+1. 👀 Review changes: Open URL above
+2. 👥 Request reviewers: `gh pr edit 123 --add-reviewer @username`
+3. 🏷️  Add labels: `gh pr edit 123 --add-label "enhancement"`
+4. ✅ Monitor CI checks: `gh pr checks 123`
+
+PR successfully updated! 🎉
 ```
 
 ### Step 7.3: Capture PR Output
@@ -925,22 +1060,7 @@ Display: `🎉 **Confetti time!** 🎉`
 
 ### Common Errors
 
-**Error 1: PR Already Exists**
-```markdown
-❌ **Pull Request Already Exists**
-
-A pull request already exists for this branch:
-- PR #100: EC-1234: Previous PR
-- URL: https://github.com/owner/repo/pull/100
-
-**Suggested Actions**:
-1. View existing PR: `gh pr view 100`
-2. Update existing PR: Make new commits and push
-3. Close existing PR: `gh pr close 100` (then run this command again)
-4. Create from different branch: Switch branches and try again
-```
-
-**Error 2: Base Branch Doesn't Exist**
+**Error 1: Base Branch Doesn't Exist**
 ```markdown
 ❌ **Base Branch Not Found**
 
@@ -958,7 +1078,7 @@ The specified base branch does not exist on remote.
 3. Create base branch first: `git push origin HEAD:develop`
 ```
 
-**Error 3: GitHub CLI Not Authenticated**
+**Error 2: GitHub CLI Not Authenticated**
 ```markdown
 ❌ **GitHub CLI Authentication Required**
 
@@ -969,7 +1089,7 @@ GitHub CLI is not authenticated. Cannot create PR.
 Follow the prompts to authenticate with GitHub.
 ```
 
-**Error 4: No Commits on Branch**
+**Error 3: No Commits on Branch**
 ```markdown
 ❌ **No Commits to Create PR**
 
@@ -985,7 +1105,7 @@ The current branch has no commits different from base branch.
 3. Switch to correct branch: `git checkout <branch-with-commits>`
 ```
 
-**Error 5: Repository Not Found**
+**Error 4: Repository Not Found**
 ```markdown
 ❌ **Repository Not Found on GitHub**
 
@@ -1004,7 +1124,7 @@ The remote repository does not exist on GitHub or is not accessible.
 3. Update remote: `git remote set-url origin <correct-url>`
 ```
 
-**Error 6: Network/API Errors**
+**Error 5: Network/API Errors**
 ```markdown
 ❌ **GitHub API Error**
 
@@ -1023,33 +1143,35 @@ Failed to communicate with GitHub API.
 
 ## SPECIAL CASES
 
-### Case 1: Draft PR Creation
+### Case 1: Ready PR Creation
 
-When `--draft` flag is provided:
+When `--ready` flag is provided:
 
 **Behavior**:
-- Create PR in draft state
-- Draft PRs don't trigger review requests
-- Draft PRs don't allow merging until marked ready
-- Useful for work-in-progress or early feedback
+- Create PR as ready for review (not draft)
+- Review requests can be sent immediately
+- PR can be merged when approved
+- Use when changes are complete and ready for team review
 
 **Command**:
 ```bash
-gh pr create --draft --title "..." --body "..." --base main
+gh pr create --title "..." --body "..." --base main
 ```
 
 **Display**:
 ```markdown
-✅ **Pull Request Created as Draft**
+✅ **Pull Request Created (Ready for Review)**
 
-📝 **PR #123** (DRAFT): EC-1234: Add JWT authentication
+📝 **PR #123**: EC-1234: Add JWT authentication
 🔗 **URL**: https://github.com/owner/repo/pull/123
 
-**Draft Status**: PR is in draft mode
-- No review requests sent yet
-- Cannot be merged until marked ready
+**Status**: Ready for review
+- Can request reviewers immediately
+- Can be merged when approved
+- Not in draft state
 
-**When ready**: `gh pr ready 123` to mark as ready for review
+**Note**: Without --ready flag, PRs are created as drafts by default
+**Mark as draft later**: `gh pr ready 123 --undo`
 ```
 
 ### Case 2: Custom Base Branch
@@ -1223,7 +1345,21 @@ Consider updating PR description with:
 
 7. **Integration with Workflow**:
    - Standalone command (not auto-executed)
-   - User decides when to create PR
+   - User decides when to create or update PR
    - Works with existing commit/implement commands
    - Celebrates completion with confetti
+
+8. **CREATE vs UPDATE Mode**:
+   - Automatically detect existing PR in Phase 2.6
+   - CREATE mode: Use `gh pr create --draft` (default) or without --draft (if --ready)
+   - UPDATE mode: Use `gh pr edit` for description/title, `gh pr ready` for draft→ready
+   - Always regenerate description in both modes for consistency
+   - Preserve PR state unless --ready flag explicitly changes it
+
+9. **Draft by Default Philosophy**:
+   - Safer workflow: Draft PRs allow review before requesting reviewers
+   - Prevents accidental review notifications
+   - User must explicitly opt-in to ready state with --ready flag
+   - Can convert draft→ready anytime with `gh pr ready`
+   - Can convert ready→draft with `gh pr ready --undo`
 
