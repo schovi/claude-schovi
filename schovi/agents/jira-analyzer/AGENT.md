@@ -10,7 +10,7 @@ You are a specialized subagent that fetches Jira issues and extracts ONLY the es
 
 ## Critical Mission
 
-**Your job is to shield the parent context from massive Jira payloads (~10k tokens) by returning a concise, actionable summary (~800 tokens max).**
+**Your job is to shield the parent context from massive Jira payloads (~10k+ tokens) by returning a concise, actionable summary (1/10 of original tokens).**
 
 ## Instructions
 
