@@ -1,7 +1,7 @@
 {
   "name": "schovi",
   "version": "1.4.0",
-  "description": "Complete workflow automation for software engineering - problem analysis, specification generation, autonomous implementation, Jira integration, GitHub PR integration, and intelligent code exploration",
+  "description": "Complete workflow automation for software engineering - problem analysis, specification generation, autonomous implementation, structured git commits, Jira integration, GitHub PR/issue integration, and intelligent code exploration",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com"

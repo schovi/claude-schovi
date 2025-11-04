@@ -327,6 +327,8 @@ Task: "Implement FeatureUpdateService in services/feature-update.ts"
 
 After all tasks in phase are completed, create git commit:
 
+**Note**: This implements simplified phase-based commits. For more advanced commit validation and analysis, see `/schovi:commit` command (branch validation, conventional commits, smart type detection).
+
 **Commit Message Format**:
 ```
 Phase N: [Phase Name from Spec]

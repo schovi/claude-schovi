@@ -10,11 +10,13 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 1. **Analysis** (`/schovi:analyze-problem`) - Understand the problem, explore codebase, propose solutions
 2. **Specification** (`/schovi:create-spec`) - Document decisions, structure implementation, define success
 3. **Implementation** (`/schovi:implement`) - Execute tasks autonomously, validate, commit changes
+4. **Commit Management** (`/schovi:commit`) - Create structured commits with validation and smart analysis
 
 **Key Features**:
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Automatic GitHub PR Detection**: Intelligent Skill that detects PR mentions and fetches condensed context (reviews, CI status, code changes) without polluting main context
 - **GitHub Issue Support**: Fetch and analyze GitHub issues with the same context-isolated approach as Jira and PRs
+- **Smart Git Commits**: Create structured commits with conventional format, branch validation, and automatic change analysis
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
 - **Smart Clarification**: Automatically detects ambiguous inputs and asks targeted questions before analysis
 - **Context-Isolated Fetching**: Uses specialized subagents to fetch and summarize Jira issues, GitHub PRs, and GitHub issues without polluting main context (reduces token usage by 75-80%)
@@ -143,6 +145,62 @@ Autonomously executes implementation tasks from specification with validation an
 - ⏳ Git worktree setup (coming in v1.4.0)
 - ⏳ Jira status updates (coming in v1.4.0)
 - ⏳ PR creation (coming in v1.4.0)
+
+#### `/schovi:commit` - Structured Git Commits
+
+```bash
+/schovi:commit [jira-id|github-issue|github-pr|notes] [--message "text"] [--staged-only]
+```
+
+Creates well-structured git commits with automatic change analysis, validation, and optional external context fetching.
+
+**Input Options:**
+- `jira-id` - Include Jira context in commit (e.g., EC-1234)
+- `github-issue` - Include GitHub issue context (URL or owner/repo#123)
+- `github-pr` - Include GitHub PR context (URL or owner/repo#123)
+- `notes` - Free-form notes to guide commit message
+- No args - Auto-analyze staged changes and create commit
+
+**Flags:**
+- `--message "text"` - Override auto-generated message with custom text
+- `--staged-only` - Only commit staged changes (don't auto-stage all)
+- `--type prefix` - Specify commit type (feat, fix, chore, etc.)
+
+**Features:**
+- **Conventional Commits**: Automatic type detection (feat, fix, chore, refactor, docs, test, style, perf)
+- **Smart Validation**: Blocks commits on main/master, validates branch naming against Jira ID
+- **Change Analysis**: Analyzes git diff to generate descriptive commit messages with bullet points
+- **Optional Context Fetching**: Fetches Jira/GitHub context only when diff analysis is unclear
+- **Multi-line Messages**: Title + description paragraph + bullet points + related references + Claude Code footer
+
+**Commit Message Format:**
+```
+PREFIX: Brief title (50-72 chars)
+
+Short paragraph explaining problem/solution/changes
+
+- Bullet point 1 (specific change)
+- Bullet point 2 (specific change)
+- Bullet point 3 (specific change)
+
+Related to: [JIRA-ID or GitHub reference]
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Validation Rules:**
+- ❌ Blocks commits on main/master branches
+- ⚠️  Warns if branch name doesn't match Jira issue key
+- ❌ Errors if no changes to commit
+- ❌ Errors if merge conflicts detected
+
+**Default Behavior**:
+- Auto-stages all changes with `git add .`
+- Analyzes changes to determine commit type
+- Generates descriptive multi-line commit message
+- Verifies commit created successfully
 
 ### Examples
 
