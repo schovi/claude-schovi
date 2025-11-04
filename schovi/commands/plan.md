@@ -22,27 +22,27 @@ You are **creating an implementation specification** that bridges problem analys
 Parse arguments first. If any explicit input provided, use it immediately.
 
 1. **Jira Issue ID**: Matches pattern `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
-   - Command: `/schovi:create-spec EC-1234`
+   - Command: `/schovi:plan EC-1234`
    - Action: Fetch from Jira via jira-analyzer subagent
 
 2. **GitHub Issue URL**: Matches pattern `https://github.com/[owner]/[repo]/issues/\d+` or `[owner]/[repo]#\d+`
-   - Command: `/schovi:create-spec https://github.com/owner/repo/issues/123`
-   - Command: `/schovi:create-spec owner/repo#123`
+   - Command: `/schovi:plan https://github.com/owner/repo/issues/123`
+   - Command: `/schovi:plan owner/repo#123`
    - Action: Fetch from GitHub via gh-issue-analyzer subagent
 
 3. **File Path**: Uses `--file` flag
-   - Command: `/schovi:create-spec --file ./analysis.md`
+   - Command: `/schovi:plan --file ./analysis.md`
    - Action: Read markdown file from provided path
 
 4. **From Scratch**: Uses `--from-scratch` flag with description
-   - Command: `/schovi:create-spec --from-scratch "Build user authentication"`
+   - Command: `/schovi:plan --from-scratch "Build user authentication"`
    - Action: Create minimal spec interactively
 
 **PRIORITY 2: File References in Conversation** (Smart Auto-Detect)
 If no explicit arguments, search conversation for file references from previous commands.
 
 5. **Analysis File Reference** (Auto-detect)
-   - Command: `/schovi:create-spec`
+   - Command: `/schovi:plan`
    - Detect: Search last 50 messages for patterns like:
      * "saved to ./analysis-*.md"
      * "Output: ./analysis-*.md"
@@ -54,8 +54,8 @@ If no explicit arguments, search conversation for file references from previous 
 If no explicit arguments AND no file references found, search for raw command output.
 
 6. **Conversation Context** (Auto-detect fallback)
-   - Command: `/schovi:create-spec`
-   - Detect: Search last 50 messages for `/schovi:analyze-problem` output structure
+   - Command: `/schovi:plan`
+   - Detect: Search last 50 messages for `/schovi:analyze` output structure
    - Action: Extract analysis sections from conversation
    - Fallback: If not found, ask user for input
 
@@ -156,7 +156,7 @@ PRIORITY 3: Only executed if no explicit args AND no file references found.
    🔍 **[Create-Spec]** Searching conversation for raw analysis output...
 
 2. Search conversation history (last 50 messages) for:
-   - Messages containing "/schovi:analyze-problem" command invocation
+   - Messages containing "/schovi:analyze" command invocation
    - Messages with analysis output structure:
      * "🎯 1. PROBLEM SUMMARY"
      * "📊 2. CURRENT STATE ANALYSIS"
@@ -301,7 +301,7 @@ NEVER fetch Jira directly - always use subagent for context isolation.
    - Capture user notes and preferences
 
 6. Handle various markdown formats:
-   - Structured analysis output (from analyze-problem)
+   - Structured analysis output (from analyze command)
    - Unstructured notes with bullets
    - Mix of text and code snippets
    - Links and references

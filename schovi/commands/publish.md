@@ -7,7 +7,7 @@ allowed-tools: ["Bash", "Read", "Glob", "Grep", "Task", "AskUserQuestion"]
 # 🚀 Create Pull Request Command
 
 ╭─────────────────────────────────────────────╮
-│ /schovi:create-pr - GitHub PR Creation      │
+│ /schovi:publish - GitHub PR Creation      │
 ╰─────────────────────────────────────────────╯
 
 Creates GitHub pull requests with automatic branch pushing, smart description generation from specs/Jira/commits, and comprehensive validation.
@@ -25,28 +25,28 @@ This command creates GitHub pull requests following these principles:
 
 ```bash
 # Auto-detect everything (spec, Jira, commits)
-/schovi:create-pr
+/schovi:publish
 
 # With Jira context
-/schovi:create-pr EC-1234
+/schovi:publish EC-1234
 
 # With specific spec file
-/schovi:create-pr ./spec-EC-1234.md
+/schovi:publish ./spec-EC-1234.md
 
 # Create as draft PR
-/schovi:create-pr --draft
+/schovi:publish --draft
 
 # Specify base branch
-/schovi:create-pr --base develop
+/schovi:publish --base develop
 
 # Override title
-/schovi:create-pr --title "feat: Add user authentication"
+/schovi:publish --title "feat: Add user authentication"
 
 # Skip auto-push (branch must already be pushed)
-/schovi:create-pr --no-push
+/schovi:publish --no-push
 
 # Combine flags
-/schovi:create-pr EC-1234 --draft --base develop
+/schovi:publish EC-1234 --draft --base develop
 ```
 
 ---
@@ -405,7 +405,7 @@ find . -maxdepth 1 -name "spec-*.md" -type f
 ```
 
 D. Search conversation history:
-- Look for recent `/schovi:create-spec` command output
+- Look for recent `/schovi:plan` command output
 - Search last 30 messages for spec markdown structure
 - Look for YAML frontmatter with spec metadata
 
@@ -414,7 +414,7 @@ D. Search conversation history:
 🔍 **Description Source Detected**: Spec File
 
 **File**: ./spec-EC-1234.md
-**Source**: Specification from create-spec command
+**Source**: Specification from plan command
 
 Reading spec file for PR description...
 ```
@@ -857,7 +857,7 @@ The specified base branch does not exist on remote.
 - production
 
 **Suggested Actions**:
-1. Use main: `/schovi:create-pr --base main`
+1. Use main: `/schovi:publish --base main`
 2. Check spelling: Verify branch name
 3. Create base branch first: `git push origin HEAD:develop`
 ```

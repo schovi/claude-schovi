@@ -785,7 +785,7 @@ Based on analysis output, suggest next actions:
 ```
 **Suggested Next Steps**:
 
-1. 📋 **Create Specification**: Use `/schovi:create-spec [analysis-file]` to generate implementation spec
+1. 📋 **Create Specification**: Use `/schovi:plan [analysis-file]` to generate implementation spec
 2. 💬 **Discuss Approach**: Review solution options and select preferred approach
 3. 🔍 **Deep Dive**: Explore specific technical aspects in more detail
 4. 🎯 **Assign Task**: Update Jira issue with analysis and assign to developer

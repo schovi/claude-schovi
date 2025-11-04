@@ -745,7 +745,7 @@ feat: Add JWT authentication to user login
 1. Continue development: Make more changes and commit again
 2. Review your changes: `git show` or `git log --stat`
 3. Push to remote: `git push` (or `git push -u origin <branch>` for first push)
-4. Create PR: Use `/schovi:analyze-problem` for PR analysis
+4. Create PR: Use `/schovi:analyze` for PR analysis
 
 Keep up the great work! 🚀
 ```

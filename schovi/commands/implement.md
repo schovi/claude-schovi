@@ -52,7 +52,7 @@ Parse arguments first. If any explicit input provided, use it immediately.
 - Pattern match: `[A-Z]+-\d+`
 - Fetch spec from Jira issue comments or description
 - Look for spec markdown structure (YAML frontmatter + sections)
-- If not found, suggest running `/schovi:create-spec EC-1234` first
+- If not found, suggest running `/schovi:plan EC-1234` first
 
 **Option D: Resume Flag**
 ```bash
@@ -146,7 +146,7 @@ If no explicit arguments AND no file references found, search for raw command ou
    ```
 
 2. Search conversation history (last 30 messages) for:
-   - Output from `/schovi:create-spec` command
+   - Output from `/schovi:plan` command
    - Spec markdown with YAML frontmatter
    - Implementation tasks section with checkboxes
 
@@ -162,7 +162,7 @@ If no explicit arguments AND no file references found, search for raw command ou
    **Suggestions**:
    1. Provide spec file path: /schovi:implement ./spec-EC-1234.md
    2. Provide Jira ID: /schovi:implement EC-1234
-   3. Create spec first: /schovi:create-spec
+   3. Create spec first: /schovi:plan
    ```
 
    Exit with error
@@ -868,7 +868,7 @@ Before declaring implementation complete, verify:
 - Conversation history: No recent spec output
 
 **Suggestions**:
-1. Create spec first: `/schovi:create-spec EC-1234`
+1. Create spec first: `/schovi:plan EC-1234`
 2. Provide correct file path: `/schovi:implement path/to/spec.md`
 3. Ensure spec was posted to Jira with `--post-to-jira` flag
 ```
@@ -1009,10 +1009,10 @@ Change commit granularity
 ```
 Options: per-phase (default), per-task, single
 
-### --create-pr (Planned v1.4.0)
+### --publish (Planned v1.4.0)
 Auto-create PR after successful implementation
 ```bash
-/schovi:implement --create-pr
+/schovi:implement --publish
 ```
 
 ### --update-jira (Planned v1.4.0)
@@ -1160,7 +1160,7 @@ Implementation requires follow-up when:
 **Output includes**:
 ```markdown
 🔍 Searching conversation history for spec...
-✅ Found spec from `/schovi:create-spec EC-1234` (3 messages ago)
+✅ Found spec from `/schovi:plan EC-1234` (3 messages ago)
 
 **Spec**: EC-1234 - Reject boolean field types
 **Source**: Conversation context

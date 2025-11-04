@@ -15,7 +15,7 @@ This is a **Claude Code plugin** providing workflow automation for software engi
 The plugin uses a three-tier architecture for external integrations:
 
 1. **Skills** (Auto-detection, `/schovi/skills/`): Automatically detect mentions and intelligently decide when to fetch context
-2. **Commands** (Explicit, `/schovi/commands/`): User-invoked workflows like `/schovi:analyze-problem`
+2. **Commands** (Explicit, `/schovi/commands/`): User-invoked workflows like `/schovi:analyze`
 3. **Subagents** (Execution, `/schovi/agents/`): Execute in isolated context windows to fetch and summarize external data
 
 ### Context Isolation Architecture
@@ -36,11 +36,11 @@ Main Context → Spawn Subagent (Task tool) → Isolated Context (fetch 10-50k p
 schovi/
 ├── .claude-plugin/plugin.json    # Plugin metadata
 ├── commands/
-│   ├── analyze-problem.md        # Deep problem analysis workflow
-│   ├── create-spec.md            # Specification generation workflow
+│   ├── analyze.md        # Deep problem analysis workflow
+│   ├── plan.md            # Specification generation workflow
 │   ├── implement.md              # Implementation execution workflow
 │   ├── commit.md                 # Structured git commit creation
-│   └── create-pr.md              # GitHub pull request creation
+│   └── publish.md              # GitHub pull request creation
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (max 1200 tokens)
@@ -53,9 +53,9 @@ schovi/
 
 ## Key Components
 
-### Command: `/schovi:analyze-problem`
+### Command: `/schovi:analyze`
 
-**Location**: `schovi/commands/analyze-problem.md`
+**Location**: `schovi/commands/analyze.md`
 
 **Purpose**: Comprehensive problem analysis with codebase exploration
 
@@ -123,9 +123,9 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 **Integration**: Can be used standalone or called from implement flow for phase-based commits
 
-### Command: `/schovi:create-pr`
+### Command: `/schovi:publish`
 
-**Location**: `schovi/commands/create-pr.md`
+**Location**: `schovi/commands/publish.md`
 
 **Purpose**: Create GitHub pull requests with automated branch pushing and smart description generation
 
@@ -237,7 +237,7 @@ gh pr create --title "EC-1234: Description" \
 cd /Users/schovi/work/claude-schovi/schovi/
 
 # Changes are live - reload Claude Code or test command
-/schovi:analyze-problem test-input
+/schovi:analyze test-input
 
 # Commit and push
 git add .
@@ -247,7 +247,7 @@ git push
 
 ### Testing
 
-- Manual testing via `/schovi:analyze-problem [input]`
+- Manual testing via `/schovi:analyze [input]`
 - Test with real Jira issues: `EC-1234` format
 - Test with GitHub PRs: `owner/repo#123` or `#123`
 - Verify token reduction by checking context usage
@@ -367,11 +367,11 @@ Follow the proven three-tier pattern:
 - README: `schovi/README.md`
 
 **Commands**:
-- `schovi/commands/analyze-problem.md`
-- `schovi/commands/create-spec.md`
+- `schovi/commands/analyze.md`
+- `schovi/commands/plan.md`
 - `schovi/commands/implement.md`
 - `schovi/commands/commit.md`
-- `schovi/commands/create-pr.md`
+- `schovi/commands/publish.md`
 
 **Skills**:
 - `schovi/skills/jira-auto-detector/SKILL.md`

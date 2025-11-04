@@ -7,11 +7,11 @@ Personal workflow automation and tools for software engineering. Includes proble
 The Schovi plugin provides an end-to-end workflow for software engineering: from problem analysis to specification to autonomous implementation.
 
 **Complete Workflow**:
-1. **Analysis** (`/schovi:analyze-problem`) - Understand the problem, explore codebase, propose solutions
-2. **Specification** (`/schovi:create-spec`) - Document decisions, structure implementation, define success
+1. **Analysis** (`/schovi:analyze`) - Understand the problem, explore codebase, propose solutions
+2. **Specification** (`/schovi:plan`) - Document decisions, structure implementation, define success
 3. **Implementation** (`/schovi:implement`) - Execute tasks autonomously, validate, commit changes
 4. **Commit Management** (`/schovi:commit`) - Create structured commits with validation and smart analysis
-5. **Pull Request** (`/schovi:create-pr`) - Create GitHub PR with auto-push and smart description generation
+5. **Pull Request** (`/schovi:publish`) - Create GitHub PR with auto-push and smart description generation
 
 **Key Features**:
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
@@ -51,7 +51,7 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 3. Verify installation:
 
 ```bash
-/schovi:analyze-problem --help
+/schovi:analyze --help
 ```
 
 4. Configure MCP servers in your Claude Code settings to enable Jira integration.
@@ -60,10 +60,10 @@ The Schovi plugin provides an end-to-end workflow for software engineering: from
 
 ### Commands
 
-#### `/schovi:analyze-problem` - Problem Analysis
+#### `/schovi:analyze` - Problem Analysis
 
 ```bash
-/schovi:analyze-problem [jira-id|pr-url|github-issue-url|description] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
+/schovi:analyze [jira-id|pr-url|github-issue-url|description] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
 ```
 
 Performs comprehensive problem analysis with codebase exploration, solution proposals, and structured output artifacts.
@@ -87,10 +87,10 @@ Performs comprehensive problem analysis with codebase exploration, solution prop
 - **Full** (default): Complete analysis with 2-3 solution options, flows, dependencies, comprehensive guidance
 - **Quick** (`--quick` flag): Minimal analysis with single solution for simple bugs/features
 
-#### `/schovi:create-spec` - Specification Generation
+#### `/schovi:plan` - Specification Generation
 
 ```bash
-/schovi:create-spec [jira-id|github-issue-url|--file path|--from-scratch description]
+/schovi:plan [jira-id|github-issue-url|--file path|--from-scratch description]
 ```
 
 Generates actionable implementation specifications from problem analysis. Bridges exploration and execution.
@@ -204,10 +204,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - Generates descriptive multi-line commit message
 - Verifies commit created successfully
 
-#### `/schovi:create-pr` - Pull Request Creation
+#### `/schovi:publish` - Pull Request Creation
 
 ```bash
-/schovi:create-pr [jira-id|spec-file] [--draft] [--base branch] [--title "text"]
+/schovi:publish [jira-id|spec-file] [--draft] [--base branch] [--title "text"]
 ```
 
 Creates GitHub pull requests with automatic branch pushing, smart description generation, and comprehensive validation.
@@ -231,7 +231,7 @@ Creates GitHub pull requests with automatic branch pushing, smart description ge
 - **Confetti Completion**: Celebrates successful PR creation per workflow requirements
 
 **Description Sources** (priority order):
-1. **Spec file**: Most comprehensive (from `/schovi:create-spec`)
+1. **Spec file**: Most comprehensive (from `/schovi:plan`)
 2. **Jira issue**: Structured context (issue description + acceptance criteria)
 3. **Commit history**: Fallback (analyzes git log)
 
@@ -272,17 +272,17 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Usage Flow:**
 ```bash
 # Complete workflow
-/schovi:analyze-problem EC-1234
-/schovi:create-spec EC-1234
+/schovi:analyze EC-1234
+/schovi:plan EC-1234
 /schovi:implement ./spec-EC-1234.md
-/schovi:create-pr              # Auto-detects spec and Jira
+/schovi:publish              # Auto-detects spec and Jira
 
 # Standalone after manual work
 /schovi:commit EC-1234
-/schovi:create-pr EC-1234
+/schovi:publish EC-1234
 
 # Advanced usage
-/schovi:create-pr --draft --base develop --title "WIP: Feature"
+/schovi:publish --draft --base develop --title "WIP: Feature"
 ```
 
 ### Examples
@@ -290,7 +290,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 #### Example 1: Analyze a Jira Issue
 
 ```bash
-/schovi:analyze-problem EC-1234
+/schovi:analyze EC-1234
 ```
 
 This will:
@@ -303,7 +303,7 @@ This will:
 #### Example 2: Analyze with Description and Custom Output
 
 ```bash
-/schovi:analyze-problem "Users report login fails after OAuth provider returns 302 redirect" --output ~/docs/login-bug-analysis.md
+/schovi:analyze "Users report login fails after OAuth provider returns 302 redirect" --output ~/docs/login-bug-analysis.md
 ```
 
 This will:
@@ -316,7 +316,7 @@ This will:
 #### Example 3: Quick Analysis with Jira Posting
 
 ```bash
-/schovi:analyze-problem IS-8046 --quick --post-to-jira
+/schovi:analyze IS-8046 --quick --post-to-jira
 ```
 
 This will:
@@ -328,7 +328,7 @@ This will:
 #### Example 4: Interactive Mode
 
 ```bash
-/schovi:analyze-problem
+/schovi:analyze
 ```
 
 This will prompt you to provide either a Jira ID or problem description.
@@ -336,8 +336,8 @@ This will prompt you to provide either a Jira ID or problem description.
 #### Example 5: Create Spec from Analysis
 
 ```bash
-# After running analyze-problem and choosing an approach
-/schovi:create-spec
+# After running analyze and choosing an approach
+/schovi:plan
 ```
 
 This will:
@@ -349,7 +349,7 @@ This will:
 #### Example 6: Create Spec with Jira Integration
 
 ```bash
-/schovi:create-spec EC-1234 --post-to-jira
+/schovi:plan EC-1234 --post-to-jira
 ```
 
 This will:
@@ -361,7 +361,7 @@ This will:
 #### Example 7: Create Minimal Spec from Scratch
 
 ```bash
-/schovi:create-spec --from-scratch "Add loading spinner to dashboard"
+/schovi:plan --from-scratch "Add loading spinner to dashboard"
 ```
 
 This will:
@@ -395,7 +395,7 @@ This will:
 ```
 
 This will:
-1. Search conversation for recent spec from `/schovi:create-spec`
+1. Search conversation for recent spec from `/schovi:plan`
 2. Auto-detect spec generated 3 messages ago
 3. Execute all implementation tasks autonomously
 4. Create phase-based commits
@@ -516,8 +516,8 @@ The plugin follows Claude Code's standard structure:
     ├── .claude-plugin/
     │   └── plugin.json                  # Plugin metadata
     ├── commands/
-    │   ├── analyze-problem.md           # Problem analysis command
-    │   └── create-spec.md               # Specification generation command
+    │   ├── analyze.md           # Problem analysis command
+    │   └── plan.md               # Specification generation command
     ├── agents/
     │   ├── jira-analyzer/               # Context-isolated Jira subagent
     │   │   └── AGENT.md
@@ -552,7 +552,7 @@ This pollutes the main analysis context, leaving less room for actual codebase e
 The plugin uses a **specialized subagent** (`jira-analyzer`) that operates in isolated context:
 
 ```
-User invokes: /analyze-problem EC-1234
+User invokes: /analyze EC-1234
        ↓
 Main Command detects Jira issue
        ↓
@@ -661,12 +661,12 @@ The workflow system provides multiple ways to work with Jira issues:
 
 #### **Tier 2: Explicit Command** - Guaranteed workflow
 
-**/analyze-problem Command** - Structured analysis workflow
+**/analyze Command** - Structured analysis workflow
 
-**Location**: `schovi/commands/analyze-problem.md`
+**Location**: `schovi/commands/analyze.md`
 
 **How it works:**
-- User explicitly invokes: `/schovi:analyze-problem EC-1234`
+- User explicitly invokes: `/schovi:analyze EC-1234`
 - Guaranteed to fetch Jira issue
 - Proceeds with full problem analysis workflow
 - Part of documented Flow 1
@@ -974,7 +974,7 @@ Without a formal spec, implementation can drift from the analyzed approach, deci
 The plugin uses a **specialized subagent** (`spec-generator`) that operates in isolated context:
 
 ```
-User invokes: /schovi:create-spec
+User invokes: /schovi:plan
        ↓
 Command resolves input (conversation/Jira/file)
        ↓
@@ -1074,12 +1074,12 @@ approach_selected: "Option 2: Solution name"
 The spec-generator fits between analysis and implementation:
 
 ```
-1. Problem Analysis (/analyze-problem)
+1. Problem Analysis (/analyze)
    - Understand problem
    - Explore codebase
    - Propose options
 
-2. Specification Creation (/create-spec)  ← NEW STEP
+2. Specification Creation (/plan)  ← NEW STEP
    - Choose approach
    - Document decision
    - Structure implementation
@@ -1099,7 +1099,7 @@ This creates a clear handoff: analysis explores possibilities, spec documents de
 
 ### Model Selection
 
-The plugin uses `sonnet` model by default for thorough analysis in the command frontmatter. To change the model for a specific command, edit the command's markdown file (e.g., `commands/analyze-problem.md`) and modify the `model:` field in the frontmatter.
+The plugin uses `sonnet` model by default for thorough analysis in the command frontmatter. To change the model for a specific command, edit the command's markdown file (e.g., `commands/analyze.md`) and modify the `model:` field in the frontmatter.
 
 ### Allowed Tools
 
@@ -1128,7 +1128,7 @@ This plugin is designed to replace Flow 1 in your `~/.claude/CLAUDE.md`:
 ```markdown
 # Flow 1: Analyzing the Problem
 
-**Usage**: `/analyze-problem [jira-id or description]`
+**Usage**: `/analyze [jira-id or description]`
 
 The Problem Analyzer plugin handles comprehensive analysis. After completion:
 - Review proposed solutions
@@ -1173,7 +1173,7 @@ Analysis results are presented in a structured, scannable format:
 To enhance this plugin:
 
 1. Edit files in `~/work/claude-schovi/schovi/`
-2. Test changes by running `/schovi:analyze-problem`
+2. Test changes by running `/schovi:analyze`
 3. Commit to git: `cd ~/work/claude-schovi && git commit -am "Enhancement: ..."`
 4. Share improvements with your team
 
@@ -1254,11 +1254,11 @@ If analysis seems shallow:
   - Support for quick vs full analysis modes (`--quick` flag)
   - Multiple output destinations (terminal/file/Jira)
   - New output flags: `--output PATH`, `--no-file`, `--quiet`, `--post-to-jira`
-  - Consistent architecture with `create-spec` pattern
+  - Consistent architecture with `plan` pattern
   - Token efficiency: 30-40% savings in main context
   - Analysis template (`templates/analysis-template.md`) documents structure
 - Updated workflow: Analysis now produces reusable artifacts
-- Matches create-spec pattern: Exploration → Subagent → Output Handling
+- Matches plan pattern: Exploration → Subagent → Output Handling
 
 ### v1.3.0
 - Added Implementation Execution
@@ -1277,7 +1277,7 @@ If analysis seems shallow:
 
 ### v1.2.0
 - Added Specification Generation
-  - `/schovi:create-spec` command for implementation spec generation
+  - `/schovi:plan` command for implementation spec generation
   - `spec-generator` subagent for context-isolated spec creation
   - Flexible input sources (conversation, Jira, file, from-scratch)
   - Multiple output options (terminal, file, Jira posting)
@@ -1296,7 +1296,7 @@ If analysis seems shallow:
 
 ### v1.0.0
 - Initial release
-- `/analyze-problem` command
+- `/analyze` command
 - Smart clarification detection
 - Deep codebase analysis workflow
 - Multi-option solution proposals
