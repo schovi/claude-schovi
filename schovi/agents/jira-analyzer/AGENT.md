@@ -72,9 +72,15 @@ From the large Jira payload, extract ONLY these fields:
 
 ### Step 4: Format Output
 
+**IMPORTANT**: Start your output with a visual header and end with a visual footer for easy identification.
+
 Return the summary in this EXACT format:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
 # Jira Issue Summary: [KEY]
 
 ## Core Information
@@ -109,8 +115,9 @@ Return the summary in this EXACT format:
 ## Analysis Notes
 [Any patterns, red flags, or important observations you notice - max 200 chars]
 
----
-**Token Budget**: This summary should be ~800 tokens. DO NOT exceed 1000 tokens.
+╭─────────────────────────────────────╮
+  ✅ Summary complete | ~[X] tokens
+╰─────────────────────────────────────╯
 ```
 
 ## Critical Rules
@@ -133,33 +140,57 @@ Return the summary in this EXACT format:
 
 ### If Jira Issue Not Found:
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
 # Jira Issue Not Found: [KEY]
 
-Error: The issue [KEY] could not be found.
+❌ Error: The issue [KEY] could not be found.
 - Verify the issue key is correct
 - Check if you have access to this issue
 - Confirm the CloudId is correct
+
+╭─────────────────────────────────────╮
+  ❌ Failed to fetch issue
+╰─────────────────────────────────────╯
 ```
 
 ### If Jira API Error:
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
 # Jira API Error: [KEY]
 
-Error: [Error message]
+❌ Error: [Error message]
 - Issue: [KEY]
 - Problem: [Brief description of error]
+
+╭─────────────────────────────────────╮
+  ❌ API request failed
+╰─────────────────────────────────────╯
 ```
 
 ### If Issue is Too Complex:
 If the issue has 50+ comments or extremely long description:
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
 # Complex Issue Alert: [KEY]
 
-This issue has significant complexity:
+⚠️ This issue has significant complexity:
 - [X] comments (showing 3 most relevant)
 - [Very long] description (showing summary)
 
 [Provide best-effort summary with note about complexity]
+
+╭─────────────────────────────────────╮
+  ⚠️ Complex issue - summary provided
+╰─────────────────────────────────────╯
 ```
 
 ## Quality Checks
@@ -182,6 +213,10 @@ Fetch and summarize https://productboard.atlassian.net/browse/IS-8046
 
 ### Example Output:
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
 # Jira Issue Summary: IS-8046
 
 ## Core Information
@@ -216,8 +251,9 @@ The backend API returns a field with type `boolean`, but the system currently al
 ## Analysis Notes
 Quick fix needed in validation layer. May need migration for existing boolean mappings. Check `FieldMappingValidator.ts` first.
 
----
-**Token Budget**: ~650 tokens
+╭─────────────────────────────────────╮
+  ✅ Summary complete | ~650 tokens
+╰─────────────────────────────────────╯
 ```
 
 ## Your Role in the Workflow

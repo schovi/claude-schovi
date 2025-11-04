@@ -224,9 +224,15 @@ Based on the data, add brief analysis notes (max 200 chars):
 
 ### Step 6: Format Output
 
+**IMPORTANT**: Start your output with a visual header and end with a visual footer for easy identification.
+
 Return the summary in this EXACT format:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Summary: [owner/repo]#[number]
 
 ## Core Information
@@ -296,8 +302,9 @@ No comments.
 - Blockers: [List blocking issues, if any]
 - Age: Created [X days ago], last updated [Y days ago]
 
----
-**Token Budget**: This summary should be ~800-1000 tokens. DO NOT exceed 1200 tokens.
+╰─────────────────────────────────────╯
+  ✅ Summary complete | ~[X] tokens
+╰─────────────────────────────────────╯
 ```
 
 ## Critical Rules
@@ -329,9 +336,13 @@ No comments.
 ### If PR Not Found:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Not Found: [owner/repo]#[number]
 
-**Error**: The pull request #[number] could not be found in [owner/repo].
+❌ **Error**: The pull request #[number] could not be found in [owner/repo].
 
 **Possible reasons:**
 - PR number is incorrect
@@ -340,14 +351,22 @@ No comments.
 - PR was deleted
 
 **Action**: Verify the PR number and repository, or check your GitHub access.
+
+╰─────────────────────────────────────╯
+  ❌ PR not found
+╰─────────────────────────────────────╯
 ```
 
 ### If Authentication Error:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub Authentication Error: [owner/repo]#[number]
 
-**Error**: Unable to authenticate with GitHub.
+❌ **Error**: Unable to authenticate with GitHub.
 
 **Possible reasons:**
 - `gh` CLI is not authenticated
@@ -355,29 +374,49 @@ No comments.
 - You don't have permission to access this repository
 
 **Action**: Run `gh auth login` to authenticate, or check repository permissions.
+
+╰─────────────────────────────────────╯
+  ❌ Authentication failed
+╰─────────────────────────────────────╯
 ```
 
 ### If Repository Context Missing:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # Repository Context Missing
 
-**Error**: Cannot determine which repository PR #[number] belongs to.
+❌ **Error**: Cannot determine which repository PR #[number] belongs to.
 
 **Action**: Please provide the repository in one of these formats:
 - Full URL: `https://github.com/owner/repo/pull/[number]`
 - Short notation: `owner/repo#[number]`
 - Or navigate to the git repository directory first
+
+╰─────────────────────────────────────╯
+  ❌ Missing repository context
+╰─────────────────────────────────────╯
 ```
 
 ### If gh CLI Not Available:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub CLI Not Available
 
-**Error**: The `gh` CLI tool is not installed or not in PATH.
+❌ **Error**: The `gh` CLI tool is not installed or not in PATH.
 
 **Action**: Install GitHub CLI from https://cli.github.com/ or verify it's in your PATH.
+
+╰─────────────────────────────────────╯
+  ❌ gh CLI not available
+╰─────────────────────────────────────╯
 ```
 
 ### If Partial Data Fetch Failure:
@@ -385,17 +424,25 @@ No comments.
 If core data fetched successfully but CI/reviews fail:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Summary: [owner/repo]#[number]
 
 [... core information successfully fetched ...]
 
 ## CI/CD Status
-**Error**: Unable to fetch CI/CD status. The check data may not be available.
+⚠️ **Error**: Unable to fetch CI/CD status. The check data may not be available.
 
 ## Reviews
-**Error**: Unable to fetch reviews. Reviews data may not be available.
+⚠️ **Error**: Unable to fetch reviews. Reviews data may not be available.
 
 [... continue with available data ...]
+
+╰─────────────────────────────────────╯
+  ⚠️ Partial data fetched
+╰─────────────────────────────────────╯
 ```
 
 ## Examples
@@ -427,6 +474,10 @@ gh pr diff 12084 --repo cli/cli --name-only
 
 **Output:**
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Summary: cli/cli#12084
 
 ## Core Information
@@ -482,8 +533,9 @@ No additional comments.
 ## Analysis Notes
 PR is technically ready: all CI passing, code quality improvements are safe, Copilot review completed. Waiting for human approval from @BagToad. Created 2 days ago, last updated 1 day ago.
 
----
-**Token Budget**: ~850 tokens
+╰─────────────────────────────────────╯
+  ✅ Summary complete | ~850 tokens
+╰─────────────────────────────────────╯
 ```
 
 ### Example 2: PR with Failing CI (CI-focused)
@@ -498,6 +550,10 @@ include_files: false
 
 **Output:**
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Summary: owner/repo#456
 
 ## Core Information
@@ -533,8 +589,9 @@ Fixes a critical bug where OAuth redirect URLs were not properly validated, caus
 ## Analysis Notes
 PR is NOT ready: 3 CI checks failing (Windows build, Ubuntu build, integration tests). Needs fixes before merge. Created 1 day ago, last updated 3 hours ago.
 
----
-**Token Budget**: ~400 tokens (condensed, CI-focused)
+╭─────────────────────────────────────╮
+  ✅ Summary complete | ~400 tokens
+╰─────────────────────────────────────╯
 ```
 
 ### Example 3: PR with Reviews Focus
@@ -549,6 +606,10 @@ include_files: false
 
 **Output:**
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Summary: owner/repo#789
 
 ## Core Information
@@ -587,8 +648,9 @@ Major refactor of the database query layer to improve performance and maintainab
 ## Analysis Notes
 PR needs work: changes requested by tech lead (backwards compatibility concerns). Security approved, performance improvements validated. Large refactor (34 files). Created 5 days ago, active discussion ongoing.
 
----
-**Token Budget**: ~650 tokens (review-focused)
+╰─────────────────────────────────────╯
+  ✅ Summary complete | ~650 tokens
+╰─────────────────────────────────────╯
 ```
 
 ## Quality Checks

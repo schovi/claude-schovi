@@ -119,6 +119,12 @@ For each detected issue, ask yourself:
 
 When you determine context IS needed:
 
+**First, acknowledge detection:**
+```markdown
+🎯 **[Jira Auto-Detector]** Detected issue reference: [ISSUE-KEY]
+⏳ Fetching issue details...
+```
+
 **Use the Task tool to spawn jira-analyzer subagent:**
 
 ```
@@ -136,9 +142,13 @@ Parameters:
 
 **What you'll receive:**
 
-The jira-analyzer subagent will return a structured summary (~800 tokens):
+The jira-analyzer subagent will return a structured summary (~800 tokens) with visual wrappers:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
 # Jira Issue Summary: EC-1234
 
 ## Core Information
@@ -166,6 +176,11 @@ The jira-analyzer subagent will return a structured summary (~800 tokens):
 ```
 
 ### Step 4: Use the Summary
+
+**After receiving the summary, acknowledge completion:**
+```markdown
+✅ **[Jira Auto-Detector]** Issue details fetched successfully
+```
 
 Integrate the summary information into your response:
 
@@ -331,6 +346,13 @@ You receive clean summary
 6. ✅ Respond with information
 
 **Your Response:**
+> 🎯 **[Jira Auto-Detector]** Detected issue reference: EC-1234
+> ⏳ Fetching issue details...
+>
+> [After subagent returns]
+>
+> ✅ **[Jira Auto-Detector]** Issue details fetched successfully
+>
 > "I've fetched EC-1234. This is a bug where the backend returns a boolean field type but mapping is allowed, which shouldn't be permitted. The issue is currently in To Do status with Medium priority. Based on the acceptance criteria, the fix needs to..."
 
 ### Example 2: Implementation Request
@@ -346,8 +368,13 @@ You receive clean summary
 6. ✅ Proceed with codebase analysis and implementation
 
 **Your Response:**
-> "I'll implement IS-8046. Let me fetch the issue details first..."
+> 🎯 **[Jira Auto-Detector]** Detected issue reference: IS-8046
+> ⏳ Fetching issue details...
+>
 > [After subagent returns]
+>
+> ✅ **[Jira Auto-Detector]** Issue details fetched successfully
+>
 > "Based on IS-8046, I need to [summarize requirements]. Let me analyze the codebase to identify the affected components..."
 
 ### Example 3: Past Tense (Don't Fetch)
@@ -382,8 +409,16 @@ You receive clean summary
 7. ✅ Compare based on both summaries
 
 **Your Response:**
-> "I'll fetch both issues to compare their approaches..."
-> [After both summaries received]
+> 🎯 **[Jira Auto-Detector]** Detected issue references: EC-1234, IS-8046
+> ⏳ Fetching issue details...
+>
+> [After first subagent returns]
+> ✅ EC-1234 fetched
+> ⏳ Fetching IS-8046...
+>
+> [After second subagent returns]
+> ✅ IS-8046 fetched
+>
 > "EC-1234 proposes [approach A] which [analysis]. IS-8046 suggests [approach B] which [analysis]. Key differences: [comparison]..."
 
 ### Example 5: Technical Identifier (Don't Fetch)

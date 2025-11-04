@@ -211,6 +211,12 @@ Determine what aspects the user needs:
 
 When you determine context IS needed:
 
+**First, acknowledge detection:**
+```markdown
+📋 **[PR Auto-Detector]** Detected PR reference: [owner/repo#number or #number]
+⏳ Fetching PR details...
+```
+
 **Use the Task tool to spawn pr-analyzer subagent:**
 
 ```
@@ -248,9 +254,13 @@ prompt: "Fetch and summarize GitHub PR: https://github.com/owner/repo/pull/456
 
 **What you'll receive:**
 
-The pr-analyzer subagent will return a structured summary (~800-1000 tokens):
+The pr-analyzer subagent will return a structured summary (~800-1000 tokens) with visual wrappers:
 
 ```markdown
+╭─────────────────────────────────────╮
+│ 🔗 PR ANALYZER                      │
+╰─────────────────────────────────────╯
+
 # GitHub PR Summary: owner/repo#123
 
 ## Core Information
@@ -281,6 +291,11 @@ The pr-analyzer subagent will return a structured summary (~800-1000 tokens):
 ```
 
 ### Step 6: Use the Summary
+
+**After receiving the summary, acknowledge completion:**
+```markdown
+✅ **[PR Auto-Detector]** PR details fetched successfully
+```
 
 Integrate the summary information into your response:
 
@@ -510,6 +525,13 @@ You receive clean summary
 8. ✅ Respond with information
 
 **Your Response:**
+> 📋 **[PR Auto-Detector]** Detected PR reference: anthropics/claude-code#123
+> ⏳ Fetching PR details...
+>
+> [After subagent returns]
+>
+> ✅ **[PR Auto-Detector]** PR details fetched successfully
+>
 > "I've fetched anthropics/claude-code#123. This PR adds support for MCP servers in Claude Code. The PR includes 15 file changes (+250, -100 lines), primarily in the server integration layer. The CI is passing and the PR has been approved by 2 reviewers. Based on the description..."
 
 ### Example 2: CI Status Check
@@ -528,6 +550,13 @@ You receive clean summary
 9. ✅ Respond about CI status
 
 **Your Response:**
+> 📋 **[PR Auto-Detector]** Detected PR reference: #456
+> ⏳ Resolving repository context and fetching CI status...
+>
+> [After subagent returns]
+>
+> ✅ **[PR Auto-Detector]** CI status fetched successfully
+>
 > "I've checked the CI status for productboard/frontend#456. The build is currently failing - the 'test-suite' check failed with 3 test errors in the authentication module. The linter and type checks passed successfully. Here are the failing tests..."
 
 ### Example 3: Review Request
@@ -544,6 +573,13 @@ You receive clean summary
 7. ✅ Analyze and provide review feedback
 
 **Your Response:**
+> 📋 **[PR Auto-Detector]** Detected PR reference: https://github.com/owner/repo/pull/789
+> ⏳ Fetching full PR context for review...
+>
+> [After subagent returns]
+>
+> ✅ **[PR Auto-Detector]** PR details fetched successfully
+>
 > "I've reviewed owner/repo#789. This PR refactors the authentication flow to use JWT tokens. Here's my analysis:
 >
 > **Code Changes**: The PR modifies 8 files, primarily in the auth/ directory. The changes look well-structured and include comprehensive tests.
@@ -589,10 +625,17 @@ You receive clean summary
 10. ✅ Compare based on both summaries
 
 **Your Response:**
-> "I'll fetch both PRs to compare their approaches...
-> [After both summaries received]
+> 📋 **[PR Auto-Detector]** Detected PR references: #123, anthropics/claude-code#456
+> ⏳ Fetching both PRs for comparison...
 >
-> productboard/frontend#123 implements authentication using session cookies, while anthropics/claude-code#456 uses JWT tokens. Key differences:
+> [After first subagent returns]
+> ✅ productboard/frontend#123 fetched
+> ⏳ Fetching anthropics/claude-code#456...
+>
+> [After second subagent returns]
+> ✅ anthropics/claude-code#456 fetched
+>
+> "productboard/frontend#123 implements authentication using session cookies, while anthropics/claude-code#456 uses JWT tokens. Key differences:
 >
 > **#123 (session cookies)**:
 > - Pros: [analysis]

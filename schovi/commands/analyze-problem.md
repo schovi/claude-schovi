@@ -55,17 +55,34 @@ Determine input type:
 ```
 IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
 
-1. Use the Task tool to invoke the jira-analyzer subagent:
+1. Acknowledge detection:
+   🛠️ **[Analyze-Problem]** Detected Jira issue: [ISSUE-KEY]
+   ⏳ Fetching issue details via jira-analyzer...
+
+2. Use the Task tool to invoke the jira-analyzer subagent:
    prompt: "Fetch and summarize Jira issue [ISSUE-KEY or URL]"
    subagent_type: "schovi:jira-analyzer:jira-analyzer"
    description: "Fetching Jira issue summary"
 
-2. The subagent will:
+3. The subagent will:
    - Fetch the full Jira payload (~10k tokens) in its isolated context
    - Extract ONLY essential information
-   - Return a clean summary (~800 tokens)
+   - Return a clean summary (~800 tokens) with visual wrappers:
 
-3. You will receive a structured summary containing:
+   ╭─────────────────────────────────────╮
+   │ 🔍 JIRA ANALYZER                    │
+   ╰─────────────────────────────────────╯
+
+   [Structured summary content]
+
+   ╭─────────────────────────────────────╮
+     ✅ Summary complete | ~[X] tokens
+   ╰─────────────────────────────────────╯
+
+4. After receiving the summary, acknowledge:
+   ✅ **[Analyze-Problem]** Issue details fetched successfully
+
+5. You will receive a structured summary containing:
    - Core information (key, title, type, status, priority)
    - Condensed description
    - Acceptance criteria
@@ -73,7 +90,7 @@ IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
    - Related issues
    - Technical context
 
-4. Use this summary as the primary source of truth for your analysis
+6. Use this summary as the primary source of truth for your analysis
 
 NEVER fetch Jira directly using mcp__jira__* tools - always delegate to the subagent.
 This prevents massive Jira payloads from polluting your context.
@@ -104,6 +121,17 @@ This prevents massive Jira payloads from polluting your context.
 ## PHASE 2: DEEP CODEBASE ANALYSIS
 
 **CRITICAL**: Use the **Task tool with Plan subagent type** for thorough exploration. DO NOT use direct search tools unless for targeted follow-up queries.
+
+**When spawning Plan subagent, acknowledge:**
+```
+🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
+⏳ Spawning Plan subagent for exploration...
+```
+
+**After receiving analysis results:**
+```
+✅ **[Analyze-Problem]** Codebase analysis complete
+```
 
 ### Step 2.1: User Flow Mapping
 
