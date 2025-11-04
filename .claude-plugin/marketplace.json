@@ -8,10 +8,10 @@
   },
   "plugins": [
     {
-      "name": "problem-analyzer",
-      "description": "Comprehensive problem analysis workflow for bugs and features",
+      "name": "schovi",
+      "description": "David Schovanec's personal workflow tools and automation for software engineering",
       "version": "1.0.0",
-      "source": "./problem-analyzer"
+      "source": "./schovi"
     }
   ]
 }

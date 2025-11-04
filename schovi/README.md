@@ -1,10 +1,10 @@
-# Problem Analyzer Plugin for Claude Code
+# Schovi Workflow Plugin for Claude Code
 
-A comprehensive problem analysis workflow plugin that performs deep codebase exploration, flow mapping, and provides multi-option solution proposals for bugs and feature requests.
+Personal workflow automation and tools for software engineering. Includes problem analysis, Jira integration, intelligent code exploration, and more.
 
 ## 🎯 Overview
 
-The Problem Analyzer plugin helps you systematically analyze complex problems by:
+The Schovi plugin helps you systematically analyze complex problems and streamline your development workflow by:
 
 - **Automatic Jira Detection**: Intelligent Skill that detects when you mention Jira issues and automatically fetches context (works in ANY conversation, not just commands)
 - **Deep Codebase Analysis**: Explores code using specialized agents to understand user flows, data flows, and dependencies
@@ -23,28 +23,32 @@ The Problem Analyzer plugin helps you systematically analyze complex problems by
 
 ### Install Plugin
 
-1. Clone or symlink the plugin to your global plugins directory:
+1. Add the marketplace:
 
 ```bash
-ln -s ~/work/claude-schovi/problem-analyzer ~/.claude/plugins/problem-analyzer
+/plugin marketplace add ~/work/claude-schovi
 ```
 
-2. Verify installation:
+2. Install the plugin:
 
 ```bash
-# The plugin should be automatically discovered by Claude Code
-# Try running:
-/analyze-problem --help
+/plugin install schovi@schovi-workflows
 ```
 
-3. Configure MCP servers in your Claude Code settings to enable Jira integration.
+3. Verify installation:
+
+```bash
+/schovi:analyze-problem --help
+```
+
+4. Configure MCP servers in your Claude Code settings to enable Jira integration.
 
 ## 🚀 Usage
 
 ### Basic Syntax
 
 ```bash
-/analyze-problem [jira-id|description]
+/schovi:analyze-problem [jira-id|description]
 ```
 
 ### Examples
@@ -52,7 +56,7 @@ ln -s ~/work/claude-schovi/problem-analyzer ~/.claude/plugins/problem-analyzer
 #### Example 1: Analyze a Jira Issue
 
 ```bash
-/analyze-problem EC-1234
+/schovi:analyze-problem EC-1234
 ```
 
 This will:
@@ -64,7 +68,7 @@ This will:
 #### Example 2: Analyze with Description
 
 ```bash
-/analyze-problem "Users report login fails after OAuth provider returns 302 redirect"
+/schovi:analyze-problem "Users report login fails after OAuth provider returns 302 redirect"
 ```
 
 This will:
@@ -76,7 +80,7 @@ This will:
 #### Example 3: Interactive Mode
 
 ```bash
-/analyze-problem
+/schovi:analyze-problem
 ```
 
 This will prompt you to provide either a Jira ID or problem description.
@@ -153,19 +157,20 @@ Every analysis must pass these checks before presentation:
 The plugin follows Claude Code's standard structure:
 
 ```
-~/work/claude-schovi/
-├── .claude/
-│   ├── agents/
-│   │   └── jira-analyzer/        # Context-isolated Jira subagent
-│   │       └── AGENT.md
-│   └── skills/
-│       └── jira-auto-detector/   # Automatic Jira detection skill
-│           └── SKILL.md
-└── problem-analyzer/
+~/work/claude-schovi/                    # Marketplace repo
+├── .claude-plugin/
+│   └── marketplace.json                 # Marketplace metadata
+└── schovi/                              # Self-contained plugin
     ├── .claude-plugin/
-    │   └── plugin.json           # Plugin metadata (required)
+    │   └── plugin.json                  # Plugin metadata
     ├── commands/
-    │   └── analyze-problem.md    # Main analysis command
+    │   └── analyze-problem.md           # Main analysis command
+    ├── agents/
+    │   └── jira-analyzer/               # Context-isolated Jira subagent
+    │       └── AGENT.md
+    ├── skills/
+    │   └── jira-auto-detector/          # Automatic Jira detection skill
+    │       └── SKILL.md
     └── README.md
 ```
 
@@ -297,10 +302,10 @@ The workflow system provides multiple ways to work with Jira issues:
 
 **/analyze-problem Command** - Structured analysis workflow
 
-**Location**: `problem-analyzer/commands/analyze-problem.md`
+**Location**: `schovi/commands/analyze-problem.md`
 
 **How it works:**
-- User explicitly invokes: `/problem-analyzer:analyze-problem EC-1234`
+- User explicitly invokes: `/schovi:analyze-problem EC-1234`
 - Guaranteed to fetch Jira issue
 - Proceeds with full problem analysis workflow
 - Part of documented Flow 1
@@ -416,8 +421,8 @@ Analysis results are presented in a structured, scannable format:
 
 To enhance this plugin:
 
-1. Edit files in `~/work/claude-schovi/problem-analyzer/`
-2. Test changes by running `/analyze-problem`
+1. Edit files in `~/work/claude-schovi/schovi/`
+2. Test changes by running `/schovi:analyze-problem`
 3. Commit to git: `cd ~/work/claude-schovi && git commit -am "Enhancement: ..."`
 4. Share improvements with your team
 
@@ -463,10 +468,10 @@ EOF
 
 ```bash
 # Verify symlink
-ls -la ~/.claude/plugins/problem-analyzer
+ls -la ~/.claude/plugins/schovi
 
-# Should show:
-# problem-analyzer -> /Users/schovi/work/claude-schovi/problem-analyzer
+# Should show (if using symlink method, but marketplace installation is preferred):
+# schovi -> /Users/schovi/work/claude-schovi/schovi
 ```
 
 ### Jira Integration Not Working

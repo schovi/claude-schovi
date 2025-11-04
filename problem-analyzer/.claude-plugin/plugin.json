@@ -1,9 +1,0 @@
-{
-  "name": "problem-analyzer",
-  "version": "1.0.0",
-  "description": "Comprehensive problem analysis workflow for bugs and features with deep codebase exploration, flow mapping, and multi-option solution proposals",
-  "author": {
-    "name": "David Schovanec",
-    "email": "david.schovanec@productboard.com"
-  }
-}
