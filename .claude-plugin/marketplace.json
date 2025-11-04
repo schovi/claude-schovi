@@ -1,6 +1,6 @@
 {
   "name": "schovi-workflows",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "David Schovanec's personal Claude Code workflow plugins",
   "owner": {
     "name": "David Schovanec",
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "schovi",
-      "description": "David Schovanec's personal workflow tools and automation for software engineering - includes Jira and GitHub PR integration",
-      "version": "1.1.0",
+      "description": "David Schovanec's personal workflow tools and automation for software engineering - includes problem analysis, specification generation, Jira and GitHub PR integration",
+      "version": "1.2.0",
       "source": "./schovi"
     }
   ]

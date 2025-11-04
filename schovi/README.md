@@ -47,11 +47,37 @@ The Schovi plugin helps you systematically analyze complex problems and streamli
 
 ## 🚀 Usage
 
-### Basic Syntax
+### Commands
+
+#### `/schovi:analyze-problem` - Problem Analysis
 
 ```bash
 /schovi:analyze-problem [jira-id|description]
 ```
+
+Performs comprehensive problem analysis with codebase exploration and solution proposals.
+
+#### `/schovi:create-spec` - Specification Generation
+
+```bash
+/schovi:create-spec [jira-id|--file path|--from-scratch description]
+```
+
+Generates actionable implementation specifications from problem analysis. Bridges exploration and execution.
+
+**Input Options:**
+- `jira-id` - Generate from Jira issue (with or without prior analysis)
+- No args - Auto-detect from recent conversation analysis
+- `--file path.md` - Generate from analysis file
+- `--from-scratch "description"` - Create minimal spec interactively
+
+**Output Options:**
+- `--output path.md` - Save to specific file
+- `--post-to-jira` - Post spec as Jira comment
+- `--no-file` - Terminal only
+- `--quiet` - Suppress terminal output
+
+**Default**: Displays in terminal + saves to `./spec-[jira-id].md`
 
 ### Examples
 
@@ -87,6 +113,43 @@ This will:
 
 This will prompt you to provide either a Jira ID or problem description.
 
+#### Example 4: Create Spec from Analysis
+
+```bash
+# After running analyze-problem and choosing an approach
+/schovi:create-spec
+```
+
+This will:
+1. Detect recent analysis from conversation
+2. Generate structured implementation spec
+3. Save to `./spec-EC-1234.md`
+4. Display formatted spec in terminal
+
+#### Example 5: Create Spec with Jira Integration
+
+```bash
+/schovi:create-spec EC-1234 --post-to-jira
+```
+
+This will:
+1. Fetch Jira issue (if analysis available, use it; otherwise create from Jira content)
+2. Generate spec with decision rationale and implementation tasks
+3. Save locally AND post to Jira as comment
+4. Ready for team review before implementation
+
+#### Example 6: Create Minimal Spec from Scratch
+
+```bash
+/schovi:create-spec --from-scratch "Add loading spinner to dashboard"
+```
+
+This will:
+1. Prompt for key requirements interactively
+2. Generate minimal spec (goal, tasks, acceptance criteria)
+3. Save to `./spec-[timestamp].md`
+4. Quick specs for simple tasks
+
 ## 📋 What the Analysis Includes
 
 ### 1. Problem Summary
@@ -119,6 +182,26 @@ This will prompt you to provide either a Jira ID or problem description.
 - Related Jira issues
 - Documentation links
 - Stakeholder identification
+
+## 📄 What the Spec Includes
+
+### Full Specification (from analysis)
+- **Decision & Rationale**: Which approach was chosen and why
+- **Technical Overview**: Data flows, affected services, key changes
+- **Implementation Tasks**: Broken into phases with checkboxes
+- **Acceptance Criteria**: Testable, specific success conditions
+- **Testing Strategy**: Unit, integration, and manual test scenarios
+- **Risks & Mitigations**: Known risks with mitigation strategies
+- **References**: Links to analysis, Jira, architecture docs
+
+### Minimal Specification (from scratch)
+- **Goal**: What needs to be built and why
+- **Requirements**: Key functional requirements
+- **Implementation Tasks**: Simple checklist of work items
+- **Acceptance Criteria**: Basic success conditions
+- **Testing**: Brief manual testing guidance
+
+Both spec types use markdown format with YAML frontmatter for metadata, saved as `spec-[jira-id].md` or `spec-[timestamp].md`.
 
 ## 🎨 Features
 
@@ -166,17 +249,22 @@ The plugin follows Claude Code's standard structure:
     ├── .claude-plugin/
     │   └── plugin.json                  # Plugin metadata
     ├── commands/
-    │   └── analyze-problem.md           # Main analysis command
+    │   ├── analyze-problem.md           # Problem analysis command
+    │   └── create-spec.md               # Specification generation command
     ├── agents/
     │   ├── jira-analyzer/               # Context-isolated Jira subagent
     │   │   └── AGENT.md
-    │   └── pr-analyzer/                 # Context-isolated GitHub PR subagent
+    │   ├── pr-analyzer/                 # Context-isolated GitHub PR subagent
+    │   │   └── AGENT.md
+    │   └── spec-generator/              # Context-isolated spec generation subagent
     │       └── AGENT.md
     ├── skills/
     │   ├── jira-auto-detector/          # Automatic Jira detection skill
     │   │   └── SKILL.md
     │   └── gh-pr-auto-detector/         # Automatic GitHub PR detection skill
     │       └── SKILL.md
+    ├── templates/
+    │   └── spec-template.md             # Specification template reference
     └── README.md
 ```
 
@@ -601,6 +689,145 @@ while #456 uses JWT tokens. Key differences: [comparison analysis]..."
 
 ---
 
+## 📋 Specification Generation Architecture
+
+### The Problem: Analysis to Implementation Gap
+
+After problem analysis, there's often a gap between exploration (understanding the problem) and execution (implementing the solution):
+- Analysis outputs multiple options - which one was chosen?
+- Why was that approach selected over alternatives?
+- What are the specific implementation steps?
+- What are the testable acceptance criteria?
+- How should this be tested and rolled out?
+
+Without a formal spec, implementation can drift from the analyzed approach, decisions are forgotten, and there's no approval gate before coding begins.
+
+### The Solution: Spec Generator Subagent
+
+The plugin uses a **specialized subagent** (`spec-generator`) that operates in isolated context:
+
+```
+User invokes: /schovi:create-spec
+       ↓
+Command resolves input (conversation/Jira/file)
+       ↓
+Analysis content may be 5-20k tokens
+       ↓
+Spawns spec-generator subagent (Task tool)
+       ↓
+Subagent Context (Isolated):
+  - Processes large analysis payload
+  - Extracts technical details
+  - Structures into template
+  - Generates tasks and criteria
+  - Burns tokens privately
+       ↓
+Returns polished spec (~1.5-2.5k tokens)
+       ↓
+Command handles output (terminal/file/Jira)
+  (Main context stays clean!)
+```
+
+### Benefits
+
+- **Context Isolation**: Analysis processing happens in subagent, main context stays clean
+- **Structured Output**: Consistent spec format with all required sections
+- **Decision Documentation**: Rationale preserved for future reference
+- **Approval Gate**: Formal checkpoint before implementation begins
+- **Flexible Input**: Works from conversation, Jira, files, or from scratch
+- **Multiple Outputs**: Terminal display, file save, Jira posting
+
+### Subagent: spec-generator
+
+Located at: `schovi/agents/spec-generator/AGENT.md`
+
+**Responsibilities:**
+- Process analysis content in isolated context
+- Extract technical details (flows, files, dependencies)
+- Break down approach into actionable tasks
+- Generate testable acceptance criteria
+- Structure risks and mitigation strategies
+- Return formatted markdown spec
+
+**Input Format:**
+```markdown
+## Input Context
+
+### Problem Summary
+[Problem description]
+
+### Chosen Approach
+Option 2: [Solution name]
+[Approach details]
+
+### Technical Details
+- Affected files: [file:line references]
+- User flow: [flow description]
+- Data flow: [flow description]
+
+### Template Type
+[full|minimal]
+```
+
+**Output Format:**
+```markdown
+---
+jira_id: EC-1234
+title: "Brief description"
+status: "DRAFT"
+approach_selected: "Option 2: Solution name"
+---
+
+# SPEC: EC-1234 Description
+
+## Decision & Rationale
+[Why this approach was chosen]
+
+## Technical Overview
+[Data flows, affected services]
+
+## Implementation Tasks
+- [ ] Phase 1 tasks
+- [ ] Phase 2 tasks
+
+## Acceptance Criteria
+- [ ] Testable criteria
+
+## Testing Strategy
+[Unit, integration, manual tests]
+
+## Risks & Mitigations
+[Known risks and how to address them]
+```
+
+**Token Budget:** Max 3000 tokens output (typically ~1.5-2.5k)
+
+### Workflow Integration
+
+The spec-generator fits between analysis and implementation:
+
+```
+1. Problem Analysis (/analyze-problem)
+   - Understand problem
+   - Explore codebase
+   - Propose options
+
+2. Specification Creation (/create-spec)  ← NEW STEP
+   - Choose approach
+   - Document decision
+   - Structure implementation
+   - Define success criteria
+
+3. Implementation (start-implementation)
+   - Follow spec
+   - Check off tasks
+   - Verify criteria
+```
+
+This creates a clear handoff: analysis explores possibilities, spec documents decisions, implementation executes the plan.
+
+---
+
 ## ⚙️ Configuration
 
 ### Model Selection
@@ -753,7 +980,17 @@ If analysis seems shallow:
 
 ## 📝 Version History
 
-### v1.1.0 (Current)
+### v1.2.0 (Current)
+- Added Specification Generation
+  - `/schovi:create-spec` command for implementation spec generation
+  - `spec-generator` subagent for context-isolated spec creation
+  - Flexible input sources (conversation, Jira, file, from-scratch)
+  - Multiple output options (terminal, file, Jira posting)
+  - Full and minimal spec templates
+  - Bridges analysis and implementation workflow
+- Updated workflow documentation in CLAUDE.md (Phase 2 added)
+
+### v1.1.0
 - Added GitHub PR integration
   - `pr-analyzer` subagent for context-isolated PR fetching
   - `gh-pr-auto-detector` skill for automatic PR detection
