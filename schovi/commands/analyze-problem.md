@@ -57,7 +57,7 @@ IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
 
 1. Use the Task tool to invoke the jira-analyzer subagent:
    prompt: "Fetch and summarize Jira issue [ISSUE-KEY or URL]"
-   subagent_type: "general-purpose"
+   subagent_type: "schovi:jira-analyzer:jira-analyzer"
    description: "Fetching Jira issue summary"
 
 2. The subagent will:
