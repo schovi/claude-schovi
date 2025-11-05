@@ -427,23 +427,125 @@ IMPORTANT: Handle pasted content carefully to avoid tool errors.
    - Save it to a file and provide the file path"
 
 4. If content IS accessible (user pasted directly in message):
-   - Extract the relevant information (stack trace, error messages, line numbers)
-   - Document it for use in Phase 2 analysis
-   - Identify:
-     * Exception type and message
-     * File paths and line numbers mentioned
-     * Root cause indicators
-     * Affected components
+
+   **Parse it directly from the message text** (no tools needed):
+
+   **For stack traces** (Python, JavaScript, Java, etc.):
+   ```
+   Look for these patterns in the message:
+
+   Exception/Error Type:
+   - Python: "Exception:", "Error:", "Traceback"
+   - JavaScript: "Error:", "TypeError:", "ReferenceError:"
+   - Java: "Exception in thread", "Exception:", "Caused by:"
+
+   File Paths:
+   - Python: 'File "/path/to/file.py", line 123'
+   - JavaScript: 'at /path/to/file.js:123:45'
+   - Java: 'at com.example.Class.method(File.java:123)'
+
+   Error Message:
+   - Usually on first line after exception type
+   - Extract full message before stack frames begin
+
+   Stack Frames:
+   - List of file:line:function calls
+   - Identify entry point (first frame) and error point (last frame)
+   - Note the deepest frame in your codebase (not libraries)
+   ```
+
+   **For log messages**:
+   ```
+   Look for these patterns:
+
+   Timestamp:
+   - ISO format: "2025-04-11T14:23:45Z"
+   - Log format: "[2025-04-11 14:23:45]"
+
+   Log Level:
+   - ERROR, WARN, INFO, DEBUG, FATAL
+
+   Component/Logger:
+   - [ComponentName], [service.submodule]
+
+   Message:
+   - After timestamp and level
+   - May include context data (user IDs, request IDs, etc.)
+
+   File References:
+   - Sometimes includes file:line where log was emitted
+   ```
+
+   **For error messages from console/terminal**:
+   ```
+   Look for:
+   - Command that failed: First line, often starts with $ or >
+   - Error code: "Error: ENOENT", "exit code 1"
+   - Suggested fix: "Did you mean...", "Try running..."
+   - File paths: Absolute or relative paths mentioned
+   ```
+
+   **Extract and document**:
+   - exception_type = [e.g., "TypeError", "NullPointerException"]
+   - error_message = [e.g., "Cannot read property 'foo' of undefined"]
+   - file_locations = [List of file:line from stack frames or logs]
+   - entry_point = [First file:line in your codebase, not libraries]
+   - error_point = [Last file:line where error occurred]
+   - timestamp = [When error occurred, if available]
+   - context_data = [User ID, request ID, etc. if available]
+
+   **Example parsing (Python stack trace)**:
+   ```
+   Input message contains:
+   "Traceback (most recent call last):
+     File "/app/services/user.py", line 45, in authenticate
+       user = User.query.filter_by(email=email).first()
+     File "/app/models/user.py", line 12, in filter_by
+       return self.session.query(cls).filter_by(**kwargs)
+   AttributeError: 'NoneType' object has no attribute 'query'"
+
+   Extracted:
+   - exception_type = "AttributeError"
+   - error_message = "'NoneType' object has no attribute 'query'"
+   - file_locations = ["/app/services/user.py:45", "/app/models/user.py:12"]
+   - entry_point = "/app/services/user.py:45" (authenticate function)
+   - error_point = "/app/models/user.py:12" (filter_by function)
+   - root_cause_indicator = "self.session is None"
+   ```
 
 5. Store extracted context for Phase 2:
    - File paths from stack trace → Will guide codebase exploration
    - Exception types → Will guide error handling analysis
    - Line numbers → Will provide exact code locations to examine
+   - Entry/error points → Will help trace execution flow
+   - Context data → Will help reproduce issue
+
+6. Include in Phase 2 exploration prompt:
+   ```
+   Additional Context from Error:
+   - Exception: [exception_type]: [error_message]
+   - Entry Point: [entry_point] - Start exploration here
+   - Error Point: [error_point] - Problem occurs here
+   - Other References: [file_locations]
+
+   Exploration Focus:
+   - Read files at entry_point and error_point
+   - Trace execution path between entry and error
+   - Check for null/undefined handling
+   - Verify object initialization before use
+   ```
 
 DO NOT:
 - Use Bash with heredoc to process pasted content
 - Attempt to access "Pasted text #N" references directly
 - Assume pasted content format without verification
+- Use grep/sed/awk to parse stack traces (parse from message directly)
+
+DO:
+- Read content directly from user message
+- Parse using pattern matching (look for known formats)
+- Extract structured data (exception, files, lines)
+- Pass extracted data to Phase 2 for codebase exploration
 ```
 
 ---
