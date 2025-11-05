@@ -41,7 +41,8 @@ schovi/
 │   ├── plan.md            # Specification generation workflow
 │   ├── implement.md              # Implementation execution workflow
 │   ├── commit.md                 # Structured git commit creation
-│   └── publish.md              # GitHub pull request creation
+│   ├── publish.md              # GitHub pull request creation
+│   └── review.md                 # Comprehensive code review with issue detection
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (max 1200 tokens)
@@ -309,6 +310,92 @@ gh pr ready <number>
 
 **Integration**: Standalone manual command (not auto-executed by implement)
 
+### Command: `/schovi:review`
+
+**Location**: `schovi/commands/review.md`
+
+**Purpose**: Comprehensive code review with issue detection and improvement suggestions. Focused on GitHub PRs but supports Jira tickets, GitHub issues, and documents.
+
+**Workflow**:
+1. **Phase 1: Input Parsing & Classification** - Parse and classify input (PR, Jira, issue, file, free-form)
+2. **Phase 2: Context Fetching** - Use appropriate subagent to fetch context (gh-pr-analyzer, jira-analyzer, gh-issue-analyzer)
+3. **Phase 3: Review Analysis** - Deep codebase exploration (default) or quick review (--quick flag)
+4. **Phase 4: Structured Output** - Terminal-only output with summary, key changes, issues, improvements
+
+**Input Sources**:
+- GitHub PRs (via `gh-pr-analyzer` subagent)
+- Jira issues (via `jira-analyzer` subagent)
+- GitHub issues (via `gh-issue-analyzer` subagent)
+- File paths (via Read tool)
+- Free-form descriptions
+
+**Review Modes**:
+- **Deep Review** (default): Comprehensive analysis with codebase exploration using Explore subagent
+  - Reads all changed files and related dependencies
+  - Multi-dimensional analysis (functionality, quality, security, performance, testing, architecture)
+  - Security focus (SQL injection, XSS, auth issues, data leaks)
+  - Takes 2-5 minutes
+- **Quick Review** (--quick): Lighter analysis without exploration
+  - Context-based analysis only
+  - Focus on obvious issues and high-level patterns
+  - Takes 30-60 seconds
+
+**Key Features**:
+- **Terminal Output Only**: No file creation, no work folder integration
+- **Security Focus**: Always checks for common vulnerabilities
+- **Severity Classification**: Issues categorized as Critical/Medium/Minor
+- **Actionable Feedback**: Specific file:line references and improvement suggestions
+- **Multi-dimensional Analysis**: Covers functionality, quality, security, performance, testing, architecture
+
+**Output Structure**:
+```
+# 🔍 Code Review: [Input Identifier]
+
+## 📝 Summary
+[2-3 sentence overview and overall assessment]
+
+## 🔍 Key Changes/Information
+- Bullet points with file:line references
+
+## ⚠️ Potential Issues
+### 🚨 Critical / ⚠️ Medium / 💭 Minor
+- Issues with file:line and explanation
+
+## 💡 Improvement Suggestions
+1-5 actionable suggestions with benefits
+
+## 🎯 Overall Assessment
+[Approve with minor changes / Needs work / Blocked by issues]
+```
+
+**Example Usage**:
+```bash
+# Deep review of GitHub PR
+/schovi:review https://github.com/owner/repo/pull/123
+/schovi:review owner/repo#123
+/schovi:review #123
+
+# Quick review
+/schovi:review #123 --quick
+
+# Review Jira ticket
+/schovi:review EC-1234
+
+# Review local file
+/schovi:review ./spec-EC-1234.md
+```
+
+**Quality Gates** (all must be met):
+- Context successfully fetched
+- Analysis completed (deep or quick)
+- At least 3 key changes/info points identified
+- Issues section populated or marked as none found
+- 2-5 improvement suggestions provided
+- File references use `file:line` format
+- Overall assessment with clear recommendation
+
+**Integration**: Standalone command (not integrated with implement/debug workflows)
+
 ### Subagents
 
 **jira-analyzer** (`schovi/agents/jira-analyzer/AGENT.md`):
@@ -510,6 +597,7 @@ Follow the proven three-tier pattern:
 - `schovi/commands/implement.md`
 - `schovi/commands/commit.md`
 - `schovi/commands/publish.md`
+- `schovi/commands/review.md`
 
 **Skills**:
 - `schovi/skills/jira-auto-detector/SKILL.md`
