@@ -351,13 +351,18 @@ DO NOT:
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
 
-**CRITICAL**: Use the **Task tool with Plan subagent type** for thorough exploration. DO NOT use direct search tools unless for targeted follow-up queries.
+**CRITICAL**: Use the **Task tool with Explore subagent type** for thorough exploration. DO NOT use direct search tools unless for targeted follow-up queries.
 
-**When spawning Plan subagent, acknowledge:**
+**When spawning Explore subagent, acknowledge:**
 ```
 🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
-⏳ Spawning Plan subagent for exploration...
+⏳ Spawning Explore subagent for exploration...
 ```
+
+**Subagent Configuration:**
+- **subagent_type**: "Explore"
+- **thoroughness**: "very thorough" (for comprehensive analysis to understand the full scope)
+- **prompt**: [Detailed exploration requirements from Steps 2.1-2.5 below]
 
 **After receiving analysis results:**
 ```
