@@ -103,7 +103,49 @@ git rev-parse --abbrev-ref HEAD
 
 Use regex pattern: `[A-Z]{2,10}-\d{1,6}`
 
-### Step 1.3: Display Detection Summary
+### Step 1.3: Work Folder Detection (Optional Enhancement)
+
+**Objective**: Auto-detect work folder to source PR description from work files.
+
+**Try to find work folder** (non-blocking):
+
+```bash
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Extract identifier (Jira ID)
+identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
+
+# Find work folder
+if [ -n "$identifier" ]; then
+  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
+
+  # Read metadata if folder exists
+  if [ -f "$work_folder/.metadata.json" ]; then
+    cat "$work_folder/.metadata.json"
+  fi
+fi
+```
+
+**If work folder found, extract**:
+- `work_folder_path`: .WIP/[identifier]
+- `work_identifier`: From metadata.identifier
+- `work_title`: From metadata.title
+- `work_files`: From metadata.files (spec, analysis, plan locations)
+- `work_external`: From metadata.external (Jira/GitHub URLs)
+- `work_folder_jira_id`: From metadata.external.jiraIssue
+
+**If no work folder found**:
+- Continue with legacy spec file search
+- No error - work folder is optional
+
+**Benefits of work folder context**:
+- Auto-finds spec/plan/analysis files in work folder
+- Uses title from metadata for PR title
+- Links PR URL to work folder metadata
+- Auto-fills Jira ID if not provided by user
+
+### Step 1.4: Display Detection Summary
 
 ```markdown
 ╭─────────────────────────────────────────────╮
@@ -111,7 +153,8 @@ Use regex pattern: `[A-Z]{2,10}-\d{1,6}`
 ╰─────────────────────────────────────────────╯
 
 **Detected Context**:
-- Jira ID: EC-1234 [detected from branch | provided by user | not detected]
+- Work folder: .WIP/EC-1234-add-auth [if found | not detected]
+- Jira ID: EC-1234 [detected from branch/work folder | provided by user | not detected]
 - Spec file: [path if found | not specified]
 - Flags: [list any flags provided]
 - Base branch: main [or custom if --base provided]
@@ -437,12 +480,61 @@ PR creation cancelled.
 
 ```
 Priority order for description generation:
-1. Spec file (most detailed)
-2. Jira issue (structured context)
-3. Commit history (fallback)
+1. Work folder files (03-plan.md → 02-analysis.md → 01-spec.md)
+2. Spec file - legacy locations (most detailed)
+3. Jira issue (structured context)
+4. Commit history (fallback)
 ```
 
-#### Source Priority 1: Spec File
+#### Source Priority 1: Work Folder Files
+
+**If work folder detected in Step 1.3**:
+
+Check for work files in priority order:
+
+A. Check for 03-plan.md (most implementation-ready):
+```bash
+# From work folder metadata.files.plan
+plan_file="$work_folder/03-plan.md"
+test -f "$plan_file"
+```
+
+B. Check for 02-analysis.md or 02-debug.md (technical details):
+```bash
+# From metadata.files.analysis or metadata.files.debug
+analysis_file="$work_folder/02-analysis.md"
+debug_file="$work_folder/02-debug.md"
+test -f "$analysis_file" || test -f "$debug_file"
+```
+
+C. Check for 01-spec.md (product spec):
+```bash
+# From metadata.files.spec
+spec_file="$work_folder/01-spec.md"
+test -f "$spec_file"
+```
+
+**If work folder file found**:
+```markdown
+🔍 **Description Source Detected**: Work Folder File
+
+**File**: .WIP/EC-1234-add-auth/03-plan.md
+**Source**: Implementation plan from work folder
+**Work folder**: .WIP/EC-1234-add-auth
+
+Reading plan file for PR description...
+```
+
+Use Read tool to load the file.
+
+**Priority logic**:
+- 03-plan.md: Most detailed with implementation tasks → best for PR description
+- 02-analysis.md/02-debug.md: Technical context → good for problem/solution sections
+- 01-spec.md: Product requirements → useful for problem section
+
+#### Source Priority 2: Spec File (Legacy Locations)
+
+**If work folder not found OR work folder has no files**:
 
 **Search strategies**:
 
@@ -474,19 +566,19 @@ D. Search conversation history:
 
 **If spec file found**:
 ```markdown
-🔍 **Description Source Detected**: Spec File
+🔍 **Description Source Detected**: Spec File (Legacy)
 
 **File**: ./spec-EC-1234.md
-**Source**: Specification from plan command
+**Source**: Specification from plan command (not in work folder)
 
 Reading spec file for PR description...
 ```
 
 Use Read tool to load spec file.
 
-#### Source Priority 2: Jira Issue
+#### Source Priority 3: Jira Issue
 
-**If spec not found AND Jira ID available**:
+**If work folder files not found AND spec file not found AND Jira ID available**:
 
 ```markdown
 🔍 **Description Source Detected**: Jira Issue
@@ -504,7 +596,7 @@ subagent_type: "schovi:jira-analyzer:jira-analyzer"
 description: "Fetching Jira issue summary"
 ```
 
-#### Source Priority 3: Commit History
+#### Source Priority 4: Commit History
 
 **If no spec and no Jira**:
 
@@ -536,13 +628,14 @@ git diff origin/main..HEAD --name-only
 ╰─────────────────────────────────────────────╯
 
 **Search Results**:
-- ✅ Spec file: Found (./spec-EC-1234.md)
-- ⬜ Jira issue: Available but not needed (spec takes priority)
+- ✅ Work folder files: Found (.WIP/EC-1234-add-auth/03-plan.md)
+- ⬜ Spec file (legacy): Available but not needed (work folder takes priority)
+- ⬜ Jira issue: Available but not needed
 - ⬜ Commit history: Available as fallback
 
-**Selected Source**: Spec file (highest priority)
+**Selected Source**: Work folder plan file (highest priority)
 
-Generating PR description from spec...
+Generating PR description from work folder...
 ```
 
 ---
@@ -551,7 +644,53 @@ Generating PR description from spec...
 
 ### Step 5.1: Extract Content from Source
 
-#### From Spec File:
+#### From Work Folder Files:
+
+**From 03-plan.md** (best source - has everything):
+```markdown
+# Extract these sections:
+- ## Problem / Problem Statement -> PR Problem section (2-3 sentences)
+- ## Decision & Rationale / Solution -> PR Solution section (single paragraph, no subsections)
+- ## Technical Overview -> Inline into PR Solution section
+- ## Implementation Tasks -> PR Changes section (group by area, not phases)
+- ## Testing Strategy -> PR Quality & Impact section
+- ## Breaking Changes -> PR Quality & Impact section (inline with ⚠️)
+- ## Rollback Plan -> PR Quality & Impact section (inline with 🔄)
+- Jira ID from YAML frontmatter -> Related to line
+```
+
+**From 02-analysis.md** (good for problem/solution):
+```markdown
+# Extract these sections:
+- ## Problem Summary -> PR Problem section
+- ## Chosen Approach / Decision & Rationale -> PR Solution section
+- ## Technical Details -> Inline into PR Solution
+- ## Implementation Guidance -> PR Changes section (as bullets)
+- ## Testing -> PR Quality & Impact section
+- Jira ID from YAML frontmatter -> Related to line
+```
+
+**From 02-debug.md** (bug-specific):
+```markdown
+# Extract these sections:
+- ## Error Point / Problem -> PR Problem section
+- ## Root Cause -> PR Problem section (append)
+- ## Fix Proposal / Solution -> PR Solution section
+- ## Code Changes -> PR Changes section
+- ## Testing Strategy -> PR Quality & Impact section
+- Jira ID from YAML frontmatter -> Related to line
+```
+
+**From 01-spec.md** (product spec - less technical):
+```markdown
+# Extract these sections:
+- ## Problem Statement -> PR Problem section
+- ## Solution Overview -> PR Solution section
+- ## Success Criteria -> PR Changes section (as checklist)
+- Jira ID from YAML frontmatter -> Related to line
+```
+
+#### From Spec File (Legacy):
 
 Parse spec markdown structure:
 ```markdown
@@ -979,7 +1118,61 @@ gh pr view $PR_NUMBER --json number,url,title,state
 Great work! 🚀
 ```
 
-### Step 7.6: Output Handling
+### Step 7.6: Update Work Folder Metadata (if applicable)
+
+```
+IMPORTANT: This step runs in BOTH CREATE and UPDATE modes.
+           Always update metadata when work folder exists.
+```
+
+**If work_folder exists** (from Step 1.3):
+
+1. Extract PR details:
+```bash
+# PR number from gh pr create output (CREATE mode) or gh pr list (UPDATE mode)
+PR_NUMBER="123"
+PR_URL="https://github.com/owner/repo/pull/123"
+```
+
+2. Read existing metadata:
+```bash
+cat "$work_folder/.metadata.json"
+```
+
+3. Update fields:
+```json
+{
+  ...existing,
+  "external": {
+    ...existing.external,
+    "githubPR": PR_NUMBER,
+    "githubPRUrl": "PR_URL"
+  },
+  "timestamps": {
+    ...existing.timestamps,
+    "lastModified": "[now from date -u +\"%Y-%m-%dT%H:%M:%SZ\"]"
+  }
+}
+```
+
+4. Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
+
+**Display (CREATE mode)**:
+```
+📁 **Work Folder Updated**: .WIP/EC-1234-add-auth/.metadata.json
+   - Added PR #123 to metadata
+```
+
+**Display (UPDATE mode)**:
+```
+📁 **Work Folder Updated**: .WIP/EC-1234-add-auth/.metadata.json
+   - Updated lastModified timestamp
+```
+
+**If no work folder**:
+- Skip metadata update (not an error)
+
+### Step 7.7: Output Handling
 
 Handle PR description and context output based on flags:
 
@@ -1066,7 +1259,7 @@ Handle PR description and context output based on flags:
 ⚠️ **[Publish]** Cannot post to Jira: No Jira ID detected
 ```
 
-### Step 7.7: Run Confetti Command
+### Step 7.8: Run Confetti Command
 
 ```
 Per CLAUDE.md workflow requirements, always run confetti at end of work.
@@ -1336,10 +1529,12 @@ Consider updating PR description with:
 **For Claude Code**:
 
 1. **Description Source Intelligence**:
-   - Always prefer spec file (most comprehensive)
-   - Jira provides structured context (problem + acceptance criteria)
-   - Commits are fallback (least context but always available)
-   - Search multiple locations for spec files
+   - Highest priority: Work folder files (03-plan.md → 02-analysis.md → 01-spec.md)
+   - Second priority: Legacy spec files (most comprehensive)
+   - Third priority: Jira provides structured context (problem + acceptance criteria)
+   - Fourth priority: Commits are fallback (least context but always available)
+   - Auto-detect work folder from git branch
+   - Search multiple locations for legacy spec files
 
 2. **PR Title Best Practices**:
    - Include Jira ID when available for traceability
@@ -1389,4 +1584,12 @@ Consider updating PR description with:
    - User must explicitly opt-in to ready state with --ready flag
    - Can convert draft→ready anytime with `gh pr ready`
    - Can convert ready→draft with `gh pr ready --undo`
+
+10. **Work Folder Integration**:
+   - Auto-detect work folder from git branch (non-blocking)
+   - Prioritize work folder files for PR description (03-plan.md → 02-analysis.md → 01-spec.md)
+   - Update .metadata.json with PR number and URL in both CREATE and UPDATE modes
+   - Use work folder title for PR title if Jira ID not in user input
+   - Backward compatible: Falls back to legacy spec file search if no work folder
+   - Provides richer context than legacy workflow
 
