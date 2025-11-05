@@ -548,6 +548,104 @@ DO:
 - Pass extracted data to Phase 2 for codebase exploration
 ```
 
+### Step 1.5: Validate Template Type (--quick flag check)
+
+**Objective**: Ensure the template type (full vs quick) matches problem complexity.
+
+**Instructions**:
+
+1. **Assess problem complexity** based on Phase 1 findings:
+
+   **Use Full Analysis if**:
+   - Multiple systems/components mentioned
+   - Unclear or multiple root causes
+   - Feature request with architectural implications
+   - Bug with complex reproduction steps (>3 steps)
+   - Multiple possible solutions needed
+   - Integration points or dependencies mentioned
+   - User flow involves >2 components
+   - Data flow crosses system boundaries
+
+   **Use Quick Analysis if**:
+   - Single file/component affected
+   - Clear root cause identified
+   - Simple bug fix (obvious error)
+   - Well-defined problem with obvious solution
+   - No architectural changes needed
+   - Isolated change (no dependencies)
+
+2. **Check for template type mismatch**:
+
+   **If user specified `--quick` flag BUT problem appears complex**:
+   ```
+   ⚠️ **[Analyze-Problem]** Template type recommendation
+
+   You requested quick analysis (`--quick` flag), but this problem appears complex:
+
+   Complexity indicators found:
+   - [List what makes it complex, e.g., "Multiple components affected"]
+   - [e.g., "Unclear root cause from description"]
+   - [e.g., "Integration points mentioned"]
+
+   **Recommendation**: Use full analysis for:
+   - Better solution exploration (2-3 options vs 1)
+   - Deeper technical analysis
+   - More comprehensive implementation guidance
+   - Detailed testing strategy
+
+   **Quick analysis** will provide:
+   - Single solution option
+   - Basic implementation guidance
+   - Minimal context
+
+   Would you like to:
+   1. Use full analysis (recommended) - Override --quick flag
+   2. Keep quick analysis - Proceed as requested
+   3. Cancel and re-run without --quick flag
+
+   Choose [1-3]:
+   ```
+
+   **If user chooses option 1**: Override `--quick` flag, use full template
+   **If user chooses option 2**: Proceed with quick template as requested
+   **If user chooses option 3**: Exit analysis (user will re-run command)
+
+   **If user did NOT specify `--quick` BUT problem appears simple**:
+   ```
+   💡 **[Analyze-Problem]** Template type suggestion
+
+   This problem appears straightforward:
+   - [e.g., "Single file affected"]
+   - [e.g., "Clear error with obvious fix"]
+
+   You can use `--quick` flag for faster analysis with:
+   - Focused solution (one option)
+   - Streamlined output
+
+   Would you like to:
+   1. Continue with full analysis (default) - More comprehensive
+   2. Switch to quick analysis - Faster, more focused
+
+   Choose [1-2] or press Enter for full:
+   ```
+
+   **If user chooses option 1 or presses Enter**: Use full template (default)
+   **If user chooses option 2**: Use quick template
+
+3. **Store final decision**:
+   ```
+   template_type = "full" | "quick"
+   template_override_reason = [If overridden, note why]
+   ```
+
+4. **Acknowledge decision**:
+   ```
+   📋 **[Analyze-Problem]** Analysis type: [Full|Quick]
+   [If overridden]: (Overridden from user preference due to complexity)
+   ```
+
+**Skip this step if**: Problem complexity is clearly aligned with flag choice (no mismatch detected).
+
 ---
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
