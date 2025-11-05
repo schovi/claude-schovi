@@ -381,6 +381,85 @@ NEVER fetch issue details directly using gh CLI - always delegate to the subagen
 This prevents massive issue payloads from polluting your context.
 ```
 
+**If Datadog Trace/Error Provided**:
+```
+IMPORTANT: Delegate to the datadog-analyzer subagent (when available) to prevent context pollution.
+
+1. Acknowledge detection:
+   🛠️ **[Analyze-Problem]** Detected Datadog trace: [Trace URL or error ID]
+   ⏳ Fetching trace details via datadog-analyzer...
+
+2. Use the Task tool to invoke the datadog-analyzer subagent:
+   prompt: "Fetch and summarize Datadog trace [URL or trace ID]"
+   subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
+   description: "Fetching Datadog trace summary"
+
+3. The subagent will:
+   - Fetch the full trace payload via Datadog API (~10-30k tokens) in its isolated context
+   - Extract ONLY essential information
+   - Return a clean summary (~800-1000 tokens) with visual wrappers:
+
+   ╭─────────────────────────────────────╮
+   │ 📊 DATADOG ANALYZER                 │
+   ╰─────────────────────────────────────╯
+
+   [Structured summary content]
+
+   ╭─────────────────────────────────────╮
+     ✅ Summary complete | ~[X] tokens
+   ╰─────────────────────────────────────╯
+
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch Datadog trace [Trace reference]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Trace URL/ID is incorrect
+   - Datadog API authentication not configured
+   - Trace has expired or been deleted
+   - Network connectivity issues
+
+   Options:
+   1. Verify trace reference and retry
+   2. Provide error details manually (copy from Datadog UI)
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
+   ✅ **[Analyze-Problem]** Trace details fetched successfully
+
+5. You will receive a structured summary containing:
+   - Core information (trace ID, timestamp, service, environment)
+   - Error message and type
+   - Affected endpoints/operations
+   - Key spans with duration and status
+   - Related logs (max 5, errors prioritized)
+   - Host and infrastructure context
+
+6. Use this summary to understand:
+   - What operation failed (from trace spans)
+   - Where the error occurred (service, endpoint, file)
+   - When it happened (timestamp, frequency if available)
+   - Performance context (latency, span durations)
+   - Related errors or patterns
+
+NOTE: If datadog-analyzer subagent is not available:
+- Ask user to provide error details manually from Datadog UI
+- Include: trace ID, error message, affected service, key spans, timestamp
+- Continue analysis with manual context
+
+NEVER fetch Datadog traces directly using API calls - always delegate to the subagent when available.
+This prevents massive trace payloads from polluting your context.
+```
+
 **If Textual Description Provided**:
 ```
 1. Parse the problem statement carefully
@@ -399,6 +478,7 @@ This prevents massive issue payloads from polluting your context.
    - A Jira issue ID (e.g., EC-1234)
    - A GitHub PR (URL, owner/repo#123, or #123)
    - A GitHub Issue (URL or owner/repo#123)
+   - A Datadog trace URL or trace ID
    - A problem description with context"
 2. Wait for response and restart this phase
 ```
