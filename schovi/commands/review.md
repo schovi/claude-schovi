@@ -1,7 +1,7 @@
 ---
 description: Comprehensive code review with issue detection and improvement suggestions
 argument-hint: [PR/Jira/issue/file] [--quick]
-allowed-tools: ["Task", "Bash", "Read", "Grep", "Glob"]
+allowed-tools: ["Task", "Bash", "Read", "Grep", "Glob", "mcp__jetbrains__*"]
 ---
 
 # Review Command
@@ -65,49 +65,245 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 
 **Wait for subagent completion before proceeding**.
 
+### Phase 2.5: Source Code Fetching
+
+**For GitHub PRs and issues with code references, fetch actual source code for deeper analysis**.
+
+This phase is **CRITICAL** for providing accurate, code-aware reviews. Skip only for quick reviews or non-code content.
+
+#### Step 1: Identify Files to Fetch
+
+**Extract file paths from fetched context**:
+
+1. For GitHub PRs: Extract changed files from gh-pr-analyzer summary
+2. For Jira/GitHub Issues: Extract file:line references from description/comments
+3. For file inputs: Already have content from Phase 2
+
+**Prioritize files** (fetch up to 10 most relevant):
+- Changed files with most additions/deletions
+- Files mentioned in issue description
+- Core logic files (controllers, services, models)
+- Test files related to changes
+
+#### Step 2: Determine Source Code Access Method
+
+**Check available methods in priority order**:
+
+1. **Local Repository Access** (PREFERRED):
+   - Check if current working directory is the target repository
+   - For PRs: Use `git remote -v` to verify repo matches PR repository
+   - If branch exists locally: Check out the PR branch or use current branch
+   - Direct file access via Read tool
+
+2. **JetBrains MCP Integration** (if available):
+   - Check if `mcp__jetbrains__*` tools are available
+   - Use `mcp__jetbrains__get_file_content` for file reading
+   - Use `mcp__jetbrains__search_everywhere` for finding related files
+   - Provides IDE-aware context (usages, definitions)
+
+3. **GitHub API Fetch** (fallback):
+   - For external repositories or when local access unavailable
+   - Use `gh api` to fetch file contents from GitHub
+   - Fetch from the PR branch/commit SHA
+   - Example: `gh api repos/{owner}/{repo}/contents/{path}?ref={sha}`
+
+#### Step 3: Fetch Source Files
+
+**Execute fetching based on determined method**:
+
+**Local Repository Method**:
+```bash
+# Verify we're in correct repo
+git remote -v | grep -q "owner/repo"
+
+# For PR review: Optionally fetch and checkout PR branch
+gh pr checkout <PR_NUMBER>  # or use existing branch
+
+# Read files directly
+# Use Read tool for each file path identified in Step 1
+```
+
+**JetBrains MCP Method** (if available):
+```
+# Use mcp__jetbrains__get_file_content for each file
+# This provides IDE context like imports, usages, etc.
+
+# Example:
+mcp__jetbrains__get_file_content(file_path: "src/api/controller.ts")
+```
+
+**GitHub API Method**:
+```bash
+# Extract owner, repo, and ref from PR context
+# For each file path:
+gh api repos/{owner}/{repo}/contents/{file_path}?ref={pr_head_sha} \
+  --jq '.content' | base64 -d
+
+# Alternative: Use gh pr diff for changed files
+gh pr diff <PR_NUMBER>
+```
+
+#### Step 4: Store Fetched Content
+
+**Organize fetched code for analysis**:
+
+1. **Create in-memory file map**:
+   - Key: file path (e.g., "src/api/controller.ts")
+   - Value: file content or relevant excerpt
+   - Include line numbers for changed sections
+
+2. **Handle large files**:
+   - For files >500 lines, fetch only changed sections ±50 lines of context
+   - Use `git diff` with context lines: `gh pr diff <PR> --patch`
+   - Store full path + line ranges
+
+3. **Capture metadata**:
+   - File size, lines changed (additions/deletions)
+   - File type/language
+   - Related test files
+
+#### Step 5: Fetch Related Dependencies (Deep Review Only)
+
+**For deep reviews, explore related code**:
+
+1. **Identify dependencies**:
+   - Parse imports/requires from fetched files
+   - Find files that import changed files (reverse dependencies)
+   - Locate test files for changed code
+
+2. **Fetch related files**:
+   - Use Grep tool to find related code: `import.*from.*{filename}`
+   - Use Glob tool to find test files: `**/*{filename}.test.*`
+   - Read up to 5 most relevant related files
+
+3. **Build call graph context**:
+   - Identify functions/methods changed
+   - Find callers of those functions
+   - Track data flow through changed code
+
+#### Error Handling
+
+**Handle fetching failures gracefully**:
+
+- **Local repo not available**: Fall back to GitHub API or proceed with context summary only
+- **GitHub API rate limit**: Use available context, note limitation in review
+- **File too large**: Fetch diff sections only, note in review
+- **Branch/commit not found**: Use main/master branch, add warning
+- **Authentication failure**: Proceed with summary context, suggest `gh auth login`
+
+**Always notify user of fetching method used**:
+```
+📥 Fetching source code via [local repository / JetBrains MCP / GitHub API]
+📄 Retrieved X files (Y lines total)
+```
+
 ### Phase 3: Review Analysis
 
 #### Deep Review (Default)
 
-**Comprehensive analysis with codebase exploration**:
+**Comprehensive analysis using fetched source code**:
 
-1. **Code Exploration** (for PRs/code changes):
+1. **Direct Code Analysis** (using Phase 2.5 fetched files):
+
+   **Analyze fetched source files directly**:
+   - Review each fetched file for code quality, patterns, and issues
+   - Focus on changed sections but consider full file context
+   - Cross-reference between related files
+   - Verify imports/exports are correct
+   - Check for unused code or imports
+
+   **Use Explore subagent for additional context** (if needed):
    - Use Task tool with subagent_type: `Explore`
-   - Set thoroughness: `very thorough`
-   - Prompt: "Analyze the following changes and codebase context:
-     - Read all changed files mentioned in the context
-     - Explore related files and dependencies
-     - Identify patterns, anti-patterns, and code quality issues
-     - Check for security vulnerabilities (SQL injection, XSS, auth issues, data leaks)
-     - Analyze test coverage and edge cases
-     - Review error handling and logging
-     - Context: [fetched context summary]"
-   - Description: "Performing deep code analysis"
+   - Set thoroughness: `medium` (since we already have main files)
+   - Prompt: "Explore additional context for the review:
+     - Find additional related files not yet fetched
+     - Locate integration points and dependencies
+     - Search for similar patterns in codebase
+     - Context: [fetched code summary + file list]"
+   - Description: "Exploring additional codebase context"
 
-2. **Multi-dimensional Analysis**:
-   - **Functionality**: Does it solve the problem? Edge cases covered?
-   - **Code Quality**: Readability, maintainability, patterns
-   - **Security**: Vulnerabilities, data exposure, auth/authz
-   - **Performance**: Inefficiencies, N+1 queries, memory leaks
-   - **Testing**: Coverage, test quality, missing scenarios
-   - **Architecture**: Design patterns, coupling, cohesion
-   - **Documentation**: Comments, docs, clarity
+2. **Multi-dimensional Analysis** (on fetched code):
+
+   **Functionality**:
+   - Does implementation match requirements from context?
+   - Are edge cases handled (null checks, empty arrays, boundary conditions)?
+   - Is error handling comprehensive?
+   - Are return values consistent?
+
+   **Code Quality**:
+   - Readability: Clear variable names, function names, code organization
+   - Maintainability: DRY principle, single responsibility, modularity
+   - Patterns: Appropriate design patterns, consistent style
+   - Complexity: Cyclomatic complexity, nesting depth
+
+   **Security** (CRITICAL):
+   - SQL injection risks (raw queries, string concatenation)
+   - XSS vulnerabilities (unescaped output, innerHTML usage)
+   - Authentication/Authorization issues (missing checks, hardcoded credentials)
+   - Data leaks (logging sensitive data, exposing internal details)
+   - Input validation (user input sanitization, type checking)
+   - CSRF protection (state-changing operations)
+
+   **Performance**:
+   - N+1 query problems (loops with database calls)
+   - Memory leaks (event listeners, closures, cache)
+   - Inefficient algorithms (O(n²) when O(n) possible)
+   - Unnecessary re-renders (React/Vue/Angular)
+   - Resource handling (file handles, connections, streams)
+
+   **Testing**:
+   - Test coverage for changed code
+   - Test quality (unit vs integration, assertions)
+   - Missing test scenarios (edge cases, error paths)
+   - Test maintainability (mocks, fixtures)
+
+   **Architecture**:
+   - Design patterns appropriate for use case
+   - Coupling between modules (tight vs loose)
+   - Cohesion within modules (single responsibility)
+   - Separation of concerns (business logic, UI, data)
+
+   **Documentation**:
+   - Code comments for complex logic
+   - JSDoc/docstrings for public APIs
+   - README updates if needed
+   - Inline explanations for non-obvious code
+
+3. **Code-Specific Issue Detection**:
+
+   **Scan fetched code for common issues**:
+   - TODO/FIXME comments left in code
+   - Console.log/debug statements in production code
+   - Commented-out code blocks
+   - Hardcoded values that should be constants/config
+   - Magic numbers without explanation
+   - Inconsistent naming conventions
+   - Missing error handling in async code
+   - Race conditions in concurrent code
+   - Resource leaks (unclosed files, connections)
 
 #### Quick Review (--quick flag)
 
-**Lighter analysis without codebase exploration**:
+**Lighter analysis without full source code fetching**:
+
+**Skip Phase 2.5 or fetch minimal files only**:
+- For PRs: Use `gh pr diff` to get code changes without full file fetching
+- Limit to top 3 most important files if fetching
+- No dependency exploration
+- No related file fetching
 
 1. **Context-based Analysis**:
-   - Review fetched context summary only
-   - No deep file exploration
+   - Review fetched context summary and diffs
+   - Limited file exploration (max 3 files)
    - Focus on obvious issues and high-level patterns
    - Fast turnaround (30-60 seconds)
 
 2. **Focus Areas**:
    - Summary of changes/content
    - Obvious code quality issues from diff
-   - Critical security concerns (if visible)
+   - Critical security concerns (if visible in diff)
    - High-level improvement suggestions
+   - Surface-level pattern detection
 
 ### Phase 4: Structured Output
 
@@ -172,11 +368,14 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 **Before presenting review, verify**:
 
 - ✅ Context successfully fetched (or file read)
-- ✅ Analysis completed (deep or quick as requested)
-- ✅ At least 3 key changes/info points identified
-- ✅ Issues section populated (or explicitly marked as none found)
-- ✅ 2-5 improvement suggestions provided
-- ✅ File references use `file:line` format when applicable
+- ✅ Source code fetched (deep review) or diff retrieved (quick review)
+- ✅ Fetching method reported to user (local/JetBrains/GitHub)
+- ✅ Analysis completed on actual source code (deep or quick as requested)
+- ✅ At least 3 key changes/info points identified with specific code references
+- ✅ Issues section populated with code-level findings (or explicitly marked as none found)
+- ✅ Security analysis performed on fetched code
+- ✅ 2-5 improvement suggestions provided with specific file:line references
+- ✅ File references use `file:line` format for all code mentions
 - ✅ Overall assessment with clear recommendation
 
 ## Important Rules
@@ -217,28 +416,46 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 1. Parse input and classify type correctly
 2. Use appropriate subagent for context fetching (fully qualified names)
 3. Wait for subagent completion before analysis
-4. For deep review: Use Explore subagent for code analysis
-5. For quick review: Analyze context summary only
-6. Always include security analysis
-7. Provide specific file:line references
-8. Categorize issues by severity
-9. Give 2-5 actionable improvements
-10. Check all quality gates before output
-11. Output to terminal ONLY (no files)
+4. **Execute Phase 2.5: Source Code Fetching** (critical for accurate reviews):
+   - Identify files to fetch from context
+   - Determine access method (local > JetBrains > GitHub)
+   - Fetch source files (up to 10 for deep, up to 3 for quick)
+   - Notify user of fetching method and file count
+   - Handle errors gracefully, fall back when needed
+5. Analyze **actual fetched source code**, not just context summaries
+6. For deep review: Fetch dependencies and use Explore for additional context
+7. For quick review: Fetch minimal files (top 3) or use diff only
+8. Always perform security analysis on fetched code
+9. Provide specific file:line references from actual code
+10. Categorize issues by severity with code evidence
+11. Give 2-5 actionable improvements with code-specific examples
+12. Check all quality gates before output
+13. Output to terminal ONLY (no files)
 
 **YOU MUST NOT**:
 
 1. Create any files or use work folders
-2. Skip context fetching phase
-3. Proceed without waiting for subagent completion
-4. Give vague suggestions without file references
-5. Miss security vulnerability analysis
-6. Provide generic feedback without specifics
-7. Skip severity classification for issues
+2. Skip context fetching phase (Phase 2)
+3. Skip source code fetching phase (Phase 2.5) without valid reason
+4. Proceed without waiting for subagent completion
+5. Review without fetching actual source code (except quick mode fallback)
+6. Give vague suggestions without specific file:line references from fetched code
+7. Miss security vulnerability analysis on actual code
+8. Provide generic feedback without code-level specifics
+9. Skip severity classification for issues
+10. Base review solely on PR descriptions without examining code
 
 ## Error Handling
 
 - **Invalid input**: Ask user to clarify or provide valid PR/Jira/file
-- **Fetch failure**: Report error and suggest checking credentials/permissions
+- **Context fetch failure**: Report error and suggest checking credentials/permissions
+- **Source code fetch failure**:
+  - Try alternate methods (local → JetBrains → GitHub)
+  - Fall back to diff-based review if all methods fail
+  - Notify user of limitation and suggest fixes
+- **Repository mismatch**: Notify user if reviewing external repo from different local repo
+- **Branch not found**: Fall back to main/master branch with warning
+- **File too large**: Fetch diff sections only, note in review
+- **GitHub API rate limit**: Use local/JetBrains if available, or note limitation
 - **Empty context**: Report that nothing was found to review
 - **Analysis timeout**: Fall back to quick review and notify user

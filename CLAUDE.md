@@ -319,8 +319,9 @@ gh pr ready <number>
 **Workflow**:
 1. **Phase 1: Input Parsing & Classification** - Parse and classify input (PR, Jira, issue, file, free-form)
 2. **Phase 2: Context Fetching** - Use appropriate subagent to fetch context (gh-pr-analyzer, jira-analyzer, gh-issue-analyzer)
-3. **Phase 3: Review Analysis** - Deep codebase exploration (default) or quick review (--quick flag)
-4. **Phase 4: Structured Output** - Terminal-only output with summary, key changes, issues, improvements
+3. **Phase 2.5: Source Code Fetching** - Fetch actual source files for code-level analysis (local filesystem, JetBrains MCP, or GitHub API)
+4. **Phase 3: Review Analysis** - Direct code analysis on fetched files with deep exploration (default) or quick review (--quick flag)
+5. **Phase 4: Structured Output** - Terminal-only output with summary, key changes, issues, improvements
 
 **Input Sources**:
 - GitHub PRs (via `gh-pr-analyzer` subagent)
@@ -330,22 +331,33 @@ gh pr ready <number>
 - Free-form descriptions
 
 **Review Modes**:
-- **Deep Review** (default): Comprehensive analysis with codebase exploration using Explore subagent
-  - Reads all changed files and related dependencies
+- **Deep Review** (default): Comprehensive analysis with actual source code fetching and exploration
+  - Fetches up to 10 source files via local filesystem, JetBrains MCP, or GitHub API
+  - Direct code analysis on fetched files (not just summaries)
+  - Fetches related dependencies and test files
   - Multi-dimensional analysis (functionality, quality, security, performance, testing, architecture)
-  - Security focus (SQL injection, XSS, auth issues, data leaks)
+  - Code-specific issue detection (TODO comments, console.log, hardcoded values, etc.)
+  - Security focus with actual code inspection (SQL injection, XSS, auth issues, data leaks)
+  - Optional Explore subagent for additional context
   - Takes 2-5 minutes
-- **Quick Review** (--quick): Lighter analysis without exploration
-  - Context-based analysis only
+- **Quick Review** (--quick): Lighter analysis with minimal file fetching
+  - Fetches up to 3 most important files or uses diff only
+  - No dependency exploration
+  - Context-based analysis with limited code inspection
   - Focus on obvious issues and high-level patterns
   - Takes 30-60 seconds
 
 **Key Features**:
+- **Actual Source Code Analysis**: Fetches and reviews real source files (not just PR descriptions)
+- **Multi-source Fetching**: Local filesystem (preferred), JetBrains MCP, or GitHub API fallback
+- **Smart File Prioritization**: Fetches most relevant files based on changes and impact
+- **Dependency Exploration**: Discovers and analyzes related files and test coverage
 - **Terminal Output Only**: No file creation, no work folder integration
-- **Security Focus**: Always checks for common vulnerabilities
+- **Security Focus**: Code-level vulnerability detection (SQL injection, XSS, auth issues)
+- **Code-Specific Issues**: Detects TODO comments, debug statements, hardcoded values
 - **Severity Classification**: Issues categorized as Critical/Medium/Minor
-- **Actionable Feedback**: Specific file:line references and improvement suggestions
-- **Multi-dimensional Analysis**: Covers functionality, quality, security, performance, testing, architecture
+- **Actionable Feedback**: Specific file:line references from actual code
+- **Multi-dimensional Analysis**: Functionality, quality, security, performance, testing, architecture
 
 **Output Structure**:
 ```
@@ -386,12 +398,14 @@ gh pr ready <number>
 ```
 
 **Quality Gates** (all must be met):
-- Context successfully fetched
-- Analysis completed (deep or quick)
-- At least 3 key changes/info points identified
-- Issues section populated or marked as none found
-- 2-5 improvement suggestions provided
-- File references use `file:line` format
+- Context successfully fetched from external sources
+- Source code fetched via local/JetBrains/GitHub (with method reported to user)
+- Analysis completed on actual code (deep or quick mode)
+- At least 3 key changes/info points identified with specific code references
+- Issues section populated with code-level findings or marked as none found
+- Security analysis performed on fetched code
+- 2-5 improvement suggestions provided with specific file:line references
+- File references use `file:line` format for all code mentions
 - Overall assessment with clear recommendation
 
 **Integration**: Standalone command (not integrated with implement/debug workflows)
