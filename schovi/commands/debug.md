@@ -377,6 +377,185 @@ NOTE: If datadog-analyzer subagent is not available:
 2. Wait for response and restart this phase
 ```
 
+### Step 1.3: Work Folder Resolution & Metadata Setup
+
+**Objective**: Create or find work folder for storing debug report and tracking workflow state.
+
+**Integration Point**: Use work folder library (`schovi/lib/work-folder.md`)
+
+#### 1.3.1: Check for Explicit Work Folder
+
+If `work_dir` provided via `--work-dir` flag:
+```bash
+# Use exactly as specified
+work_folder="$work_dir"
+
+# Validate it exists
+if [ ! -d "$work_folder" ]; then
+  echo "⚠️ Work folder not found: $work_folder"
+  echo "Creating folder..."
+  mkdir -p "$work_folder/context"
+fi
+```
+
+#### 1.3.2: Auto-detect Existing Work Folder
+
+If no `--work-dir`, try to find existing folder:
+
+**a) From Git Branch**:
+```bash
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Extract identifier (Jira ID)
+identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
+
+# Find work folder
+if [ -n "$identifier" ]; then
+  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
+fi
+```
+
+**b) From Problem Input Identifier**:
+```bash
+# Extract Jira ID from problem_input
+jira_id=$(echo "$problem_input" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b')
+
+if [ -n "$jira_id" ]; then
+  work_folder=$(find .WIP -type d -name "${jira_id}*" | head -1)
+fi
+
+# Or extract GitHub issue
+gh_issue=$(echo "$problem_input" | grep -oE '(issues|pull)/[0-9]+' | grep -oE '[0-9]+')
+if [ -n "$gh_issue" ]; then
+  work_folder=$(find .WIP -type d -name "GH-${gh_issue}*" | head -1)
+fi
+```
+
+#### 1.3.3: Create New Work Folder
+
+If no existing folder found, create new one:
+
+**Generate Identifier**:
+
+If Jira ID present (from Step 1.2):
+```bash
+jira_id="EC-1234"
+jira_title="[from Jira summary]"
+
+# Generate slug from title
+slug=$(echo "$jira_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
+
+# Combine
+identifier="${jira_id}-${slug}"
+```
+
+If GitHub issue/PR present:
+```bash
+gh_number="123"
+gh_title="[from GitHub summary]"
+
+# Generate slug
+slug=$(echo "$gh_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
+
+identifier="GH-${gh_number}-${slug}"
+```
+
+If description-based (error/bug without external ID):
+```bash
+# Generate slug from problem description (first 50 chars)
+slug=$(echo "$problem_input" | head -c 50 | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | sed 's/-$//')
+
+# Prefix with "debug-"
+identifier="debug-${slug}"
+```
+
+**Create Folder Structure**:
+```bash
+work_folder=".WIP/$identifier"
+mkdir -p "$work_folder/context"
+```
+
+#### 1.3.4: Load or Create Metadata
+
+**If metadata exists** (continuing work):
+```bash
+cat "$work_folder/.metadata.json"
+```
+
+Parse to understand:
+- workflow.completed: what's done
+- workflow.current: last step
+- files: existing outputs
+
+**If new folder** (first debug):
+
+Use Write tool to create `$work_folder/.metadata.json`:
+```json
+{
+  "identifier": "[jira-id or GH-number or debug-slug]",
+  "title": "[from Jira/GitHub or problem description]",
+  "slug": "[generated slug]",
+  "workFolder": ".WIP/[identifier]",
+
+  "workflow": {
+    "type": "bug",
+    "steps": ["debug", "implement"],
+    "completed": [],
+    "current": "debug"
+  },
+
+  "files": {},
+
+  "git": {
+    "branch": "[from git rev-parse --abbrev-ref HEAD]",
+    "commits": [],
+    "lastCommit": null
+  },
+
+  "external": {
+    "jiraIssue": "[if Jira]",
+    "jiraUrl": "[if Jira]",
+    "githubIssue": "[if GitHub issue]",
+    "githubIssueUrl": "[if GitHub issue]",
+    "githubPR": "[if GitHub PR]",
+    "githubPRUrl": "[if GitHub PR]"
+  },
+
+  "timestamps": {
+    "created": "[from date -u +\"%Y-%m-%dT%H:%M:%SZ\"]",
+    "lastModified": "[same as created]",
+    "completed": null
+  }
+}
+```
+
+**Get current timestamp**:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+**Get current git branch**:
+```bash
+git rev-parse --abbrev-ref HEAD
+```
+
+**Set workflow.type = "bug"** because debug → implement (or debug → plan → implement if complex).
+
+#### 1.3.5: Store Work Folder Info
+
+Store for use in later phases:
+```
+work_folder = [.WIP/identifier]
+identifier = [jira-id or GH-number or debug-slug]
+metadata_exists = [true|false]
+```
+
+**Acknowledge work folder**:
+```
+📁 **[Debug-Problem]** Work folder: $work_folder
+```
+
 ---
 
 ## PHASE 2: DEEP DEBUGGING & ROOT CAUSE ANALYSIS
@@ -890,14 +1069,15 @@ Handle fix proposal output based on flags from Argument Parsing:
 **If `--quiet` flag present**:
 - Skip terminal display entirely
 
-### Step 4.2: File Output
+### Step 4.2: File Output & Metadata Update
 
 **If `output_path != null`** (default, unless `--no-file`):
 
 1. Determine filename:
    - If `--output PATH` specified: Use provided path
-   - Else if Jira ID present: `./debug-[JIRA-ID].md` (current directory)
-   - Else: `./debug-[YYYY-MM-DD-HHMMSS].md` (current directory)
+   - Else if work_folder exists: `$work_folder/02-debug.md` (work folder)
+   - Else if Jira ID present: `./debug-[JIRA-ID].md` (current directory - fallback)
+   - Else: `./debug-[YYYY-MM-DD-HHMMSS].md` (current directory - fallback)
 
 2. Resolve and validate output path:
 
@@ -970,8 +1150,43 @@ Handle fix proposal output based on flags from Argument Parsing:
    📄 **[Debug-Problem]** Fix proposal saved to: [output_path]
    ```
 
+5. Update Metadata (if work folder exists):
+
+   **If work_folder is set** (from Step 1.3):
+
+   Read existing metadata:
+   ```bash
+   cat "$work_folder/.metadata.json"
+   ```
+
+   Update fields:
+   ```json
+   {
+     ...existing,
+     "workflow": {
+       ...existing.workflow,
+       "completed": ["debug"],
+       "current": "debug"
+     },
+     "files": {
+       ...existing.files,
+       "debug": "02-debug.md"
+     },
+     "timestamps": {
+       ...existing.timestamps.created,
+       "lastModified": "[now from date -u]"
+     }
+   }
+   ```
+
+   Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
+
+   **If no work folder** (fallback mode):
+   - Skip metadata update
+
 **If `--no-file` flag present**:
 - Skip file creation entirely
+- Skip metadata update
 
 ### Step 4.3: Jira Posting (Optional)
 
@@ -1036,6 +1251,8 @@ Present completion summary:
 **Root Cause**: [Root cause category and brief explanation]
 
 **Fix Location**: [file:line]
+
+**Work Folder**: [If work_folder exists: $work_folder]
 
 **Output**:
 [If file created] - 📄 Saved to: [filename]
