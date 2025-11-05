@@ -1,6 +1,6 @@
 ---
 description: Deep debugging workflow with root cause analysis, problematic flow identification, and single fix proposal
-argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|datadog-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira]
+argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|datadog-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--work-dir PATH]
 allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "ExitPlanMode", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
