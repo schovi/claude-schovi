@@ -37,6 +37,7 @@ schovi/
 ├── .claude-plugin/plugin.json    # Plugin metadata
 ├── commands/
 │   ├── analyze.md        # Deep problem analysis workflow
+│   ├── debug.md          # Deep debugging workflow with root cause analysis
 │   ├── plan.md            # Specification generation workflow
 │   ├── implement.md              # Implementation execution workflow
 │   ├── commit.md                 # Structured git commit creation
@@ -45,7 +46,8 @@ schovi/
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (max 1200 tokens)
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
-│   └── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
+│   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
+│   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
 └── skills/                        # Auto-detection intelligence
     ├── jira-auto-detector/SKILL.md   # Detects EC-1234, IS-8046, etc.
     └── gh-pr-auto-detector/SKILL.md  # Detects PR URLs, owner/repo#123, #123
@@ -145,6 +147,41 @@ schovi/
 - Acceptance criteria are testable
 - File references use `file:line` format
 
+### Command: `/schovi:debug`
+
+**Location**: `schovi/commands/debug.md`
+
+**Purpose**: Deep debugging workflow with root cause analysis and single fix proposal
+
+**Workflow**:
+1. **Phase 1: Input Processing & Context Gathering** - Parse Jira ID, GitHub issue, GitHub PR, Datadog trace, or error description; fetch details via appropriate subagent
+2. **Phase 2: Deep Debugging & Root Cause Analysis** - Use Task tool with Explore subagent to trace execution flow, identify error point, and determine root cause
+3. **Phase 3: Fix Proposal Generation** - Use debug-fix-generator subagent to create structured fix with code changes, testing, and rollout plan
+
+**Input Sources**:
+- Jira issues (via `jira-analyzer` subagent)
+- GitHub issues (via `gh-issue-analyzer` subagent)
+- GitHub PRs (via `gh-pr-analyzer` subagent)
+- Datadog traces (via `datadog-analyzer` subagent when available)
+- Error messages, stack traces, logs (parsed directly)
+- Free-form problem descriptions
+
+**Key Differences from Analyze**:
+- **Focus**: Debugging and root cause identification (vs. solution exploration)
+- **Output**: Single targeted fix proposal (vs. 2-3 solution options)
+- **Approach**: Execution flow tracing and error point analysis (vs. comprehensive problem analysis)
+- **Result**: Actionable fix with code changes (vs. high-level solution proposals)
+
+**Quality Gates** (all must be met):
+- Error point analyzed with immediate cause
+- Execution flow traced from entry to error with file:line references
+- Root cause identified with category and explanation
+- Impact assessed (severity, scope, data risk)
+- Fix location identified with specific file:line
+- Code changes provided (before/after)
+- Testing strategy with concrete test cases
+- Rollout plan with deployment and rollback steps
+
 ### Command: `/schovi:commit`
 
 **Location**: `schovi/commands/commit.md`
@@ -216,7 +253,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **Update Support**: Automatically detects and updates existing PRs when called multiple times
 - **Auto-Push**: Always push branch before creating/updating PR (unless --no-push)
 - **Smart Description**: Auto-detects best source (spec → Jira → commits priority)
-- **Structured Format**: Problem/Solution/Changes/Other sections
+- **Concise Format**: Problem/Solution/Changes/Quality & Impact (target 150-250 words, human-readable)
 - **Branch Validation**: Blocks main/master, warns on naming mismatch
 - **Clean State**: Requires no uncommitted changes
 - **Confetti**: Runs confetti celebration on successful PR creation or update
@@ -224,20 +261,25 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Description Source Intelligence**:
 ```
 Priority 1: Spec file (./spec-EC-1234.md)
-  - Problem from spec Problem section
-  - Solution from Technical Overview
-  - Changes from Implementation Tasks
-  - Other from Testing Strategy
+  - Problem: 2-3 sentences from spec Problem section
+  - Solution: Single paragraph from Technical Overview (no subsections)
+  - Changes: Grouped bullets from Implementation Tasks (no phases)
+  - Quality & Impact: Combined testing/breaking/rollback from Testing Strategy
 
 Priority 2: Jira issue (via jira-analyzer)
-  - Problem from issue description
-  - Changes from acceptance criteria
-  - Solution from commits + context
+  - Problem: Condensed from issue description
+  - Changes: Simplified from acceptance criteria
+  - Solution: Brief approach from commits + context
+  - Quality & Impact: From issue comments + analysis
 
 Priority 3: Commit history (git log)
-  - Problem from commit summary
-  - Changes from commit list
-  - Solution from technical analysis
+  - Problem: Inferred from commit summary
+  - Changes: Key commits as bullets
+  - Solution: Technical approach from analysis
+  - Quality & Impact: Minimal (encourages manual update)
+
+Brevity Principles: Remove phase numbering, file:line details, exhaustive lists,
+verbose explanations. Focus on WHAT changed for human readers, not execution HOW.
 ```
 
 **PR Creation Format**:
@@ -292,6 +334,13 @@ gh pr ready <number>
 - Uses: Read tool only
 - Output: ~1500-2500 token spec (structured markdown with tasks, criteria, testing, risks)
 - Token budget: Max 3000 tokens
+
+**debug-fix-generator** (`schovi/agents/debug-fix-generator/AGENT.md`):
+- Input: Debugging results (error point, execution flow, root cause, impact, fix location)
+- Uses: None (pure transformation)
+- Output: ~1500-2000 token fix proposal (problem summary, root cause, code changes, testing, rollout)
+- Token budget: Max 2500 tokens
+- Purpose: Transform debugging results into single, actionable fix proposal with before/after code
 
 ### Skills
 
@@ -456,6 +505,7 @@ Follow the proven three-tier pattern:
 
 **Commands**:
 - `schovi/commands/analyze.md`
+- `schovi/commands/debug.md`
 - `schovi/commands/plan.md`
 - `schovi/commands/implement.md`
 - `schovi/commands/commit.md`
@@ -470,6 +520,7 @@ Follow the proven three-tier pattern:
 - `schovi/agents/gh-pr-analyzer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
+- `schovi/agents/debug-fix-generator/AGENT.md`
 
 **Marketplace**:
 - `.claude-plugin/marketplace.json`

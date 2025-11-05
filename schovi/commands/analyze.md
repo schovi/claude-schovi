@@ -1,12 +1,39 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, solution proposals, and structured output
 argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
-allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "ExitPlanMode", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
 # Problem Analyzer Workflow
 
 You are performing a **comprehensive problem analysis** for a bug or feature request. Follow this structured workflow meticulously.
+
+---
+
+## ⚙️ MODE ENFORCEMENT
+
+**CRITICAL**: This command operates in **PLAN MODE** throughout Phases 1-3 (analysis and exploration). You MUST use the **ExitPlanMode tool** before Phase 4 (output handling) to transition from analysis to execution.
+
+**Why Plan Mode**:
+- Phases 1-3 require deep exploration and understanding WITHOUT making changes
+- Plan mode ensures safe, read-only codebase research
+- Analytical work (understanding flows, dependencies, proposing solutions) should happen in plan mode
+- Only file output operations (Phase 4-5) require execution mode
+
+**Workflow**:
+```
+┌──────────────────────────────────┐
+│  PLAN MODE (Read-only)           │
+│  Phases 1-3: Analysis            │
+└──────────────────────────────────┘
+              ↓
+      [ExitPlanMode Tool]
+              ↓
+┌──────────────────────────────────┐
+│  EXECUTION MODE (Write)          │
+│  Phases 4-5: Output & Completion │
+└──────────────────────────────────┘
+```
 
 ---
 
@@ -167,7 +194,31 @@ IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
      ✅ Summary complete | ~[X] tokens
    ╰─────────────────────────────────────╯
 
-4. After receiving the summary, acknowledge:
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "API error"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch Jira issue [ISSUE-KEY]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Issue key is incorrect or doesn't exist
+   - You don't have access to this issue
+   - Jira API is unavailable
+   - MCP Jira server is not configured
+
+   Options:
+   1. Verify issue key and retry
+   2. Provide problem description manually
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
    ✅ **[Analyze-Problem]** Issue details fetched successfully
 
 5. You will receive a structured summary containing:
@@ -212,7 +263,31 @@ IMPORTANT: Delegate to the gh-pr-analyzer subagent to prevent context pollution.
      ✅ Summary complete | ~[X] tokens
    ╰─────────────────────────────────────╯
 
-4. After receiving the summary, acknowledge:
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch GitHub PR [PR reference]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - PR number/URL is incorrect
+   - Repository doesn't exist or is private
+   - gh CLI is not authenticated (run: gh auth login)
+   - Network connectivity issues
+
+   Options:
+   1. Verify PR reference and retry
+   2. Provide problem description manually
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
    ✅ **[Analyze-Problem]** PR details fetched successfully
 
 5. You will receive a structured summary containing:
@@ -262,7 +337,31 @@ IMPORTANT: Delegate to the gh-issue-analyzer subagent to prevent context polluti
      ✅ Summary complete | ~[X] tokens
    ╰─────────────────────────────────────╯
 
-4. After receiving the summary, acknowledge:
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch GitHub issue [ISSUE reference]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Issue number/URL is incorrect
+   - Repository doesn't exist or is private
+   - gh CLI is not authenticated (run: gh auth login)
+   - Network connectivity issues
+
+   Options:
+   1. Verify issue reference and retry
+   2. Provide problem description manually
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
    ✅ **[Analyze-Problem]** Issue details fetched successfully
 
 5. You will receive a structured summary containing:
@@ -280,6 +379,85 @@ IMPORTANT: Delegate to the gh-issue-analyzer subagent to prevent context polluti
 
 NEVER fetch issue details directly using gh CLI - always delegate to the subagent.
 This prevents massive issue payloads from polluting your context.
+```
+
+**If Datadog Trace/Error Provided**:
+```
+IMPORTANT: Delegate to the datadog-analyzer subagent (when available) to prevent context pollution.
+
+1. Acknowledge detection:
+   🛠️ **[Analyze-Problem]** Detected Datadog trace: [Trace URL or error ID]
+   ⏳ Fetching trace details via datadog-analyzer...
+
+2. Use the Task tool to invoke the datadog-analyzer subagent:
+   prompt: "Fetch and summarize Datadog trace [URL or trace ID]"
+   subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
+   description: "Fetching Datadog trace summary"
+
+3. The subagent will:
+   - Fetch the full trace payload via Datadog API (~10-30k tokens) in its isolated context
+   - Extract ONLY essential information
+   - Return a clean summary (~800-1000 tokens) with visual wrappers:
+
+   ╭─────────────────────────────────────╮
+   │ 📊 DATADOG ANALYZER                 │
+   ╰─────────────────────────────────────╯
+
+   [Structured summary content]
+
+   ╭─────────────────────────────────────╮
+     ✅ Summary complete | ~[X] tokens
+   ╰─────────────────────────────────────╯
+
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch Datadog trace [Trace reference]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Trace URL/ID is incorrect
+   - Datadog API authentication not configured
+   - Trace has expired or been deleted
+   - Network connectivity issues
+
+   Options:
+   1. Verify trace reference and retry
+   2. Provide error details manually (copy from Datadog UI)
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
+   ✅ **[Analyze-Problem]** Trace details fetched successfully
+
+5. You will receive a structured summary containing:
+   - Core information (trace ID, timestamp, service, environment)
+   - Error message and type
+   - Affected endpoints/operations
+   - Key spans with duration and status
+   - Related logs (max 5, errors prioritized)
+   - Host and infrastructure context
+
+6. Use this summary to understand:
+   - What operation failed (from trace spans)
+   - Where the error occurred (service, endpoint, file)
+   - When it happened (timestamp, frequency if available)
+   - Performance context (latency, span durations)
+   - Related errors or patterns
+
+NOTE: If datadog-analyzer subagent is not available:
+- Ask user to provide error details manually from Datadog UI
+- Include: trace ID, error message, affected service, key spans, timestamp
+- Continue analysis with manual context
+
+NEVER fetch Datadog traces directly using API calls - always delegate to the subagent when available.
+This prevents massive trace payloads from polluting your context.
 ```
 
 **If Textual Description Provided**:
@@ -300,6 +478,7 @@ This prevents massive issue payloads from polluting your context.
    - A Jira issue ID (e.g., EC-1234)
    - A GitHub PR (URL, owner/repo#123, or #123)
    - A GitHub Issue (URL or owner/repo#123)
+   - A Datadog trace URL or trace ID
    - A problem description with context"
 2. Wait for response and restart this phase
 ```
@@ -328,166 +507,305 @@ IMPORTANT: Handle pasted content carefully to avoid tool errors.
    - Save it to a file and provide the file path"
 
 4. If content IS accessible (user pasted directly in message):
-   - Extract the relevant information (stack trace, error messages, line numbers)
-   - Document it for use in Phase 2 analysis
-   - Identify:
-     * Exception type and message
-     * File paths and line numbers mentioned
-     * Root cause indicators
-     * Affected components
+
+   **Parse it directly from the message text** (no tools needed):
+
+   **For stack traces** (Python, JavaScript, Java, etc.):
+   ```
+   Look for these patterns in the message:
+
+   Exception/Error Type:
+   - Python: "Exception:", "Error:", "Traceback"
+   - JavaScript: "Error:", "TypeError:", "ReferenceError:"
+   - Java: "Exception in thread", "Exception:", "Caused by:"
+
+   File Paths:
+   - Python: 'File "/path/to/file.py", line 123'
+   - JavaScript: 'at /path/to/file.js:123:45'
+   - Java: 'at com.example.Class.method(File.java:123)'
+
+   Error Message:
+   - Usually on first line after exception type
+   - Extract full message before stack frames begin
+
+   Stack Frames:
+   - List of file:line:function calls
+   - Identify entry point (first frame) and error point (last frame)
+   - Note the deepest frame in your codebase (not libraries)
+   ```
+
+   **For log messages**:
+   ```
+   Look for these patterns:
+
+   Timestamp:
+   - ISO format: "2025-04-11T14:23:45Z"
+   - Log format: "[2025-04-11 14:23:45]"
+
+   Log Level:
+   - ERROR, WARN, INFO, DEBUG, FATAL
+
+   Component/Logger:
+   - [ComponentName], [service.submodule]
+
+   Message:
+   - After timestamp and level
+   - May include context data (user IDs, request IDs, etc.)
+
+   File References:
+   - Sometimes includes file:line where log was emitted
+   ```
+
+   **For error messages from console/terminal**:
+   ```
+   Look for:
+   - Command that failed: First line, often starts with $ or >
+   - Error code: "Error: ENOENT", "exit code 1"
+   - Suggested fix: "Did you mean...", "Try running..."
+   - File paths: Absolute or relative paths mentioned
+   ```
+
+   **Extract and document**:
+   - exception_type = [e.g., "TypeError", "NullPointerException"]
+   - error_message = [e.g., "Cannot read property 'foo' of undefined"]
+   - file_locations = [List of file:line from stack frames or logs]
+   - entry_point = [First file:line in your codebase, not libraries]
+   - error_point = [Last file:line where error occurred]
+   - timestamp = [When error occurred, if available]
+   - context_data = [User ID, request ID, etc. if available]
+
+   **Example parsing (Python stack trace)**:
+   ```
+   Input message contains:
+   "Traceback (most recent call last):
+     File "/app/services/user.py", line 45, in authenticate
+       user = User.query.filter_by(email=email).first()
+     File "/app/models/user.py", line 12, in filter_by
+       return self.session.query(cls).filter_by(**kwargs)
+   AttributeError: 'NoneType' object has no attribute 'query'"
+
+   Extracted:
+   - exception_type = "AttributeError"
+   - error_message = "'NoneType' object has no attribute 'query'"
+   - file_locations = ["/app/services/user.py:45", "/app/models/user.py:12"]
+   - entry_point = "/app/services/user.py:45" (authenticate function)
+   - error_point = "/app/models/user.py:12" (filter_by function)
+   - root_cause_indicator = "self.session is None"
+   ```
 
 5. Store extracted context for Phase 2:
    - File paths from stack trace → Will guide codebase exploration
    - Exception types → Will guide error handling analysis
    - Line numbers → Will provide exact code locations to examine
+   - Entry/error points → Will help trace execution flow
+   - Context data → Will help reproduce issue
+
+6. Include in Phase 2 exploration prompt:
+   ```
+   Additional Context from Error:
+   - Exception: [exception_type]: [error_message]
+   - Entry Point: [entry_point] - Start exploration here
+   - Error Point: [error_point] - Problem occurs here
+   - Other References: [file_locations]
+
+   Exploration Focus:
+   - Read files at entry_point and error_point
+   - Trace execution path between entry and error
+   - Check for null/undefined handling
+   - Verify object initialization before use
+   ```
 
 DO NOT:
 - Use Bash with heredoc to process pasted content
 - Attempt to access "Pasted text #N" references directly
 - Assume pasted content format without verification
+- Use grep/sed/awk to parse stack traces (parse from message directly)
+
+DO:
+- Read content directly from user message
+- Parse using pattern matching (look for known formats)
+- Extract structured data (exception, files, lines)
+- Pass extracted data to Phase 2 for codebase exploration
 ```
+
+### Step 1.5: Validate Template Type (--quick flag check)
+
+**Objective**: Ensure the template type (full vs quick) matches problem complexity.
+
+**Instructions**:
+
+1. **Assess problem complexity** based on Phase 1 findings:
+
+   **Use Full Analysis if**:
+   - Multiple systems/components mentioned
+   - Unclear or multiple root causes
+   - Feature request with architectural implications
+   - Bug with complex reproduction steps (>3 steps)
+   - Multiple possible solutions needed
+   - Integration points or dependencies mentioned
+   - User flow involves >2 components
+   - Data flow crosses system boundaries
+
+   **Use Quick Analysis if**:
+   - Single file/component affected
+   - Clear root cause identified
+   - Simple bug fix (obvious error)
+   - Well-defined problem with obvious solution
+   - No architectural changes needed
+   - Isolated change (no dependencies)
+
+2. **Check for template type mismatch**:
+
+   **If user specified `--quick` flag BUT problem appears complex**:
+   ```
+   ⚠️ **[Analyze-Problem]** Template type recommendation
+
+   You requested quick analysis (`--quick` flag), but this problem appears complex:
+
+   Complexity indicators found:
+   - [List what makes it complex, e.g., "Multiple components affected"]
+   - [e.g., "Unclear root cause from description"]
+   - [e.g., "Integration points mentioned"]
+
+   **Recommendation**: Use full analysis for:
+   - Better solution exploration (2-3 options vs 1)
+   - Deeper technical analysis
+   - More comprehensive implementation guidance
+   - Detailed testing strategy
+
+   **Quick analysis** will provide:
+   - Single solution option
+   - Basic implementation guidance
+   - Minimal context
+
+   Would you like to:
+   1. Use full analysis (recommended) - Override --quick flag
+   2. Keep quick analysis - Proceed as requested
+   3. Cancel and re-run without --quick flag
+
+   Choose [1-3]:
+   ```
+
+   **If user chooses option 1**: Override `--quick` flag, use full template
+   **If user chooses option 2**: Proceed with quick template as requested
+   **If user chooses option 3**: Exit analysis (user will re-run command)
+
+   **If user did NOT specify `--quick` BUT problem appears simple**:
+   ```
+   💡 **[Analyze-Problem]** Template type suggestion
+
+   This problem appears straightforward:
+   - [e.g., "Single file affected"]
+   - [e.g., "Clear error with obvious fix"]
+
+   You can use `--quick` flag for faster analysis with:
+   - Focused solution (one option)
+   - Streamlined output
+
+   Would you like to:
+   1. Continue with full analysis (default) - More comprehensive
+   2. Switch to quick analysis - Faster, more focused
+
+   Choose [1-2] or press Enter for full:
+   ```
+
+   **If user chooses option 1 or presses Enter**: Use full template (default)
+   **If user chooses option 2**: Use quick template
+
+3. **Store final decision**:
+   ```
+   template_type = "full" | "quick"
+   template_override_reason = [If overridden, note why]
+   ```
+
+4. **Acknowledge decision**:
+   ```
+   📋 **[Analyze-Problem]** Analysis type: [Full|Quick]
+   [If overridden]: (Overridden from user preference due to complexity)
+   ```
+
+**Skip this step if**: Problem complexity is clearly aligned with flag choice (no mismatch detected).
 
 ---
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
 
-**CRITICAL**: Use the **Task tool with Plan subagent type** for thorough exploration. DO NOT use direct search tools unless for targeted follow-up queries.
+**CRITICAL**: Use the **Task tool with Plan subagent type** for analytical exploration in plan mode. DO NOT use direct search tools unless for targeted follow-up queries.
 
 **When spawning Plan subagent, acknowledge:**
 ```
 🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
-⏳ Spawning Plan subagent for exploration...
+⏳ Spawning Plan subagent for analytical exploration...
 ```
+
+**Subagent Configuration:**
+- **subagent_type**: "Plan"
+- **description**: "Deep codebase analysis for problem understanding"
+- **prompt**: [Detailed exploration requirements from Steps 2.1-2.5 below]
+
+**Why Plan Subagent**: The Plan subagent operates in plan mode by design, providing analytical capabilities for understanding codebase structure, flows, and dependencies without making changes. This aligns with the command's plan mode enforcement for Phases 1-3.
 
 **After receiving analysis results:**
 ```
 ✅ **[Analyze-Problem]** Codebase analysis complete
 ```
 
-### Tool Selection Strategy: Prefer JetBrains MCP When Available
+### Step 2.1: Prepare Comprehensive Exploration Prompt
 
-**IMPORTANT**: Before starting analysis, determine which tools to use:
+**Objective**: Create a detailed, structured prompt for the Plan subagent that incorporates ALL exploration requirements.
 
-```
-JetBrains MCP tools (mcp__jetbrains__*) provide semantic understanding vs. text-based tools.
+**Instructions**: Construct the following prompt to pass to the Plan subagent. Include the problem context from Phase 1 and all exploration requirements below.
 
-✅ PREFER JetBrains tools when available:
-┌────────────────────────────────────────────────────────────────────┐
-│ Instead of...              │ Use JetBrains MCP...                  │
-├────────────────────────────────────────────────────────────────────┤
-│ Grep (text search)         │ mcp__jetbrains__search_in_files_by_text│
-│                            │ - Faster for large codebases          │
-│                            │ - Respects project structure           │
-│                            │ - Can filter by file mask             │
-├────────────────────────────────────────────────────────────────────┤
-│ Read multiple files        │ mcp__jetbrains__get_symbol_info       │
-│ to understand classes      │ - Quick documentation lookup          │
-│                            │ - Shows signatures, types             │
-│                            │ - Includes usage context              │
-├────────────────────────────────────────────────────────────────────┤
-│ Manual issue detection     │ mcp__jetbrains__get_file_problems     │
-│                            │ - IntelliJ inspections                │
-│                            │ - Type errors, warnings               │
-│                            │ - Suggests what to fix                │
-├────────────────────────────────────────────────────────────────────┤
-│ ls/tree commands           │ mcp__jetbrains__list_directory_tree   │
-│                            │ - Respects .gitignore                 │
-│                            │ - Shows project structure             │
-│                            │ - Formatted tree view                 │
-├────────────────────────────────────────────────────────────────────┤
-│ Glob with manual filtering │ mcp__jetbrains__find_files_by_glob    │
-│                            │ - Project-aware search                │
-│                            │ - Excludes build artifacts            │
-│                            │ - Fast indexed search                 │
-└────────────────────────────────────────────────────────────────────┘
+**Prompt Template**:
+```markdown
+# Codebase Analysis Request
 
-❌ FALLBACK to text tools (Grep, Read, Glob) when:
-- JetBrains MCP not available in this project
-- Need regex patterns (use mcp__jetbrains__search_in_files_by_regex)
-- Simple one-off file reads
+## Problem Context
+[Insert problem summary from Phase 1: problem description, type (bug/feature), severity, affected area]
 
-WORKFLOW:
-1. For targeted queries (specific file/class): Use JetBrains tools directly
-2. For broad exploration: Use Explore subagent (it will use best available tools)
-3. Document which tool set you're using for transparency
-```
+## Required Analysis
 
-### Step 2.1: User Flow Mapping
+Your task is to perform comprehensive codebase analysis to understand this problem's scope, impact, and technical context. Provide structured findings with specific file:line references throughout.
+
+### 1. User Flow Mapping
 
 **Objective**: Trace the complete user journey through the system.
 
-**Execute**:
-```
-1. Identify entry points:
-   - UI components (React, Vue, Angular components)
-   - API endpoints (REST, GraphQL)
-   - CLI commands
-   - Background jobs/workers
+**Requirements**:
+- Identify entry points (UI components, API endpoints, CLI commands, background jobs)
+- Map user journey step-by-step: User Action → UI Component → Event Handler → API Call → Backend Service → Data Layer → Response → UI Update
+- Document touchpoints: where user interacts, what triggers behavior, expected vs. actual flow paths, error handling points
+- Note affected screens/interfaces with file:line references, route definitions, navigation flows
 
-2. Map user journey step-by-step:
-   User Action → UI Component → Event Handler → API Call → Backend Service → Data Layer → Response → UI Update
+**Deliverable**: Complete user flow diagram with file:line references
 
-3. Document touchpoints:
-   - Where user interacts with the system
-   - What triggers the behavior
-   - Expected vs. actual flow paths
-   - Error handling points
-
-4. Note affected screens/interfaces:
-   - Component file paths with line numbers
-   - Route definitions
-   - Navigation flows
-```
-
-**Deliverable**: Complete user flow diagram with file:line references.
-
-### Step 2.2: Data Flow Analysis
+### 2. Data Flow Analysis
 
 **Objective**: Map how data moves and transforms through the system.
 
-**Execute**:
-```
-1. Identify data sources:
-   - Database tables/collections
-   - External APIs
-   - File systems
-   - Cache layers (Redis, Memcached)
-   - Message queues (Kafka, RabbitMQ)
+**Requirements**:
+- Identify data sources (database tables/collections, external APIs, file systems, cache layers like Redis/Memcached, message queues like Kafka/RabbitMQ)
+- Trace data transformations: Input → Validation → Business Logic → Storage → Retrieval → Formatting → Output
+- Document data structures (database schemas, API request/response models, internal DTOs, state management structures)
+- Identify data integrity points (validation, transaction boundaries, consistency mechanisms, rollback/compensation logic)
 
-2. Trace data transformations:
-   Input → Validation → Business Logic → Storage → Retrieval → Formatting → Output
+**Deliverable**: Data flow diagram showing sources, transformations, and destinations with specific code locations
 
-3. Document data structures:
-   - Database schemas
-   - API request/response models
-   - Internal data transfer objects
-   - State management structures
-
-4. Identify data integrity points:
-   - Where validation occurs
-   - Transaction boundaries
-   - Data consistency mechanisms
-   - Rollback/compensation logic
-```
-
-**Deliverable**: Data flow diagram showing sources, transformations, and destinations with specific code locations.
-
-### Step 2.3: Dependency Discovery
+### 3. Dependency Discovery
 
 **Objective**: Map all dependencies that could be affected or impact the solution.
 
+**Requirements**:
+
 **A. Direct Dependencies**:
-```
 - Imported modules and packages
 - Called functions and methods
 - Database tables and indexes
 - External API endpoints
 - Configuration files
 - Environment variables
-```
 
 **B. Indirect Dependencies**:
-```
 - Shared state and singletons
 - Event emitters/listeners
 - Kafka topics (producers/consumers)
@@ -495,77 +813,142 @@ WORKFLOW:
 - Cache invalidation triggers
 - Feature flags
 - A/B test configurations
-```
 
 **C. Integration Points**:
-```
 - Microservices communication (sync/async)
 - Third-party integrations (payment, auth, analytics)
 - Webhooks (incoming/outgoing)
 - CDN and asset pipelines
 - Monitoring and logging systems
-```
 
-**Deliverable**: Complete dependency graph with categorization and impact assessment.
+**Deliverable**: Complete dependency graph with categorization and impact assessment
 
-### Step 2.4: Code Quality Assessment
+### 4. Code Quality Assessment
 
 **Objective**: Evaluate technical health of affected areas.
 
-**Execute**:
-```
-1. Identify technical debt:
-   - TODO/FIXME comments
-   - Code duplication
-   - Complex/nested logic
-   - Missing error handling
+**Requirements**:
+- Identify technical debt (TODO/FIXME comments, code duplication, complex/nested logic, missing error handling)
+- Assess test coverage (unit test presence, integration test gaps, E2E test scenarios, mock/stub quality)
+- Note code smells (long functions/files, deep nesting, magic numbers/strings, tight coupling, god objects/classes)
+- Review recent changes (recent commits in affected areas, outstanding PRs, known issues/bugs)
 
-2. Assess test coverage:
-   - Unit test presence
-   - Integration test gaps
-   - E2E test scenarios
-   - Mock/stub quality
+**Deliverable**: Code quality report with specific file:line references to issues
 
-3. Note code smells:
-   - Long functions/files
-   - Deep nesting
-   - Magic numbers/strings
-   - Tight coupling
-   - God objects/classes
-
-4. Review recent changes:
-   - Recent commits in affected areas
-   - Outstanding PRs
-   - Known issues/bugs
-```
-
-**Deliverable**: Code quality report with specific file:line references to issues.
-
-### Step 2.5: Historical Context
+### 5. Historical Context
 
 **Objective**: Understand evolution and patterns.
 
-**Execute**:
+**Requirements**:
+- Review git history (recent changes to affected files, previous bug fixes in same area, related feature implementations, authors/teams involved)
+- Check for patterns (recurring issues, failed attempts at similar changes, deprecated approaches, migration history)
+- Identify stakeholders (code owners, frequent contributors, domain experts)
+
+**Deliverable**: Historical context summary with relevant commits and patterns
+
+## Output Format
+
+Please structure your findings in these sections:
+
+1. **Affected Components**: List of components with file:line references and their roles
+2. **User Flow**: Step-by-step flow showing problem occurrence
+3. **Data Flow**: Data movement through system
+4. **Dependencies**: Direct, indirect, and integration dependencies
+5. **Code Quality Issues**: Technical debt, test gaps, code smells with file:line refs
+6. **Historical Context**: Recent changes, patterns, stakeholders
+7. **Issues Identified**: For each issue found, provide: Problem → Evidence → Root cause (with file:line refs)
+
+## Important Notes
+- Use specific file:line references throughout (e.g., `src/services/UserService.ts:123`)
+- Focus on actionable findings that inform solution design
+- Prioritize information relevant to solving the problem
+- If you use JetBrains MCP tools, note which ones and why
 ```
-1. Review git history:
-   - Recent changes to affected files
-   - Previous bug fixes in same area
-   - Related feature implementations
-   - Authors/teams involved
 
-2. Check for patterns:
-   - Recurring issues
-   - Failed attempts at similar changes
-   - Deprecated approaches
-   - Migration history
+**After preparing the prompt**: Store it for use in Step 2.2.
 
-3. Identify stakeholders:
-   - Code owners
-   - Frequent contributors
-   - Domain experts
-```
+### Step 2.2: Invoke Plan Subagent
 
-**Deliverable**: Historical context summary with relevant commits and patterns.
+**Objective**: Delegate the comprehensive exploration to the Plan subagent in an isolated context.
+
+**Instructions**:
+
+1. **Acknowledge subagent invocation**:
+   ```
+   🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
+   ⏳ Spawning Plan subagent for analytical exploration...
+   ```
+
+2. **Use Task tool**:
+   ```
+   subagent_type: "Plan"
+   description: "Deep codebase analysis for problem understanding"
+   prompt: [The comprehensive prompt prepared in Step 2.1]
+   ```
+
+3. **Wait for subagent completion**: The Plan subagent will work in its isolated context and return structured findings.
+
+4. **Acknowledge completion**:
+   ```
+   ✅ **[Analyze-Problem]** Codebase analysis complete
+   ```
+
+**Important**: Do NOT execute the exploration instructions directly. The Plan subagent will handle all codebase exploration using its plan mode capabilities.
+
+### Step 2.3: Capture and Structure Exploration Results
+
+**Objective**: Extract and organize the Plan subagent's findings for use in Phase 3 (Analysis Generation).
+
+**Instructions**:
+
+1. **Extract key findings from subagent response**:
+   - affected_components = [List of components with file:line references and roles]
+   - user_flow = [Step-by-step user journey with file:line references]
+   - data_flow = [Data movement and transformations with file:line references]
+   - dependencies = [Categorized dependency graph: direct, indirect, integration]
+   - code_quality_issues = [Technical debt, test gaps, code smells with file:line refs]
+   - historical_context = [Recent changes, patterns, stakeholders]
+   - issues_identified = [Problems found with evidence and root causes, with file:line refs]
+   - code_locations = [Comprehensive list of all file:line references discovered]
+
+2. **Validate exploration completeness**:
+
+   Check that the subagent provided sufficient detail:
+   - [ ] At least 3 affected components identified with specific file:line references
+   - [ ] User flow traced from entry point to problem occurrence
+   - [ ] Data flow mapped through at least 3 transformation points
+   - [ ] Dependencies catalogued (direct, indirect, or integration)
+   - [ ] At least 2 code quality issues or technical observations noted
+   - [ ] Root causes identified with supporting evidence
+
+3. **If validation fails**:
+   ```
+   ⚠️ **[Analyze-Problem]** Exploration incomplete
+
+   The Plan subagent's analysis is missing:
+   - [List missing requirements]
+
+   This usually means:
+   - Problem description was too vague (add more context)
+   - Codebase doesn't have clear entry points (manual investigation needed)
+   - Problem area is unfamiliar (consider broader search)
+
+   Options:
+   1. Re-run exploration with more specific guidance
+   2. Supplement with targeted manual searches
+   3. Proceed with available information (note gaps in analysis)
+   ```
+
+   Ask user how to proceed. Do NOT continue to Phase 3 with incomplete data.
+
+4. **If validation passes**:
+   ```
+   ✅ **[Analyze-Problem]** Exploration findings validated and structured for analysis generation
+   ```
+
+   Store the structured findings for Phase 3 input.
+
+**Next**: Proceed to Phase 3 with the captured exploration results.
 
 ---
 
@@ -577,13 +960,17 @@ This phase transforms Phase 2 exploration results into structured, polished anal
 
 ### Step 3.1: Prepare Subagent Input Context
 
+**Objective**: Construct the input package for analysis-generator subagent using outputs from Phase 2 Step 2.3.
+
 1. Acknowledge analysis generation:
    ```
    ⚙️ **[Analyze-Problem]** Generating structured analysis...
    ⏳ Spawning analysis-generator subagent...
    ```
 
-2. Prepare input package for subagent:
+2. Prepare input package for subagent using captured exploration results:
+
+**Instructions**: Use the structured outputs from Phase 2 Step 2.3 to populate this template.
 
 ```markdown
 ## Input Context
@@ -599,22 +986,83 @@ This phase transforms Phase 2 exploration results into structured, polished anal
 ### Exploration Results
 
 #### Affected Components
-[From Phase 2.1: List of components with file:line references and their roles]
+[Use `affected_components` from Phase 2 Step 2.3]
+[List of components with file:line references and their roles]
+
+Example format:
+- **ComponentName** (`path/to/file.ts:123`) - Current behavior and role
+- **AnotherComponent** (`path/to/another.ts:456`) - Current behavior and role
 
 #### User Flow
-[From Phase 2.1: Step-by-step user journey with file:line references]
+[Use `user_flow` from Phase 2 Step 2.3]
+[Step-by-step user journey with file:line references]
+
+Example format:
+```
+User Action: What user does
+  ↓
+Entry Point (file:line) - What happens
+  ↓
+Processing (file:line) - What happens
+  ↓
+Problem Occurs (file:line) - Where/why it breaks
+```
 
 #### Data Flow
-[From Phase 2.2: Data movement and transformations with file:line references]
+[Use `data_flow` from Phase 2 Step 2.3]
+[Data movement and transformations with file:line references]
+
+Example format:
+```
+Data Source
+  ↓
+Validation (file:line) - Current validation
+  ↓
+Transformation (file:line) - Current transformation
+  ↓
+Problem Point (file:line) - Where issue occurs
+```
 
 #### Dependencies
-[From Phase 2.3: Only if complex - direct, indirect, integration dependencies]
+[Use `dependencies` from Phase 2 Step 2.3]
+[Include if complex - direct, indirect, integration dependencies]
+
+Example format:
+- **Direct**: [modules, functions, DB tables]
+- **Indirect**: [shared state, events, background jobs]
+- **Integration**: [external services, webhooks]
+
+#### Code Quality Issues
+[Use `code_quality_issues` from Phase 2 Step 2.3]
+[Technical debt, test gaps, code smells with file:line refs]
+
+Example format:
+- Technical Debt: [TODO comments, duplication] at file:line
+- Test Coverage: [Missing unit tests, integration test gaps]
+- Code Smells: [Long functions, tight coupling] at file:line
+
+#### Historical Context
+[Use `historical_context` from Phase 2 Step 2.3]
+[Recent changes, patterns, stakeholders]
+
+Example format:
+- Recent Changes: [Commits affecting this area]
+- Patterns: [Recurring issues, previous attempts]
+- Stakeholders: [Code owners, domain experts]
 
 #### Issues Identified
-[From Phase 2: Problems found with evidence and root causes, with file:line references]
+[Use `issues_identified` from Phase 2 Step 2.3]
+[Problems found with evidence and root causes, with file:line references]
+
+Example format:
+1. **Issue Name** (`file:line`):
+   - Problem: [Specific technical issue]
+   - Evidence: [What shows this is a problem]
+   - Root cause: [Why this is happening]
 
 ### Code Locations
-[All file:line references discovered during exploration]
+[Use `code_locations` from Phase 2 Step 2.3]
+[Comprehensive list of all file:line references discovered during exploration]
 
 ### Template Type
 [full|quick based on --quick flag from argument parsing]
@@ -632,6 +1080,8 @@ This phase transforms Phase 2 exploration results into structured, polished anal
 3. Determine template type:
    - **Full Analysis**: Use unless `--quick` flag was specified
    - **Quick Analysis**: Use if `--quick` flag present
+
+**Important**: All bracketed placeholders should be replaced with actual data from Phase 2 Step 2.3 captured variables. If any variable is empty or incomplete, note the gap in the input context so the analysis-generator can work with available information.
 
 ### Step 3.2: Spawn Analysis-Generator Subagent
 
@@ -665,13 +1115,35 @@ prompt: "Generate structured problem analysis from exploration results.
 
 ### Step 3.3: Receive and Store Analysis
 
-1. After receiving subagent output, acknowledge:
+1. After receiving subagent output, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "incomplete", "Generation failed"):
    ```
-   ✅ **[Analyze-Problem]** Analysis generated successfully
+   ❌ **[Analyze-Problem]** Analysis generation failed
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Exploration results were incomplete or malformed
+   - Analysis template could not be populated
+   - Token budget exceeded
+
+   Options:
+   1. Review Phase 2 exploration results and re-run if incomplete
+   2. Simplify the problem scope and retry
+   3. Use --quick flag for simpler analysis
+   4. Cancel and review input data quality
+
+   How would you like to proceed?
    ```
 
+   **HALT**: Wait for user response. Do NOT proceed to Phase 3.5 (Exit Plan Mode) without valid analysis.
+
+   **If subagent response is successful** (✅ marker present):
+   ✅ **[Analyze-Problem]** Analysis generated successfully
+
 2. Extract the analysis markdown from subagent response:
-   - Remove the visual header/footer wrappers
+   - Remove the visual header/footer wrappers (╭─────╮ boxes)
    - Store the clean markdown (YAML frontmatter + content)
 
 3. Store analysis for Phase 4:
@@ -687,7 +1159,72 @@ prompt: "Generate structured problem analysis from exploration results.
    - [ ] Implementation guidance exists
    - [ ] Resources & references exist
 
-If validation fails, report error and halt.
+   **If validation fails**:
+   ```
+   ⚠️ **[Analyze-Problem]** Analysis validation failed
+
+   Missing sections:
+   - [List which checklist items failed]
+
+   The analysis-generator returned incomplete output. This suggests:
+   - Input context was insufficient
+   - Template type mismatch (full vs quick)
+   - Subagent encountered internal error
+
+   Options:
+   1. Retry analysis generation with corrected inputs
+   2. Proceed with incomplete analysis (not recommended)
+   3. Cancel and review exploration quality
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed without complete analysis.
+
+---
+
+## PHASE 3.5: EXIT PLAN MODE
+
+**CRITICAL**: You have completed all analysis work (Phases 1-3) in plan mode. Before proceeding to output handling (Phase 4-5), you MUST exit plan mode.
+
+### Step 3.5.1: Use ExitPlanMode Tool
+
+**Acknowledge transition:**
+```
+⚙️ **[Analyze-Problem]** Analysis complete. Transitioning from plan mode to execution mode...
+```
+
+**Use the ExitPlanMode tool:**
+```
+plan: |
+  ## Analysis Summary
+
+  **Problem**: [One-line problem summary from Phase 1]
+
+  **Analysis Type**: [Full/Quick based on --quick flag]
+
+  **Key Findings**:
+  - [Key finding 1 from exploration]
+  - [Key finding 2 from exploration]
+  - [Key finding 3 from exploration]
+
+  **Solution Options**: [Number of options from Phase 3]
+
+  **Recommended**: [Recommended option name from Phase 3]
+
+  **Next Steps**:
+  1. Save analysis to file (if not --no-file)
+  2. Display to terminal (if not --quiet)
+  3. Post to Jira (if --post-to-jira)
+  4. Present completion summary
+```
+
+**After exiting plan mode:**
+```
+✅ **[Analyze-Problem]** Entered execution mode. Proceeding with output handling...
+```
+
+**Important**: After using ExitPlanMode, you are now in execution mode and can use Write tool, Bash for file operations, and mcp__jira__* tools for posting.
 
 ---
 
@@ -715,19 +1252,80 @@ Handle analysis output based on flags from Argument Parsing:
 
 1. Determine filename:
    - If `--output PATH` specified: Use provided path
-   - Else if Jira ID present: `analysis-[JIRA-ID].md`
-   - Else: `analysis-[YYYY-MM-DD-HHMMSS].md`
+   - Else if Jira ID present: `./analysis-[JIRA-ID].md` (current directory)
+   - Else: `./analysis-[YYYY-MM-DD-HHMMSS].md` (current directory)
 
-2. Write analysis to file:
+2. Resolve and validate output path:
+
+   **Convert to absolute path**:
+   ```bash
+   # If path starts with ~, expand it
+   if [[ "$output_path" == ~* ]]; then
+     output_path="${output_path/#\~/$HOME}"
+   fi
+
+   # If path is relative, make it absolute from CWD
+   if [[ "$output_path" != /* ]]; then
+     output_path="$(pwd)/$output_path"
+   fi
+   ```
+
+   **Create parent directory if needed**:
+   ```bash
+   # Extract directory from path
+   output_dir="$(dirname "$output_path")"
+
+   # Check if parent directory exists
+   if [ ! -d "$output_dir" ]; then
+     # Try to create it
+     mkdir -p "$output_dir" 2>/dev/null
+
+     if [ $? -ne 0 ]; then
+       # Creation failed
+       echo "⚠️ **[Analyze-Problem]** Cannot create directory: $output_dir"
+       echo ""
+       echo "Options:"
+       echo "1. Use current directory instead: ./$(basename "$output_path")"
+       echo "2. Specify different output path"
+       echo "3. Skip file output (continue with terminal display only)"
+       echo ""
+       echo "How would you like to proceed?"
+
+       # Wait for user decision and adjust output_path accordingly
+       # If user chooses option 1: output_path="./$(basename "$output_path")"
+       # If user chooses option 3: Skip to terminal display only
+     fi
+   fi
+   ```
+
+   **Final path**: `output_path` (now absolute and parent directory exists)
+
+3. Write analysis to file:
    ```
    Use Write tool:
-   file_path: [determined filename]
+   file_path: [output_path - absolute path]
    content: [analysis_markdown]
    ```
 
-3. Acknowledge file creation:
+   **Handle write errors**:
+   If Write tool fails (permissions, disk full, etc.):
    ```
-   📄 **[Analyze-Problem]** Analysis saved to: [filename]
+   ⚠️ **[Analyze-Problem]** Failed to write file: [output_path]
+
+   Error: [error message from Write tool]
+
+   The analysis is still available in terminal output above.
+
+   Options:
+   1. Try different output path
+   2. Continue without file (analysis shown in terminal)
+
+   How would you like to proceed?
+   ```
+
+4. Acknowledge file creation:
+   ```
+   📄 **[Analyze-Problem]** Analysis saved to: [output_path]
    ```
 
 **If `--no-file` flag present**:
@@ -745,8 +1343,18 @@ Handle analysis output based on flags from Argument Parsing:
    - If Jira ID exists: Proceed
 
 2. Format analysis for Jira:
-   - Wrap in code block for better formatting: \`\`\`markdown ... \`\`\`
-   - Add header: "Problem Analysis - Generated by Claude Code"
+   - Add header with metadata:
+     ```
+     # Problem Analysis - Generated by Claude Code
+
+     **Generated**: [timestamp]
+     **Analyst**: Claude Code
+     **Local File**: [absolute path to output_path if file was created, or "Terminal only"]
+     **Analysis Type**: [Full/Quick]
+
+     ---
+     ```
+   - Wrap analysis in code block for better formatting: \`\`\`markdown ... \`\`\`
 
 3. Post to Jira using mcp__jira__addCommentToJiraIssue:
    ```
@@ -797,40 +1405,119 @@ Present completion summary:
 
 ### Step 5.2: Proactive Next Steps
 
-Based on analysis output, suggest next actions:
+Offer automatic next actions based on context:
 
+**If analysis file was created** (output_path exists):
 ```
-**Suggested Next Steps**:
+✅ **[Analyze-Problem]** Analysis saved to: [output_path]
 
-1. 📋 **Create Specification**: Use `/schovi:plan [analysis-file]` to generate implementation spec
-2. 💬 **Discuss Approach**: Review solution options and select preferred approach
-3. 🔍 **Deep Dive**: Explore specific technical aspects in more detail
-4. 🎯 **Assign Task**: Update Jira issue with analysis and assign to developer
+**Ready for next step?**
 
-**Quick Actions**:
-[If Jira ID exists] - Update Jira status to "In Progress"?
-[If analysis saved] - Create spec now using saved analysis?
-```
+I can automatically generate an implementation specification from this analysis.
+This will create a detailed spec with:
+- Implementation tasks broken down by component
+- Acceptance criteria
+- Testing strategy
+- Risk assessment
+- Timeline estimates
 
-### Step 5.3: User Interaction
-
-Ask user for direction (use conversational tone):
-
-```
-What would you like to do next?
-- Create implementation spec from this analysis?
-- Discuss solution options in more detail?
-- Explore a specific technical aspect further?
-- Something else?
+Would you like me to run `/schovi:plan [output_path]` now? [yes/no]
 ```
 
-Wait for user response and proceed accordingly.
+**If user says "yes"**:
+- Use SlashCommand tool: `/schovi:plan [output_path]`
+- Proceed directly to plan generation workflow
+- No need to wait for manual command
+
+**If user says "no"** or **if analysis was terminal-only** (--no-file):
+```
+**What would you like to do next?**
+
+1. 📋 **Create specification** - Generate implementation spec (manual: `/schovi:plan [file-path]`)
+2. 💬 **Discuss solution** - Review recommended option vs alternatives
+3. 🔍 **Deep dive** - Explore specific technical details further
+4. 🎯 **Update Jira** - Post analysis as comment (if not already posted)
+5. ✅ **Nothing** - You're all set
+
+Choose an option [1-5] or describe what you need:
+```
+
+### Step 5.3: Execute User Choice
+
+Based on user response from Step 5.2:
+
+**If user chose option 1** (Create specification):
+```
+Great! I'll need the analysis file path.
+
+[If file was created]: Use the saved file: `/schovi:plan [output_path]`
+[If terminal only]: Save analysis first, or provide problem input for plan command
+
+Shall I proceed with the saved analysis file? [yes/no]
+```
+
+If yes: Use SlashCommand tool: `/schovi:plan [output_path]`
+
+**If user chose option 2** (Discuss solution):
+```
+Let's review the solution options:
+
+[List recommended option name and key pros/cons]
+
+vs.
+
+[List alternative options with key trade-offs]
+
+Which aspects would you like to discuss?
+- Why [recommended] was chosen over alternatives?
+- Trade-offs between options?
+- Implementation complexity comparison?
+- Something specific?
+```
+
+**If user chose option 3** (Deep dive):
+```
+Which area would you like to explore further?
+- Specific file or component?
+- Data flow or user flow details?
+- Dependency analysis?
+- Code quality concerns?
+- Historical context?
+
+Let me know and I'll dive deeper.
+```
+
+**If user chose option 4** (Update Jira):
+```
+[If Jira ID exists and not already posted]:
+I'll post the analysis as a Jira comment now.
+[Use mcp__jira__addCommentToJiraIssue]
+
+[If no Jira ID]:
+No Jira issue was associated with this analysis.
+
+[If already posted]:
+Analysis was already posted to Jira: [JIRA-ID]
+```
+
+**If user chose option 5** (Nothing):
+```
+Perfect! The analysis is complete and saved. You can reference it anytime.
+
+Available commands:
+- `/schovi:plan [analysis-file]` - Generate implementation spec
+- `/schovi:implement` - Start implementation with spec
+
+Good luck! 🚀
+```
 
 ---
 
-## ✅ QUALITY GATES CHECKLIST
+## ✅ QUALITY GATES REFERENCE
 
-Before moving to Phase 4, verify analysis from subagent contains:
+**Note**: Quality gates are enforced in Phase 3 Step 3.3 (validation). This section documents what is checked.
+
+Analysis from analysis-generator subagent must contain:
 
 - [ ] YAML frontmatter with all required fields
 - [ ] Problem summary with core issue, impact, severity
