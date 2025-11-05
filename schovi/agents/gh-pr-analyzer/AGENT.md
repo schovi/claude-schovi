@@ -50,13 +50,15 @@ cli/cli#12084
 - Failed CI checks only (or summary if all passing)
 - Optimized for general analysis (analyze/debug/plan commands)
 
-**Full Mode** (~1200-1500 tokens):
+**Full Mode** (~2000-10000 tokens, depending on PR size):
 - **ALL changed files** with individual line counts
+- **Complete diff content** (actual code changes)
 - PR head SHA and branch (for code fetching)
 - All reviews (not limited to 3)
 - All CI checks (passing and failing)
 - File-level metadata for prioritization
 - Used by review command for comprehensive code analysis
+- Compresses diff only for massive PRs (50+ files or 5000+ lines changed)
 
 **Extract:**
 1. **Repository**: owner/repo (from URL or short notation)
@@ -158,8 +160,32 @@ gh pr diff [PR_NUMBER] --repo [OWNER/REPO] --name-only
 - Max 20 files listed (if more, show count + sample)
 
 **Full Mode:**
+
+**Step 1: Check PR size to determine diff strategy:**
+```bash
+# Get PR metadata first
+gh pr view [PR_NUMBER] --repo [OWNER/REPO] --json changedFiles,additions,deletions
+```
+
+**Step 2: Decide on diff fetching strategy:**
+- **If changedFiles ≤ 50 AND (additions + deletions) ≤ 5000**: Fetch FULL diff
+- **If changedFiles > 50 OR (additions + deletions) > 5000**: MASSIVE PR - fetch file stats only (no diff)
+
+**Step 3a: For normal PRs - Fetch complete diff:**
 ```bash
 # Get all files with detailed stats
+gh api repos/[OWNER]/[REPO]/pulls/[PR_NUMBER]/files --paginate \
+  --jq '.[] | {filename: .filename, additions: .additions, deletions: .deletions, changes: .changes, status: .status}'
+
+# Get complete diff content
+gh pr diff [PR_NUMBER] --repo [OWNER/REPO]
+```
+
+**Expected size**: ~5-20KB (depending on changes)
+
+**Step 3b: For massive PRs - Fetch file stats only:**
+```bash
+# Get all files with detailed stats (same as normal)
 gh api repos/[OWNER]/[REPO]/pulls/[PR_NUMBER]/files --paginate \
   --jq '.[] | {filename: .filename, additions: .additions, deletions: .deletions, changes: .changes, status: .status}'
 ```
@@ -170,6 +196,7 @@ gh api repos/[OWNER]/[REPO]/pulls/[PR_NUMBER]/files --paginate \
 - **ALL changed files** (no limit)
 - Individual file additions/deletions/total changes
 - File status (added, modified, removed, renamed)
+- **Complete diff content** (for normal PRs, not massive ones)
 - Used for smart prioritization in review command
 
 ### Step 4: Extract Essential Information ONLY
@@ -345,6 +372,17 @@ Return the summary in this EXACT format:
 - ❌ `old/legacy.ts` (+0, -120, ~120 changes)
 [... continue for all files ...]
 
+## Code Diff
+[FULL MODE ONLY - Include this section]
+
+[If normal PR (≤50 files AND ≤5000 lines changed):]
+```diff
+[Complete diff output from gh pr diff]
+```
+
+[If massive PR (>50 files OR >5000 lines changed):]
+⚠️ **Diff omitted**: PR is too large (X files, +Y -Z lines). Fetch specific files manually or use file stats above for targeted code review.
+
 ## CI/CD Status
 [Overall summary: ALL PASSING (X/X) or FAILING (X/Y) or PENDING]
 
@@ -402,19 +440,21 @@ No comments.
 
 **Token Budget by Mode:**
 - **Compact Mode**: Target 800-1000 tokens, max 1200 tokens
-- **Full Mode**: Target 2000-3000 tokens, max 5000 tokens
+- **Full Mode**:
+  - Normal PRs (with diff): Target 2000-5000 tokens, max 15000 tokens
+  - Massive PRs (no diff): Target 1500-2000 tokens, max 3000 tokens
 
 ## Critical Rules
 
 ### ❌ NEVER DO THESE:
 
 1. **NEVER** return the full `gh pr view` JSON output to parent
-2. **NEVER** include full file diffs (only file names/stats)
-3. **NEVER** include reaction groups, avatars, or UI metadata
-4. **NEVER** include commit history details (only metadata)
-5. **NEVER** exceed token budgets:
+2. **NEVER** include reaction groups, avatars, or UI metadata
+3. **NEVER** include commit history details (only metadata)
+4. **NEVER** exceed token budgets:
    - Compact mode: 1200 tokens max
-   - Full mode: 2000 tokens max
+   - Full mode (normal PRs): 15000 tokens max
+   - Full mode (massive PRs): 3000 tokens max
 
 **Mode-Specific Rules:**
 
@@ -423,12 +463,15 @@ No comments.
 - **NEVER** include all CI checks (failing + summary only)
 - **NEVER** list more than 20 files (group if needed)
 - **NEVER** include file-level change stats
+- **NEVER** include diff content
 
 **Full Mode:**
 - **MAY** include all reviews (not limited to 3)
 - **MAY** include all CI checks (for comprehensive review)
 - **MUST** include all changed files with stats
 - **MUST** include PR head SHA for code fetching
+- **MUST** include complete diff content for normal PRs (≤50 files AND ≤5000 lines)
+- **MUST** omit diff for massive PRs (>50 files OR >5000 lines) and note it's omitted
 
 ### ✅ ALWAYS DO THESE:
 
@@ -784,13 +827,16 @@ Before returning your summary, verify:
 - [ ] CI status condensed (failing + summary)
 
 **Full Mode:**
-- [ ] Total output under 2000 tokens (target 1200-1500)
+- [ ] Total output under 15000 tokens for normal PRs (target 2000-5000)
+- [ ] Total output under 3000 tokens for massive PRs (target 1500-2000)
 - [ ] ALL reviews included (with timestamps)
 - [ ] ALL changed files with individual stats
 - [ ] Files sorted by changes (descending)
 - [ ] File status indicators (✨✏️❌🔄)
 - [ ] PR head SHA included
 - [ ] ALL CI checks listed
+- [ ] Complete diff included for normal PRs (≤50 files AND ≤5000 lines)
+- [ ] Diff omission noted for massive PRs (>50 files OR >5000 lines)
 
 ## Your Role in the Workflow
 
@@ -805,15 +851,18 @@ You are the **first step** in the PR analysis workflow:
 
 **Full Mode (for review command):**
 ```
-1. YOU: Fetch ~10-20KB PR payload via gh CLI + API, extract comprehensive data
-2. Parent: Receives detailed summary (~1200-1500 tokens) with ALL files and stats
-3. Review: Uses file list + SHA to fetch actual source code for analysis
-4. Result: Complete code review with actual source inspection
+1. YOU: Fetch ~10-50KB PR payload via gh CLI + API
+2. YOU: Detect if PR is massive (>50 files OR >5000 lines)
+3a. Normal PRs: Extract comprehensive data WITH complete diff (~2000-8000 tokens)
+3b. Massive PRs: Extract data WITHOUT diff, just file stats (~1500-2000 tokens)
+4. Parent: Receives detailed summary with actual code changes (if available)
+5. Review: Can immediately analyze code from diff OR fetch specific files if needed
+6. Result: Complete code review with actual source inspection
 ```
 
 **Remember**:
-- You are the gatekeeper. Keep the parent context clean.
+- You are the gatekeeper, but in Full Mode, we want REAL code review depth.
 - **Compact mode**: Be ruthless about cutting noise. Focus on actionable insights.
-- **Full mode**: Provide complete file list and metadata for code fetching, but still condense reviews/comments.
+- **Full mode**: Provide complete diff for normal PRs. The parent needs actual code changes, not just summaries. Only compress for truly massive PRs.
 
 Good luck! 🚀

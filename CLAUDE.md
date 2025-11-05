@@ -45,7 +45,7 @@ schovi/
 │   └── review.md                 # Comprehensive code review with issue detection
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
-│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (compact: max 1200, full: max 2000 tokens)
+│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (compact: max 1200, full: max 15000 with diff)
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
@@ -423,8 +423,10 @@ gh pr ready <number>
 - Uses: `gh` CLI and GitHub API via Bash tool
 - Modes:
   - **Compact** (default): ~800-1000 tokens (top 20 files, max 3 reviews, failed CI only, max 1200 tokens)
-  - **Full** (for review): ~1200-1500 tokens (ALL files with stats, all reviews, all CI checks, PR head SHA, max 2000 tokens)
-- Output: Condensed summary with mode-specific detail level
+  - **Full** (for review): ~2000-8000 tokens (ALL files with stats, complete diff, all reviews, all CI checks, PR head SHA)
+    - Normal PRs (≤50 files, ≤5000 lines): Includes complete diff content (max 15000 tokens)
+    - Massive PRs (>50 files or >5000 lines): File stats only, diff omitted (max 3000 tokens)
+- Output: Condensed summary (compact) or comprehensive with diff (full)
 - Used by: analyze/debug/plan (compact), review (full)
 
 **gh-issue-analyzer** (`schovi/agents/gh-issue-analyzer/AGENT.md`):
@@ -556,8 +558,10 @@ Always use `file:line` format for specificity and navigation:
 
 ### Token Budgets (Strict)
 - Jira summaries: **Max 1000 tokens**
-- PR summaries: **Max 1200 tokens**
-- Always condense, never return raw payloads to main context
+- PR summaries (compact mode): **Max 1200 tokens**
+- PR summaries (full mode): **Max 15000 tokens** (with complete diff for normal PRs)
+- PR summaries (full mode, massive PRs): **Max 3000 tokens** (file stats only, no diff)
+- Always condense, never return raw payloads to main context (except full diff in full mode)
 
 ## External Dependencies
 
