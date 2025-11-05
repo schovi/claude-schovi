@@ -656,13 +656,17 @@ This phase transforms Phase 2 exploration results into structured, polished anal
 
 ### Step 3.1: Prepare Subagent Input Context
 
+**Objective**: Construct the input package for analysis-generator subagent using outputs from Phase 2 Step 2.3.
+
 1. Acknowledge analysis generation:
    ```
    ⚙️ **[Analyze-Problem]** Generating structured analysis...
    ⏳ Spawning analysis-generator subagent...
    ```
 
-2. Prepare input package for subagent:
+2. Prepare input package for subagent using captured exploration results:
+
+**Instructions**: Use the structured outputs from Phase 2 Step 2.3 to populate this template.
 
 ```markdown
 ## Input Context
@@ -678,22 +682,83 @@ This phase transforms Phase 2 exploration results into structured, polished anal
 ### Exploration Results
 
 #### Affected Components
-[From Phase 2.1: List of components with file:line references and their roles]
+[Use `affected_components` from Phase 2 Step 2.3]
+[List of components with file:line references and their roles]
+
+Example format:
+- **ComponentName** (`path/to/file.ts:123`) - Current behavior and role
+- **AnotherComponent** (`path/to/another.ts:456`) - Current behavior and role
 
 #### User Flow
-[From Phase 2.1: Step-by-step user journey with file:line references]
+[Use `user_flow` from Phase 2 Step 2.3]
+[Step-by-step user journey with file:line references]
+
+Example format:
+```
+User Action: What user does
+  ↓
+Entry Point (file:line) - What happens
+  ↓
+Processing (file:line) - What happens
+  ↓
+Problem Occurs (file:line) - Where/why it breaks
+```
 
 #### Data Flow
-[From Phase 2.2: Data movement and transformations with file:line references]
+[Use `data_flow` from Phase 2 Step 2.3]
+[Data movement and transformations with file:line references]
+
+Example format:
+```
+Data Source
+  ↓
+Validation (file:line) - Current validation
+  ↓
+Transformation (file:line) - Current transformation
+  ↓
+Problem Point (file:line) - Where issue occurs
+```
 
 #### Dependencies
-[From Phase 2.3: Only if complex - direct, indirect, integration dependencies]
+[Use `dependencies` from Phase 2 Step 2.3]
+[Include if complex - direct, indirect, integration dependencies]
+
+Example format:
+- **Direct**: [modules, functions, DB tables]
+- **Indirect**: [shared state, events, background jobs]
+- **Integration**: [external services, webhooks]
+
+#### Code Quality Issues
+[Use `code_quality_issues` from Phase 2 Step 2.3]
+[Technical debt, test gaps, code smells with file:line refs]
+
+Example format:
+- Technical Debt: [TODO comments, duplication] at file:line
+- Test Coverage: [Missing unit tests, integration test gaps]
+- Code Smells: [Long functions, tight coupling] at file:line
+
+#### Historical Context
+[Use `historical_context` from Phase 2 Step 2.3]
+[Recent changes, patterns, stakeholders]
+
+Example format:
+- Recent Changes: [Commits affecting this area]
+- Patterns: [Recurring issues, previous attempts]
+- Stakeholders: [Code owners, domain experts]
 
 #### Issues Identified
-[From Phase 2: Problems found with evidence and root causes, with file:line references]
+[Use `issues_identified` from Phase 2 Step 2.3]
+[Problems found with evidence and root causes, with file:line references]
+
+Example format:
+1. **Issue Name** (`file:line`):
+   - Problem: [Specific technical issue]
+   - Evidence: [What shows this is a problem]
+   - Root cause: [Why this is happening]
 
 ### Code Locations
-[All file:line references discovered during exploration]
+[Use `code_locations` from Phase 2 Step 2.3]
+[Comprehensive list of all file:line references discovered during exploration]
 
 ### Template Type
 [full|quick based on --quick flag from argument parsing]
@@ -711,6 +776,8 @@ This phase transforms Phase 2 exploration results into structured, polished anal
 3. Determine template type:
    - **Full Analysis**: Use unless `--quick` flag was specified
    - **Quick Analysis**: Use if `--quick` flag present
+
+**Important**: All bracketed placeholders should be replaced with actual data from Phase 2 Step 2.3 captured variables. If any variable is empty or incomplete, note the gap in the input context so the analysis-generator can work with available information.
 
 ### Step 3.2: Spawn Analysis-Generator Subagent
 
