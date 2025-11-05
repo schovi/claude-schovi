@@ -1,7 +1,7 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, solution proposals, and structured output
 argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
-allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
+allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "ExitPlanMode", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
 # Problem Analyzer Workflow
