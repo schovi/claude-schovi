@@ -185,7 +185,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - **Update Support**: Automatically detects and updates existing PRs when called multiple times
 - **Auto-Push**: Always push branch before creating/updating PR (unless --no-push)
 - **Smart Description**: Auto-detects best source (spec → Jira → commits priority)
-- **Structured Format**: Problem/Solution/Changes/Other sections
+- **Concise Format**: Problem/Solution/Changes/Quality & Impact (target 150-250 words, human-readable)
 - **Branch Validation**: Blocks main/master, warns on naming mismatch
 - **Clean State**: Requires no uncommitted changes
 - **Confetti**: Runs confetti celebration on successful PR creation or update
@@ -193,20 +193,25 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Description Source Intelligence**:
 ```
 Priority 1: Spec file (./spec-EC-1234.md)
-  - Problem from spec Problem section
-  - Solution from Technical Overview
-  - Changes from Implementation Tasks
-  - Other from Testing Strategy
+  - Problem: 2-3 sentences from spec Problem section
+  - Solution: Single paragraph from Technical Overview (no subsections)
+  - Changes: Grouped bullets from Implementation Tasks (no phases)
+  - Quality & Impact: Combined testing/breaking/rollback from Testing Strategy
 
 Priority 2: Jira issue (via jira-analyzer)
-  - Problem from issue description
-  - Changes from acceptance criteria
-  - Solution from commits + context
+  - Problem: Condensed from issue description
+  - Changes: Simplified from acceptance criteria
+  - Solution: Brief approach from commits + context
+  - Quality & Impact: From issue comments + analysis
 
 Priority 3: Commit history (git log)
-  - Problem from commit summary
-  - Changes from commit list
-  - Solution from technical analysis
+  - Problem: Inferred from commit summary
+  - Changes: Key commits as bullets
+  - Solution: Technical approach from analysis
+  - Quality & Impact: Minimal (encourages manual update)
+
+Brevity Principles: Remove phase numbering, file:line details, exhaustive lists,
+verbose explanations. Focus on WHAT changed for human readers, not execution HOW.
 ```
 
 **PR Creation Format**:
