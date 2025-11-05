@@ -1,6 +1,6 @@
 ---
 description: Execute implementation tasks from specification with validation and commits
-argument-hint: [spec-file|jira-id] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--resume]
+argument-hint: [spec-file|jira-id] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--resume] [--verbose]
 allowed-tools: ["Read", "Write", "Edit", "Glob", "Grep", "Bash", "AskUserQuestion", "mcp__jetbrains__*", "mcp__jira__*"]
 ---
 
@@ -56,11 +56,168 @@ Parse optional flags from command arguments:
 **Control Flags**:
 - **`--resume`**: Resume from previous checkpoint (planned future feature)
 
+**Commit Flags**:
+- **`--verbose`**: Use enhanced conventional commits with type detection
+  - Default: Simplified phase-based commits (faster)
+  - With --verbose: Conventional format with feat/fix/chore types
+  - Recommended: Use only when no Jira ticket exists for reference
+
 **Flag Validation**:
-- `--input` overrides positional argument if both provided
-- `--output` and `--no-file` cannot be used together → Error
-- `--post-to-jira` without Jira ID → Warning, skip posting
-- Unknown flags → Warn but continue
+
+Validate flag combinations and provide clear error messages:
+
+**1. Conflicting Output Flags**:
+
+If `--output PATH` AND `--no-file` both present:
+```markdown
+❌ Error: Conflicting flags
+
+**Conflict**: --output and --no-file cannot be used together
+
+**Explanation**:
+- --output PATH: Creates execution log at specified path
+- --no-file: Skips log file creation entirely
+
+**Resolution**:
+1. Remove --no-file to create log at custom path:
+   /schovi:implement spec.md --output ./logs/run.log
+
+2. Remove --output to skip log file creation:
+   /schovi:implement spec.md --no-file
+
+3. Use neither flag to create log at default location:
+   /schovi:implement spec.md
+   (creates ./implement-[id]-[timestamp].log)
+```
+**Action**: Stop execution, display error, exit.
+
+---
+
+**2. No Output Combination**:
+
+If `--quiet` AND `--no-file` both present:
+```markdown
+⚠️  Warning: No output will be generated
+
+**Configuration**:
+- --quiet: Suppresses terminal output
+- --no-file: Skips log file creation
+
+**Result**: You will see only error messages during execution. No verbose progress updates, no log file saved.
+
+**Is this intentional?**
+- Yes: Press Enter to continue
+- No: Cancel (Ctrl+C) and remove one flag
+
+**Recommendation**: Use --quiet alone to still create log file for later review.
+```
+**Action**: Display warning, ask for confirmation, proceed if confirmed.
+
+---
+
+**3. Jira Posting Without ID**:
+
+If `--post-to-jira` present but no Jira ID found (in argument or spec):
+```markdown
+⚠️  Warning: Cannot post to Jira
+
+**Issue**: --post-to-jira flag present but no Jira ID available
+
+**Checked**:
+- Command argument: No Jira ID provided
+- Spec frontmatter: No jira_id field found
+
+**Impact**: Execution will proceed but summary will NOT be posted to Jira
+
+**To fix**:
+1. Provide Jira ID as argument:
+   /schovi:implement EC-1234 --post-to-jira
+
+2. Add jira_id to spec frontmatter:
+   ---
+   jira_id: EC-1234
+   ---
+
+3. Remove --post-to-jira flag if not needed
+
+**Continuing without Jira posting...**
+```
+**Action**: Display warning, skip Jira posting, continue execution.
+
+---
+
+**4. Resume Without Checkpoint**:
+
+If `--resume` present but no checkpoint file exists:
+```markdown
+❌ Error: No checkpoint file found
+
+**Issue**: --resume flag present but .implement-checkpoint.json does not exist
+
+**Checked locations**:
+- Current directory: /Users/user/project/.implement-checkpoint.json
+- Not found
+
+**Possible reasons**:
+1. No previous implementation run in this directory
+2. Checkpoint file was deleted manually
+3. Running in wrong directory
+
+**Resolution**:
+1. Start fresh implementation (without --resume):
+   /schovi:implement spec.md
+
+2. Check if you're in correct directory:
+   pwd
+   ls -la .implement-checkpoint.json
+
+3. If previous run was interrupted, checkpoint may not exist yet
+
+**Note**: --resume is a v2.0 feature (coming soon)
+```
+**Action**: Stop execution, display error, exit.
+
+---
+
+**5. Unknown Flags**:
+
+If unrecognized flag present (e.g., `--invalid-flag`):
+```markdown
+⚠️  Warning: Unknown flag detected
+
+**Unknown flag**: --invalid-flag
+
+**Valid flags**:
+- Input: --input PATH
+- Output: --output PATH, --no-file, --quiet
+- Jira: --post-to-jira
+- Control: --resume (v2.0)
+- Commit: --verbose
+
+**Action**: Ignoring unknown flag, continuing with valid flags
+
+**Did you mean**:
+- --input (for input file)
+- --verbose (for detailed commits)
+```
+**Action**: Display warning, ignore unknown flag, continue execution.
+
+---
+
+**6. Positional + --input Flag**:
+
+If both positional argument AND `--input` flag provided:
+```markdown
+ℹ️  Note: Multiple input sources provided
+
+**Positional argument**: ./spec-v1.md
+**--input flag**: ./spec-v2.md
+
+**Resolution**: --input flag takes precedence over positional argument
+
+**Using**: ./spec-v2.md (from --input flag)
+```
+**Action**: Display info message, use `--input` value, continue.
 
 **Storage for Later Phases**:
 ```
@@ -68,6 +225,7 @@ input_path = [--input PATH] or [null]
 output_log_path = [--output PATH] or [default: ./implement-[jira-id]-[timestamp].log] or [null if --no-file]
 terminal_verbose = true (unless --quiet)
 post_to_jira = [true if --post-to-jira]
+verbose_commits = [true if --verbose] or [false (default)]
 ```
 
 ### Step 1.1: Resolve Spec Source
@@ -232,9 +390,45 @@ created_date: 2025-04-11
 
 **2. Extract Implementation Tasks**
 
-Look for section: `## Implementation Tasks`
+**Flexible Section Detection**:
 
-Parse task structure:
+Use robust pattern matching to find the tasks section. Try patterns in order:
+
+1. **Full h2 header**: `## Implementation Tasks`
+2. **Full h1 header**: `# Implementation Tasks`
+3. **Shortened h2**: `## Implementation` (exact match)
+4. **Shortened h1**: `# Implementation` (exact match)
+5. **Task h2**: `## Tasks`
+6. **Task h1**: `# Tasks`
+7. **Singular variants**: `## Implementation Task`, `# Implementation Task`, `## Task`, `# Task`
+
+If section not found, display error with helpful message:
+```markdown
+❌ Error: Could not find Implementation Tasks section
+
+**Searched for patterns**:
+- ## Implementation Tasks
+- # Implementation Tasks
+- ## Implementation
+- # Implementation
+- ## Tasks / # Tasks
+
+**Found sections in spec**:
+- ## Problem Summary
+- ## Technical Overview
+- ## Acceptance Criteria
+
+**Suggestions**:
+1. Add "## Implementation Tasks" section to spec
+2. Verify spec file is complete
+3. Check for typos in section headers
+```
+
+**Parse Task Structure**:
+
+Once section found, parse two possible structures:
+
+**Structure A: Phased Tasks** (standard format):
 ```markdown
 ## Implementation Tasks
 
@@ -254,11 +448,35 @@ Parse task structure:
 - [ ] Manual testing checklist completion
 ```
 
+**Structure B: Flat Task List** (simple format, no phases):
+```markdown
+## Implementation Tasks
+
+- [ ] Implement FeatureUpdateService in services/feature-update.ts
+- [ ] Add Kafka topic feature-updates to kafka config
+- [ ] Update FeatureController to publish events on changes
+- [ ] Write unit tests for FeatureUpdateService
+- [ ] Create integration test for end-to-end flow
+```
+
 **Parsing Logic**:
-- Identify phase headers: `### Phase N: [Name]`
-- Extract tasks as checkboxes: `- [ ] Task description`
-- Preserve file:line references: `services/feature-update.ts` or `feature-update.ts:123`
-- Build structured task list:
+
+1. **Detect structure type**:
+   - Check for `### Phase N:` pattern → Structure A (phased)
+   - If not found, check for flat `- [ ]` tasks → Structure B (flat)
+   - If neither found → Error
+
+2. **For Structure A** (phased):
+   - Identify phase headers: `### Phase N: [Name]`
+   - Extract tasks under each phase: `- [ ] Task description`
+   - Preserve file:line references: `services/feature-update.ts` or `feature-update.ts:123`
+
+3. **For Structure B** (flat):
+   - Extract all tasks: `- [ ] Task description`
+   - Create single phase named "Implementation"
+   - Preserve file:line references
+
+4. **Build structured task list**:
   ```json
   {
     "phases": [
@@ -277,11 +495,39 @@ Parse task structure:
   }
   ```
 
+5. **Display parsing summary**:
+   ```markdown
+   ✅ Parsed Implementation Tasks
+   - Structure: Phased (3 phases)
+   - Total tasks: 9
+   ```
+   or for flat:
+   ```markdown
+   ✅ Parsed Implementation Tasks
+   - Structure: Flat (single phase)
+   - Total tasks: 5
+   ⚠️  Note: Tasks will be executed in a single phase named "Implementation"
+   ```
+
 **3. Extract Acceptance Criteria**
 
-Look for section: `## Acceptance Criteria`
+**Flexible Section Detection**:
 
-Parse criteria:
+Try patterns in order:
+1. `## Acceptance Criteria`
+2. `# Acceptance Criteria`
+3. `## Acceptance`
+4. `# Acceptance`
+
+If section not found:
+```markdown
+⚠️  Warning: No Acceptance Criteria section found
+
+**Impact**: Cannot verify automatic acceptance criteria during validation.
+**Continuing**: Will validate code quality (linting, tests) only.
+```
+
+Parse criteria (if found):
 ```markdown
 ## Acceptance Criteria
 
@@ -297,9 +543,25 @@ Store as checklist for validation phase.
 
 **4. Extract Testing Strategy**
 
-Look for sections: `## Testing Strategy` or `## Testing`
+**Flexible Section Detection**:
 
-Parse testing details:
+Try patterns in order:
+1. `## Testing Strategy`
+2. `# Testing Strategy`
+3. `## Testing`
+4. `# Testing`
+5. `## Tests`
+6. `# Tests`
+
+If section not found:
+```markdown
+⚠️  Warning: No Testing Strategy section found
+
+**Impact**: Will run project's standard test suite without test file guidance.
+**Continuing**: Validation will use auto-detected test commands.
+```
+
+Parse testing details (if found):
 ```markdown
 ### Unit Tests
 - FieldMappingValidator.spec.ts
@@ -412,9 +674,25 @@ Display phase start:
 
 For each task in the phase:
 
-**Display Task**:
+**Task Complexity Estimation**:
+
+Before displaying task, estimate complexity for progress visibility:
+
+- **Simple** (<5s expected): Single file creation/edit, config changes, small modifications
+- **Moderate** (5-30s): Multiple file changes, moderate logic, database migrations
+- **Complex** (>30s): Large file generation, multiple integrations, extensive refactoring
+
+**Display Task (with timestamp for complex tasks)**:
+
+For simple/moderate tasks:
 ```
 ⏳ Task 1/3: Implement FeatureUpdateService in services/feature-update.ts
+```
+
+For complex tasks (>30s expected):
+```
+⏳ Task 1/3: Generate large migration file with 500+ rows
+🕐 Started: 14:23:45
 ```
 
 **Analyze Task**:
@@ -438,6 +716,44 @@ Use appropriate tools based on task:
 - Use file:line references from spec when available
 - If task is unclear, use best judgment based on spec context
 
+---
+
+**Progress Updates for Complex Tasks** (>30s):
+
+While executing complex tasks, display periodic updates every 15-20 seconds:
+
+**Activity Descriptions by Task Type**:
+
+- **File creation**: "Generating code structure...", "Writing class implementations...", "Adding method definitions..."
+- **File editing**: "Analyzing existing code...", "Applying modifications...", "Preserving compatibility..."
+- **Migration files**: "Generating SQL statements...", "Creating rollback logic...", "Validating schema changes..."
+- **Test files**: "Creating test cases...", "Setting up test fixtures...", "Adding assertions..."
+- **Configuration**: "Updating config values...", "Merging settings...", "Validating configuration..."
+- **Integration**: "Wiring dependencies...", "Connecting services...", "Establishing communication..."
+
+**Progress Update Format**:
+```
+⏰ Still working on task (15s elapsed): Generating code structure...
+```
+
+After 30s:
+```
+⏰ Still working on task (30s elapsed): Writing class implementations...
+```
+
+After 45s:
+```
+⏰ Still working on task (45s elapsed): Adding method definitions...
+```
+
+**Activity Context**: Choose description based on current execution step:
+- During Write tool: Use "Generating..." or "Writing..." activity
+- During Read tool: Use "Analyzing..." activity
+- During Edit tool: Use "Applying..." or "Modifying..." activity
+- Between tools: Use "Preparing..." or "Processing..." activity
+
+---
+
 **Example Task Execution**:
 ```markdown
 Task: "Implement FeatureUpdateService in services/feature-update.ts"
@@ -453,9 +769,16 @@ Task: "Implement FeatureUpdateService in services/feature-update.ts"
    - Preserve existing code
 ```
 
-**Update Status**:
+**Update Status (with duration for complex tasks)**:
+
+For simple/moderate tasks:
 ```
 ✅ Task 1/3 complete: Created FeatureUpdateService with event publishing logic
+```
+
+For complex tasks:
+```
+✅ Task 1/3 complete: Generated large migration file (Duration: 47s)
 ```
 
 **Handle Errors**:
@@ -463,12 +786,37 @@ Task: "Implement FeatureUpdateService in services/feature-update.ts"
 - If Write fails (file exists), switch to Edit approach
 - If task is blocked (missing dependency), note it and continue to next task
 - Log errors but maintain autonomy (don't ask user unless critical)
+- **For complex tasks with errors**: Display error context with elapsed time
+  ```
+  ⚠️  Task 1/3 error after 23s: File write permission denied for services/feature-update.ts
+  ```
 
 ### Step 2.3: Phase Completion - Git Commit
 
-After all tasks in phase are completed, create git commit:
+After all tasks in phase are completed, create git commit.
 
-**Note**: This implements simplified phase-based commits. For more advanced commit validation and analysis, see `/schovi:commit` command (branch validation, conventional commits, smart type detection).
+**Commit Mode Selection**:
+
+Choose commit format based on flags and context:
+
+1. **Check for `--verbose` flag** (from Step 1.0):
+   - If `verbose_commits == true`: Use **Enhanced Mode**
+   - If `verbose_commits == false`: Use **Simplified Mode** (default)
+
+2. **Commit Mode Comparison**:
+
+| Aspect | Simplified Mode (Default) | Enhanced Mode (--verbose) |
+|--------|---------------------------|---------------------------|
+| **Format** | Phase-based | Conventional commits |
+| **Title** | `Phase N: Name` | `type: Description` |
+| **Type Detection** | None | feat/fix/chore/refactor/docs/test |
+| **Analysis Overhead** | None (~1s) | Diff analysis (~5-10s) |
+| **Use Case** | Standard workflow with Jira | No Jira ticket, need detailed history |
+| **Example** | `Phase 1: Backend Service` | `feat: Implement event publishing service` |
+
+**Simplified Mode (Default)**:
+
+Used when `verbose_commits == false` (default behavior).
 
 **Commit Message Format**:
 ```
@@ -485,7 +833,7 @@ Related to: [JIRA-ID if available]
 Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
-**Create Commit**:
+**Simplified Mode Create Commit**:
 ```bash
 git add .
 git commit -m "$(cat <<'EOF'
@@ -504,7 +852,82 @@ EOF
 )"
 ```
 
-**Verify Commit**:
+---
+
+**Enhanced Mode (--verbose)**:
+
+Used when `verbose_commits == true` (via `--verbose` flag).
+
+**Process**:
+1. **Analyze Git Diff**: Run `git diff --cached` to examine staged changes
+2. **Detect Commit Type**: Based on file paths and changes:
+   - **feat**: New files in `src/`, `lib/`, `services/`, new features
+   - **fix**: Changes to existing files fixing bugs, error handling
+   - **chore**: Config files, dependencies, build files, migrations
+   - **refactor**: Code restructuring without behavior change
+   - **docs**: Documentation files (*.md, comments)
+   - **test**: Test files, spec files
+   - **style**: Formatting, linting fixes
+3. **Generate Conventional Message**: Format with type, description, bullets
+
+**Enhanced Mode Message Format**:
+```
+type: Title (50-72 chars, present tense)
+
+Description paragraph explaining what changed and why
+(derived from phase context and spec)
+
+- Specific change 1
+- Specific change 2
+- Specific change 3
+
+Related to: [JIRA-ID if available]
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Enhanced Mode Create Commit**:
+```bash
+git add .
+
+# Analyze diff for type detection
+git diff --cached > /tmp/phase-diff.txt
+
+# Determine type (logic above)
+# Generate message with analysis
+
+git commit -m "$(cat <<'EOF'
+feat: Implement event publishing service
+
+Add FeatureUpdateService to handle feature change events with Kafka
+integration for downstream consumers.
+
+- Implement FeatureUpdateService in services/feature-update.ts
+- Add Kafka topic configuration for feature-updates
+- Create database migration for feature_events table
+
+Related to: EC-1234
+
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+```
+
+**Type Detection Heuristics**:
+- New service/controller/model files → **feat**
+- Bug fix keywords in task descriptions → **fix**
+- Config/build/migration files only → **chore**
+- Renames/moves without logic changes → **refactor**
+- Test files only → **test**
+- Markdown/comment changes only → **docs**
+
+---
+
+**Verify Commit** (both modes):
 ```bash
 git log -1 --oneline
 ```
@@ -513,6 +936,7 @@ Show commit result:
 ```
 📝 Phase 1 committed: a3b2c1d Phase 1: Backend Service
 ```
+(or with --verbose: `📝 Phase 1 committed: a3b2c1d feat: Implement event publishing service`)
 
 ### Step 2.4: Continue to Next Phase
 
@@ -549,6 +973,16 @@ Starting validation checks...
 ```
 
 ### Step 3.2: Run Linting
+
+**Retry Logic**: Max 2 attempts with auto-fix and manual repair.
+
+**Attempt Tracking**:
+```
+max_attempts = 2
+current_attempt = 1
+```
+
+**Attempt 1: Initial Linting Run**
 
 Based on detected project type, run linter:
 
@@ -589,37 +1023,108 @@ bundle exec rubocop 2>&1
 cargo clippy 2>&1
 ```
 
-**Report Results**:
+**Report Results (Attempt 1)**:
 ```markdown
-🔍 Linting: npm run lint
+🔍 Attempt 1/2: Linting (npm run lint)
 
 ✅ Linting passed - no issues found
 ```
 
-or if failures:
+**If Attempt 1 Passes**: Skip Attempt 2, mark complete, move to Step 3.3.
+
+**If Attempt 1 Fails**:
 ```markdown
-🔍 Linting: npm run lint
+🔍 Attempt 1/2: Linting (npm run lint)
 
 ❌ Linting failed - 3 issues found:
   - services/feature-update.ts:45 - Unused variable 'result'
   - controllers/mapping.ts:67 - Missing semicolon
   - config/kafka.ts:12 - Prefer const over let
+
+⏭️  Proceeding to Attempt 2 (Auto-Fix)...
 ```
 
-**Handle Lint Failures**:
-- If auto-fixable (e.g., formatting), run auto-fix command:
-  - `npm run lint -- --fix`
-  - `ruff check --fix`
-  - `rubocop -a`
-- If not auto-fixable, attempt to fix manually:
-  - Read affected files
-  - Apply fixes using Edit tool
-  - Re-run linter to verify
-- If fixes are applied, create amend commit or new commit:
-  ```bash
-  git add .
-  git commit -m "fix: Address linting issues"
-  ```
+---
+
+**Attempt 2: Auto-Fix or Manual Repair**
+
+**Strategy**:
+1. Try auto-fix command first (if available)
+2. If auto-fix fails or unavailable, attempt manual fixes
+3. Re-run linting to verify
+
+**Auto-Fix Commands**:
+- **Node.js/TypeScript**: `npm run lint -- --fix` or `npx eslint . --fix`
+- **Python**: `ruff check --fix` or `autopep8 --in-place --recursive .`
+- **Ruby**: `bundle exec rubocop -a`
+- **Rust**: `cargo clippy --fix --allow-dirty`
+- **Go**: (no auto-fix, skip to manual)
+
+**Report Attempt 2**:
+```markdown
+🔍 Attempt 2/2: Linting (Auto-Fix)
+
+Running: npm run lint -- --fix
+```
+
+**Auto-Fix Execution**:
+```bash
+npm run lint -- --fix 2>&1
+```
+
+**Re-run Linting**:
+```bash
+npm run lint 2>&1
+```
+
+**If Attempt 2 Passes**:
+```markdown
+✅ Linting passed (after auto-fix)
+
+📝 Creating fix commit...
+```
+
+Create fix commit:
+```bash
+git add .
+git commit -m "fix: Address linting issues (auto-fix)"
+```
+
+**If Attempt 2 Fails** (auto-fix didn't resolve all issues):
+
+Try manual fixes for remaining issues:
+1. Parse error output to identify files and issues
+2. For each fixable issue:
+   - Read affected file
+   - Apply fix using Edit tool (if straightforward)
+3. Re-run linting
+
+**Re-run Linting After Manual Fixes**:
+```bash
+npm run lint 2>&1
+```
+
+**If Manual Fixes Succeed**:
+```markdown
+✅ Linting passed (after manual fixes)
+
+📝 Creating fix commit...
+```
+
+**If Still Failing After 2 Attempts**:
+```markdown
+⚠️  Linting incomplete (2/2 attempts)
+
+❌ Remaining issues (3):
+  - services/feature-update.ts:45 - Unused variable 'result'
+  - controllers/mapping.ts:67 - Missing semicolon
+  - config/kafka.ts:12 - Prefer const over let
+
+**Status**: Marked incomplete, continuing validation
+**Note**: Manual intervention required before PR creation
+```
+
+Mark validation status as `incomplete` but continue to next step.
 
 ### Step 3.3: Run Type Checking (if applicable)
 
@@ -645,6 +1150,16 @@ mypy . 2>&1
 ```
 
 ### Step 3.4: Run Test Suite
+
+**Retry Logic**: Max 2 attempts with analysis and fixes.
+
+**Attempt Tracking**:
+```
+max_attempts = 2
+current_attempt = 1
+```
+
+**Attempt 1: Initial Test Run**
 
 Based on project type, run tests:
 
@@ -681,9 +1196,9 @@ bundle exec rspec 2>&1
 cargo test 2>&1
 ```
 
-**Report Results**:
+**Report Results (Attempt 1)**:
 ```markdown
-🧪 Tests: npm test
+🧪 Attempt 1/2: Tests (npm test)
 
 ✅ All tests passed
   - 24 tests run
@@ -691,9 +1206,11 @@ cargo test 2>&1
   - Duration: 3.2s
 ```
 
-or if failures:
+**If Attempt 1 Passes**: Skip Attempt 2, mark complete, move to Step 3.5.
+
+**If Attempt 1 Fails**:
 ```markdown
-🧪 Tests: npm test
+🧪 Attempt 1/2: Tests (npm test)
 
 ❌ Tests failed - 2 failing:
   - FeatureUpdateService.spec.ts
@@ -701,24 +1218,106 @@ or if failures:
     - should handle errors gracefully (FAILED)
 
   24 tests run, 2 failed, 22 passed
+
+⏭️  Proceeding to Attempt 2 (Analysis & Fixes)...
 ```
 
-**Handle Test Failures**:
-- Read test output carefully to understand failures
-- Identify root cause (implementation bug vs test issue)
-- Fix implementation if bug found:
-  - Read affected source files
-  - Apply fixes using Edit tool
-  - Re-run tests to verify
-- If tests need updates (e.g., new behavior):
-  - Read test files
-  - Update expectations
-  - Re-run tests
-- Create fix commit if changes made:
-  ```bash
-  git add .
-  git commit -m "fix: Address test failures in FeatureUpdateService"
-  ```
+---
+
+**Attempt 2: Analysis & Fixes**
+
+**Strategy**:
+1. Analyze test output to understand failure root cause
+2. Determine if implementation bug or test expectation issue
+3. Apply appropriate fixes (implementation or tests)
+4. Re-run tests to verify
+
+**Analysis Process**:
+
+1. **Read Test Output Carefully**:
+   - Identify specific assertions that failed
+   - Note expected vs. actual values
+   - Check for error messages or stack traces
+
+2. **Determine Root Cause**:
+   - **Implementation Bug**: Logic error, missing functionality, incorrect behavior
+   - **Test Issue**: Outdated expectations, incorrect fixtures, missing test setup
+
+3. **Apply Fixes**:
+
+   **If Implementation Bug**:
+   - Read affected source files
+   - Identify bug location
+   - Apply fix using Edit tool
+   - Document fix reason
+
+   **If Test Issue**:
+   - Read test files
+   - Update expectations to match new behavior
+   - Fix test fixtures or setup
+   - Document change reason
+
+**Report Attempt 2**:
+```markdown
+🧪 Attempt 2/2: Tests (Analysis & Fixes)
+
+📊 Analyzing failures...
+  - FeatureUpdateService.spec.ts:45: Expected event.type to be 'update', got 'feature_update'
+  - FeatureUpdateService.spec.ts:67: Expected publish to be called, but was not
+
+🔍 Root cause: Implementation bug - incorrect event type constant
+
+📝 Applying fixes...
+```
+
+**Apply Fixes**:
+- Use Edit tool to fix identified issues
+- Make minimal, targeted changes
+
+**Re-run Tests**:
+```bash
+npm test 2>&1
+```
+
+**If Attempt 2 Passes**:
+```markdown
+✅ Tests passed (after fixes)
+  - 24 tests run
+  - 0 failed
+  - Duration: 3.4s
+
+📝 Creating fix commit...
+```
+
+Create fix commit:
+```bash
+git add .
+git commit -m "fix: Address test failures in FeatureUpdateService"
+```
+
+**If Attempt 2 Fails** (fixes didn't resolve all issues):
+
+```markdown
+⚠️  Tests incomplete (2/2 attempts)
+
+❌ Remaining failures (1):
+  - FeatureUpdateService.spec.ts
+    - should handle errors gracefully (FAILED)
+    - Error: Timeout - async operation did not complete
+
+**Analysis**: Test appears to have timing/async issue requiring deeper investigation
+
+**Status**: Marked incomplete, continuing validation
+**Note**: Manual debugging required before PR creation
+```
+
+Document failures with:
+- Specific test names
+- Failure reasons
+- Analysis notes
+- Recommendations for resolution
+
+Mark validation status as `incomplete` but continue to next step.
 
 ### Step 3.5: Verify Acceptance Criteria
 
@@ -750,16 +1349,17 @@ Mark automatic items as verified based on implementation and test results.
 
 ### Step 3.6: Validation Summary
 
-Create summary of all validation results:
+Create summary of all validation results with attempt history:
 
+**Success Scenario**:
 ```markdown
 ╭─────────────────────────────────────────────╮
 │ ✅ VALIDATION COMPLETE                      │
 ╰─────────────────────────────────────────────╯
 
-**Linting**: ✅ Passed (npm run lint)
+**Linting**: ✅ Passed (Attempt 1/2, npm run lint)
 **Type Check**: ✅ Passed (tsc --noEmit)
-**Tests**: ✅ Passed (24/24 tests)
+**Tests**: ✅ Passed (Attempt 1/2, 24/24 tests)
 **Acceptance Criteria**: ✅ 5/6 verified (1 pending manual review)
 
 **Commits Created**: 3 implementation + 0 fixes
@@ -768,22 +1368,54 @@ Create summary of all validation results:
 Ready for code review and PR creation.
 ```
 
-or if failures:
+**Partial Success with Fixes**:
+```markdown
+╭─────────────────────────────────────────────╮
+│ ✅ VALIDATION COMPLETE (with fixes)         │
+╰─────────────────────────────────────────────╯
+
+**Linting**: ✅ Passed (Attempt 2/2, auto-fix applied)
+**Type Check**: ✅ Passed (tsc --noEmit)
+**Tests**: ✅ Passed (Attempt 2/2, fixed 2 issues)
+**Acceptance Criteria**: ✅ 5/6 verified (1 pending manual review)
+
+**Commits Created**: 3 implementation + 2 fixes
+**Total Changes**: +251 -13 lines across 8 files
+
+**Fix Details**:
+- Linting: Auto-fix resolved formatting issues
+- Tests: Fixed event type constant and test expectations
+
+Ready for code review and PR creation.
+```
+
+**Incomplete Validation**:
 ```markdown
 ╭─────────────────────────────────────────────╮
 │ ⚠️  VALIDATION INCOMPLETE                   │
 ╰─────────────────────────────────────────────╯
 
-**Linting**: ✅ Passed
-**Type Check**: ✅ Passed
-**Tests**: ❌ Failed (2 failures)
+**Linting**: ⚠️  Incomplete (2/2 attempts, 3 issues remain)
+**Type Check**: ✅ Passed (tsc --noEmit)
+**Tests**: ❌ Failed (2/2 attempts, 2 failures remain)
 **Acceptance Criteria**: ⚠️  3/6 verified
 
 **Issues**:
-- Test failures in FeatureUpdateService.spec.ts
-- Unable to verify criteria dependent on tests
+- Linting (3 remaining):
+  - services/feature-update.ts:45 - Unused variable 'result'
+  - controllers/mapping.ts:67 - Missing semicolon
+  - config/kafka.ts:12 - Prefer const over let
+- Tests (2 failures):
+  - FeatureUpdateService.spec.ts: async timeout issue
+  - MappingController.spec.ts: assertion mismatch
 
-**Recommendation**: Review test failures and fix before proceeding.
+**Commits Created**: 3 implementation + 1 partial fix
+**Total Changes**: +249 -12 lines across 8 files
+
+**Recommendation**:
+- Fix remaining linting issues manually
+- Debug test failures (check async handling)
+- Re-run validation before creating PR
 ```
 
 ## PHASE 4: COMPLETION & NEXT STEPS
@@ -834,7 +1466,14 @@ Based on validation results and workflow from CLAUDE.md:
 **Next Steps**:
 1. 📝 Review changes: `git diff origin/main`
 2. 🔍 Manual testing: Follow testing strategy from spec
-3. 🚀 Create PR: [Manual for now - PR automation coming in v1.4.0]
+3. 🚀 Create PR with `/schovi:publish` command:
+   - Run: `/schovi:publish` (auto-detects from branch name)
+   - Or: `/schovi:publish EC-1234` (explicit Jira ID)
+   - Or: `/schovi:publish --spec ./spec-EC-1234.md` (explicit spec)
+   - Automatically pushes branch with upstream tracking
+   - Creates draft PR by default (use `--ready` for ready PR)
+   - Generates description from spec file → Jira issue → commit history
+   - Use `--base BRANCH` to target different base branch (default: main)
 4. 👥 Request code review from team
 5. ✅ Address review feedback
 6. 🎯 Merge and deploy
@@ -844,12 +1483,11 @@ Based on validation results and workflow from CLAUDE.md:
 - Create mapping with number field → Success
 - Verify error message displays correctly
 
-**PR Description Template**:
-Use structured format from CLAUDE.md:
-- Problem: [Copy from spec]
-- Solution: [Copy approach from spec]
-- Changes: [List major changes]
-- Other: [Testing notes, deployment considerations]
+**PR Creation Tips**:
+- `/schovi:publish` uses spec file for best description quality
+- Draft PRs allow further changes before requesting review
+- Update existing PR by running command again on same branch
+- See PR URL in output after creation
 ```
 
 **If Validations Failed**:
@@ -970,10 +1608,17 @@ Handle execution log output based on flags from Step 1.0:
 
 ### Step 4.4: Completion Signal
 
-Run confetti command as per CLAUDE.md:
+Execute confetti command as per CLAUDE.md:
+
+Use Bash tool to run:
 ```bash
-open "raycast://extensions/raycast/raycast/confetti"
+open "raycast://extensions/raycast/raycast/confetti" 2>/dev/null || true
 ```
+
+**Notes**:
+- Error suppression (`2>/dev/null || true`) prevents blocking on non-macOS systems
+- Graceful failure if Raycast not installed or on Linux/Windows
+- Command returns immediately without waiting for animation
 
 Display final message:
 ```markdown
