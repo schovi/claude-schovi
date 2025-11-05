@@ -1020,19 +1020,80 @@ Handle analysis output based on flags from Argument Parsing:
 
 1. Determine filename:
    - If `--output PATH` specified: Use provided path
-   - Else if Jira ID present: `analysis-[JIRA-ID].md`
-   - Else: `analysis-[YYYY-MM-DD-HHMMSS].md`
+   - Else if Jira ID present: `./analysis-[JIRA-ID].md` (current directory)
+   - Else: `./analysis-[YYYY-MM-DD-HHMMSS].md` (current directory)
 
-2. Write analysis to file:
+2. Resolve and validate output path:
+
+   **Convert to absolute path**:
+   ```bash
+   # If path starts with ~, expand it
+   if [[ "$output_path" == ~* ]]; then
+     output_path="${output_path/#\~/$HOME}"
+   fi
+
+   # If path is relative, make it absolute from CWD
+   if [[ "$output_path" != /* ]]; then
+     output_path="$(pwd)/$output_path"
+   fi
+   ```
+
+   **Create parent directory if needed**:
+   ```bash
+   # Extract directory from path
+   output_dir="$(dirname "$output_path")"
+
+   # Check if parent directory exists
+   if [ ! -d "$output_dir" ]; then
+     # Try to create it
+     mkdir -p "$output_dir" 2>/dev/null
+
+     if [ $? -ne 0 ]; then
+       # Creation failed
+       echo "⚠️ **[Analyze-Problem]** Cannot create directory: $output_dir"
+       echo ""
+       echo "Options:"
+       echo "1. Use current directory instead: ./$(basename "$output_path")"
+       echo "2. Specify different output path"
+       echo "3. Skip file output (continue with terminal display only)"
+       echo ""
+       echo "How would you like to proceed?"
+
+       # Wait for user decision and adjust output_path accordingly
+       # If user chooses option 1: output_path="./$(basename "$output_path")"
+       # If user chooses option 3: Skip to terminal display only
+     fi
+   fi
+   ```
+
+   **Final path**: `output_path` (now absolute and parent directory exists)
+
+3. Write analysis to file:
    ```
    Use Write tool:
-   file_path: [determined filename]
+   file_path: [output_path - absolute path]
    content: [analysis_markdown]
    ```
 
-3. Acknowledge file creation:
+   **Handle write errors**:
+   If Write tool fails (permissions, disk full, etc.):
    ```
-   📄 **[Analyze-Problem]** Analysis saved to: [filename]
+   ⚠️ **[Analyze-Problem]** Failed to write file: [output_path]
+
+   Error: [error message from Write tool]
+
+   The analysis is still available in terminal output above.
+
+   Options:
+   1. Try different output path
+   2. Continue without file (analysis shown in terminal)
+
+   How would you like to proceed?
+   ```
+
+4. Acknowledge file creation:
+   ```
+   📄 **[Analyze-Problem]** Analysis saved to: [output_path]
    ```
 
 **If `--no-file` flag present**:
