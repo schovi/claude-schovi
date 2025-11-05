@@ -1,6 +1,6 @@
 ---
 description: Generate implementation specification from problem analysis with flexible input sources
-argument-hint: [jira-id|github-issue-url|--input path|--from-scratch description]
+argument-hint: [jira-id|github-issue-url|--input path|--from-scratch description] [--work-dir PATH]
 allowed-tools: ["Read", "Grep", "Glob", "Task", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion", "Write"]
 ---
 
@@ -345,6 +345,80 @@ Based on input type from Step 1.1, extract analysis content:
 - Skip selection step
 - Use the single approach or minimal template
 
+### Step 1.6: Work Folder Resolution & Metadata Setup
+
+**Objective**: Find or create work folder for storing spec and tracking workflow state.
+
+**Integration Point**: Use work folder library (`schovi/lib/work-folder.md`)
+
+#### 1.6.1: Auto-detect from Input File Path
+
+If `--input` flag provided with file path:
+```bash
+# Extract work folder from path
+# Example: .WIP/EC-1234/02-analysis.md → .WIP/EC-1234
+work_folder=$(dirname "$(dirname "$input_file_path")")
+
+# Validate it's a work folder (has .metadata.json)
+if [ -f "$work_folder/.metadata.json" ]; then
+  echo "📁 Detected work folder: $work_folder"
+fi
+```
+
+#### 1.6.2: Auto-detect from Git Branch
+
+If no input file or work folder not detected:
+```bash
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Extract identifier (Jira ID)
+identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
+
+# Find work folder
+if [ -n "$identifier" ]; then
+  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
+fi
+```
+
+#### 1.6.3: Check for Explicit --work-dir
+
+If `--work-dir` flag provided:
+```bash
+# Use exactly as specified
+work_folder="$work_dir"
+```
+
+#### 1.6.4: Create Work Folder if Needed
+
+If no work folder found and not from-scratch mode:
+- Extract identifier from analysis source (Jira ID, description)
+- Create `.WIP/[identifier]/` structure
+- Initialize metadata (similar to analyze command)
+
+**Set workflow.type**:
+- If came from spec (01-spec.md): "full"
+- If came from analysis (02-analysis.md): "technical"
+- If from-scratch: "simple"
+
+#### 1.6.5: Load or Update Metadata
+
+**If metadata exists**:
+```bash
+cat "$work_folder/.metadata.json"
+```
+
+**If new folder, create metadata** with:
+- workflow.steps based on type
+- workflow.current = "plan"
+- workflow.completed = [previous steps]
+
+**Store for later phases**:
+```
+work_folder = [path or null]
+identifier = [extracted id]
+```
+
 ---
 
 ## PHASE 1.5: CONTEXT ENRICHMENT (Optional)
@@ -682,7 +756,7 @@ Handle multiple output destinations based on flags.
 3. Always display in terminal unless --quiet flag
 ```
 
-### Step 3.2: File Writer (Default, unless --no-file)
+### Step 3.2: File Writer & Metadata Update (Default, unless --no-file)
 
 ```
 1. Determine file path:
@@ -691,14 +765,18 @@ Handle multiple output destinations based on flags.
       - Use exact path specified
       - Example: --output ~/specs/feature.md → ~/specs/feature.md
 
-   B. If no --output flag (default):
+   B. If work_folder exists (from Step 1.6):
+      - Use: $work_folder/03-plan.md
+      - Example: .WIP/EC-1234-add-auth/03-plan.md
+
+   C. If no --output flag and no work_folder (fallback):
       - With Jira ID: ./spec-[JIRA-ID].md
         * Example: EC-1234 → ./spec-EC-1234.md
 
       - Without Jira ID: ./spec-[TIMESTAMP].md
         * Example: → ./spec-20250411-143052.md
 
-   C. If --no-file flag:
+   D. If --no-file flag:
       - Skip file creation entirely
       - Only terminal output
 
@@ -713,10 +791,51 @@ Handle multiple output destinations based on flags.
 4. Confirm write:
    💾 **[Create-Spec]** Spec saved to: [FILE_PATH]
 
-5. Provide helpful next steps:
+5. Update Metadata (if work folder exists):
+
+   **If work_folder is set** (from Step 1.6):
+
+   Read existing metadata:
+   ```bash
+   cat "$work_folder/.metadata.json"
+   ```
+
+   Update fields:
+   ```json
+   {
+     ...existing,
+     "workflow": {
+       ...existing.workflow,
+       "completed": [...existing.completed, "plan"],
+       "current": "plan"
+     },
+     "files": {
+       ...existing.files,
+       "plan": "03-plan.md"
+     },
+     "timestamps": {
+       ...existing.timestamps.created,
+       "lastModified": "[now from date -u]"
+     },
+     "phases": {
+       "total": [count phases in plan],
+       "completed": 0,
+       "current": null,
+       "list": [extract from plan if multi-phase]
+     }
+   }
+   ```
+
+   Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
+
+   **If no work folder** (fallback mode):
+   - Skip metadata update
+
+6. Provide helpful next steps:
    "Spec file created. Next steps:
    - Review and edit the spec if needed
-   - Use /schovi:start-implementation [jira-id] when ready to begin
+   [If work_folder]: - Run /schovi:implement to start implementation
+   [If no work_folder]: - Use /schovi:start-implementation [jira-id] when ready
    - Share spec with team for review"
 ```
 

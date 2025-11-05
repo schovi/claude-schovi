@@ -82,7 +82,48 @@ Display what was detected:
 - Flags: [List any flags provided]
 ```
 
-### Step 1.3: Store Context
+### Step 1.3: Work Folder Detection (Optional Enhancement)
+
+**Objective**: Auto-detect work folder to enrich commit context automatically.
+
+**Try to find work folder** (non-blocking):
+
+```bash
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Extract identifier (Jira ID)
+identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
+
+# Find work folder
+if [ -n "$identifier" ]; then
+  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
+
+  # Read metadata if folder exists
+  if [ -f "$work_folder/.metadata.json" ]; then
+    cat "$work_folder/.metadata.json"
+  fi
+fi
+```
+
+**If work folder found, extract**:
+- `work_folder_path`: .WIP/[identifier]
+- `work_identifier`: From metadata.identifier
+- `work_title`: From metadata.title
+- `work_external`: From metadata.external (Jira/GitHub URLs)
+- `work_progress`: Read 04-progress.md if exists (for phase-based commits)
+
+**If no work folder found**:
+- Continue with user-provided context only
+- No error - work folder is optional
+
+**Benefits of work folder context**:
+- Auto-fills Jira ID if not provided by user
+- Uses title from metadata for better commit messages
+- Can reference phase number for multi-phase implementations
+- Links commits to work folder in metadata
+
+### Step 1.4: Store Context
 
 Store the detected context in variables for later phases:
 - `context_type`: jira | github_issue | github_pr | custom | auto
@@ -90,6 +131,9 @@ Store the detected context in variables for later phases:
 - `flag_message`: Custom message if --message provided
 - `flag_staged_only`: Boolean for --staged-only
 - `flag_commit_type`: Explicit commit type if --type provided
+- `work_folder`: Path to work folder (or null if not found)
+- `work_metadata`: Parsed metadata object (or null)
+- `work_progress`: Progress info (or null)
 
 ---
 
@@ -421,14 +465,28 @@ Combine external context with diff analysis:
 
 ### Step 5.1: Generate Message Components
 
+**Context Priority**:
+1. **Work folder context** (if available from Step 1.3)
+   - Use metadata.title for description context
+   - Use metadata.identifier for Related reference
+   - Use work_progress for phase-based commit titles
+2. **User-provided context** (Jira, GitHub, notes from Step 1.1-1.2)
+3. **Diff analysis** (from Phase 3-4)
+
 **Title Line** (50-72 chars):
 ```
 <commit_type>: <brief description of primary change>
 ```
 
+**If work_progress exists** (multi-phase implementation):
+```
+<commit_type>: Complete <phase title> (Phase N/Total)
+```
+
 Examples:
 - `feat: Add JWT authentication to user login`
 - `fix: Resolve token expiration handling bug`
+- `feat: Complete authentication core (Phase 1/4)` [from work_progress]
 - `chore: Update dependencies to latest versions`
 
 **Description Paragraph** (2-3 sentences):
@@ -436,6 +494,10 @@ Explain the problem, solution, or context. Answer:
 - What problem does this solve? (if fix/feat)
 - Why was this change needed?
 - What approach was taken?
+
+**If work_metadata exists**: Reference work title
+- "Implements Phase N of [work_title]"
+- "Part of [work_title] implementation"
 
 **Bullet Points** (2-5 items):
 List specific changes:
@@ -556,6 +618,45 @@ git log -1 --oneline
 **Failure indicators**:
 - Non-zero exit code
 - Errors about hooks, conflicts, etc.
+
+### Step 6.2.5: Update Work Folder Metadata (if applicable)
+
+**If work_folder exists** (from Step 1.3):
+
+1. Get commit hash:
+```bash
+git log -1 --format='%H'
+```
+
+2. Read existing metadata:
+```bash
+cat "$work_folder/.metadata.json"
+```
+
+3. Update fields:
+```json
+{
+  ...existing,
+  "git": {
+    "branch": "[current branch]",
+    "commits": [...existing.commits, "[new commit hash]"],
+    "lastCommit": "[new commit hash]"
+  },
+  "timestamps": {
+    ...existing.timestamps,
+    "lastModified": "[now from date -u]"
+  }
+}
+```
+
+4. If work_progress exists (phase-based implementation):
+   - Update metadata.phases.list[current_phase].commit with new hash
+   - Update 04-progress.md with commit reference
+
+5. Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
+
+**If no work folder**:
+- Skip metadata update (not an error)
 
 ### Step 6.3: Display Result
 
