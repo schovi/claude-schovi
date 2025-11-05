@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Work Folder Metadata Schema",
+  "description": "Metadata structure for .WIP/*/.metadata.json files",
+  "type": "object",
+  "required": [
+    "identifier",
+    "title",
+    "workFolder",
+    "workflow",
+    "files",
+    "git",
+    "external",
+    "timestamps"
+  ],
+  "properties": {
+    "identifier": {
+      "type": "string",
+      "description": "Unique identifier (Jira ID, GitHub issue, or slug)",
+      "examples": ["EC-1234", "GH-123", "add-user-auth"]
+    },
+    "title": {
+      "type": "string",
+      "description": "Human-readable title of the work",
+      "examples": ["Add user authentication", "Fix payment timeout bug"]
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL-safe slug generated from title",
+      "examples": ["add-user-auth", "fix-payment-timeout"]
+    },
+    "workFolder": {
+      "type": "string",
+      "description": "Full path to work folder",
+      "examples": [".WIP/EC-1234-add-user-auth"]
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["type", "steps", "completed", "current"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["full", "technical", "bug", "simple"],
+          "description": "Workflow type: full (spec→analyze→plan→implement), technical (analyze→plan→implement), bug (debug→plan→implement), simple (plan→implement)"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["spec", "analyze", "debug", "plan", "implement"]
+          },
+          "description": "Expected workflow steps"
+        },
+        "completed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Steps that have been completed"
+        },
+        "current": {
+          "type": "string",
+          "description": "Current step being executed"
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "description": "Mapping of workflow steps to output files",
+      "properties": {
+        "spec": {
+          "type": "string",
+          "examples": ["01-spec.md"]
+        },
+        "analysis": {
+          "type": "string",
+          "examples": ["02-analysis.md"]
+        },
+        "debug": {
+          "type": "string",
+          "examples": ["02-debug.md"]
+        },
+        "plan": {
+          "type": "string",
+          "examples": ["03-plan.md"]
+        },
+        "progress": {
+          "type": "string",
+          "examples": ["04-progress.md"]
+        }
+      }
+    },
+    "git": {
+      "type": "object",
+      "required": ["branch"],
+      "properties": {
+        "branch": {
+          "type": "string",
+          "description": "Git branch for this work",
+          "examples": ["claude/auth-EC-1234-011CUpGnQ1VA9GwenfMMNoED"]
+        },
+        "commits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of commit hashes"
+        },
+        "lastCommit": {
+          "type": "string",
+          "description": "Most recent commit hash"
+        }
+      }
+    },
+    "external": {
+      "type": "object",
+      "description": "External integrations and links",
+      "properties": {
+        "jiraIssue": {
+          "type": ["string", "null"],
+          "description": "Jira issue key",
+          "examples": ["EC-1234"]
+        },
+        "jiraUrl": {
+          "type": ["string", "null"],
+          "description": "Full Jira issue URL"
+        },
+        "githubPR": {
+          "type": ["string", "null"],
+          "description": "GitHub PR number",
+          "examples": ["123"]
+        },
+        "githubPRUrl": {
+          "type": ["string", "null"],
+          "description": "Full GitHub PR URL"
+        },
+        "githubIssue": {
+          "type": ["string", "null"],
+          "description": "GitHub issue number"
+        },
+        "githubIssueUrl": {
+          "type": ["string", "null"],
+          "description": "Full GitHub issue URL"
+        }
+      }
+    },
+    "timestamps": {
+      "type": "object",
+      "required": ["created", "lastModified"],
+      "properties": {
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when work folder created"
+        },
+        "lastModified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 timestamp of last modification"
+        },
+        "completed": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "ISO 8601 timestamp when all work completed"
+        }
+      }
+    },
+    "phases": {
+      "type": "object",
+      "description": "Phase tracking for implement command (optional)",
+      "properties": {
+        "total": {
+          "type": "number",
+          "description": "Total number of phases"
+        },
+        "completed": {
+          "type": "number",
+          "description": "Number of completed phases"
+        },
+        "current": {
+          "type": ["number", "null"],
+          "description": "Current phase number"
+        },
+        "list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["number", "title", "status"],
+            "properties": {
+              "number": {
+                "type": "number"
+              },
+              "title": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "in_progress", "completed"]
+              },
+              "commit": {
+                "type": ["string", "null"]
+              },
+              "startedAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "completedAt": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
