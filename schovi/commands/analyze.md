@@ -10,6 +10,33 @@ You are performing a **comprehensive problem analysis** for a bug or feature req
 
 ---
 
+## ⚙️ MODE ENFORCEMENT
+
+**CRITICAL**: This command operates in **PLAN MODE** throughout Phases 1-3 (analysis and exploration). You MUST use the **ExitPlanMode tool** before Phase 4 (output handling) to transition from analysis to execution.
+
+**Why Plan Mode**:
+- Phases 1-3 require deep exploration and understanding WITHOUT making changes
+- Plan mode ensures safe, read-only codebase research
+- Analytical work (understanding flows, dependencies, proposing solutions) should happen in plan mode
+- Only file output operations (Phase 4-5) require execution mode
+
+**Workflow**:
+```
+┌──────────────────────────────────┐
+│  PLAN MODE (Read-only)           │
+│  Phases 1-3: Analysis            │
+└──────────────────────────────────┘
+              ↓
+      [ExitPlanMode Tool]
+              ↓
+┌──────────────────────────────────┐
+│  EXECUTION MODE (Write)          │
+│  Phases 4-5: Output & Completion │
+└──────────────────────────────────┘
+```
+
+---
+
 ## ARGUMENT PARSING
 
 **Input Received**: $ARGUMENTS
@@ -351,18 +378,20 @@ DO NOT:
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
 
-**CRITICAL**: Use the **Task tool with Explore subagent type** for thorough exploration. DO NOT use direct search tools unless for targeted follow-up queries.
+**CRITICAL**: Use the **Task tool with Plan subagent type** for analytical exploration in plan mode. DO NOT use direct search tools unless for targeted follow-up queries.
 
-**When spawning Explore subagent, acknowledge:**
+**When spawning Plan subagent, acknowledge:**
 ```
 🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
-⏳ Spawning Explore subagent for exploration...
+⏳ Spawning Plan subagent for analytical exploration...
 ```
 
 **Subagent Configuration:**
-- **subagent_type**: "Explore"
-- **thoroughness**: "very thorough" (for comprehensive analysis to understand the full scope)
+- **subagent_type**: "Plan"
+- **description**: "Deep codebase analysis for problem understanding"
 - **prompt**: [Detailed exploration requirements from Steps 2.1-2.5 below]
+
+**Why Plan Subagent**: The Plan subagent operates in plan mode by design, providing analytical capabilities for understanding codebase structure, flows, and dependencies without making changes. This aligns with the command's plan mode enforcement for Phases 1-3.
 
 **After receiving analysis results:**
 ```
@@ -693,6 +722,51 @@ prompt: "Generate structured problem analysis from exploration results.
    - [ ] Resources & references exist
 
 If validation fails, report error and halt.
+
+---
+
+## PHASE 3.5: EXIT PLAN MODE
+
+**CRITICAL**: You have completed all analysis work (Phases 1-3) in plan mode. Before proceeding to output handling (Phase 4-5), you MUST exit plan mode.
+
+### Step 3.5.1: Use ExitPlanMode Tool
+
+**Acknowledge transition:**
+```
+⚙️ **[Analyze-Problem]** Analysis complete. Transitioning from plan mode to execution mode...
+```
+
+**Use the ExitPlanMode tool:**
+```
+plan: |
+  ## Analysis Summary
+
+  **Problem**: [One-line problem summary from Phase 1]
+
+  **Analysis Type**: [Full/Quick based on --quick flag]
+
+  **Key Findings**:
+  - [Key finding 1 from exploration]
+  - [Key finding 2 from exploration]
+  - [Key finding 3 from exploration]
+
+  **Solution Options**: [Number of options from Phase 3]
+
+  **Recommended**: [Recommended option name from Phase 3]
+
+  **Next Steps**:
+  1. Save analysis to file (if not --no-file)
+  2. Display to terminal (if not --quiet)
+  3. Post to Jira (if --post-to-jira)
+  4. Present completion summary
+```
+
+**After exiting plan mode:**
+```
+✅ **[Analyze-Problem]** Entered execution mode. Proceeding with output handling...
+```
+
+**Important**: After using ExitPlanMode, you are now in execution mode and can use Write tool, Bash for file operations, and mcp__jira__* tools for posting.
 
 ---
 
