@@ -446,82 +446,62 @@ WORKFLOW:
 3. Document which tool set you're using for transparency
 ```
 
-### Step 2.1: User Flow Mapping
+### Step 2.1: Prepare Comprehensive Exploration Prompt
+
+**Objective**: Create a detailed, structured prompt for the Plan subagent that incorporates ALL exploration requirements.
+
+**Instructions**: Construct the following prompt to pass to the Plan subagent. Include the problem context from Phase 1 and all exploration requirements below.
+
+**Prompt Template**:
+```markdown
+# Codebase Analysis Request
+
+## Problem Context
+[Insert problem summary from Phase 1: problem description, type (bug/feature), severity, affected area]
+
+## Required Analysis
+
+Your task is to perform comprehensive codebase analysis to understand this problem's scope, impact, and technical context. Provide structured findings with specific file:line references throughout.
+
+### 1. User Flow Mapping
 
 **Objective**: Trace the complete user journey through the system.
 
-**Execute**:
-```
-1. Identify entry points:
-   - UI components (React, Vue, Angular components)
-   - API endpoints (REST, GraphQL)
-   - CLI commands
-   - Background jobs/workers
+**Requirements**:
+- Identify entry points (UI components, API endpoints, CLI commands, background jobs)
+- Map user journey step-by-step: User Action → UI Component → Event Handler → API Call → Backend Service → Data Layer → Response → UI Update
+- Document touchpoints: where user interacts, what triggers behavior, expected vs. actual flow paths, error handling points
+- Note affected screens/interfaces with file:line references, route definitions, navigation flows
 
-2. Map user journey step-by-step:
-   User Action → UI Component → Event Handler → API Call → Backend Service → Data Layer → Response → UI Update
+**Deliverable**: Complete user flow diagram with file:line references
 
-3. Document touchpoints:
-   - Where user interacts with the system
-   - What triggers the behavior
-   - Expected vs. actual flow paths
-   - Error handling points
-
-4. Note affected screens/interfaces:
-   - Component file paths with line numbers
-   - Route definitions
-   - Navigation flows
-```
-
-**Deliverable**: Complete user flow diagram with file:line references.
-
-### Step 2.2: Data Flow Analysis
+### 2. Data Flow Analysis
 
 **Objective**: Map how data moves and transforms through the system.
 
-**Execute**:
-```
-1. Identify data sources:
-   - Database tables/collections
-   - External APIs
-   - File systems
-   - Cache layers (Redis, Memcached)
-   - Message queues (Kafka, RabbitMQ)
+**Requirements**:
+- Identify data sources (database tables/collections, external APIs, file systems, cache layers like Redis/Memcached, message queues like Kafka/RabbitMQ)
+- Trace data transformations: Input → Validation → Business Logic → Storage → Retrieval → Formatting → Output
+- Document data structures (database schemas, API request/response models, internal DTOs, state management structures)
+- Identify data integrity points (validation, transaction boundaries, consistency mechanisms, rollback/compensation logic)
 
-2. Trace data transformations:
-   Input → Validation → Business Logic → Storage → Retrieval → Formatting → Output
+**Deliverable**: Data flow diagram showing sources, transformations, and destinations with specific code locations
 
-3. Document data structures:
-   - Database schemas
-   - API request/response models
-   - Internal data transfer objects
-   - State management structures
-
-4. Identify data integrity points:
-   - Where validation occurs
-   - Transaction boundaries
-   - Data consistency mechanisms
-   - Rollback/compensation logic
-```
-
-**Deliverable**: Data flow diagram showing sources, transformations, and destinations with specific code locations.
-
-### Step 2.3: Dependency Discovery
+### 3. Dependency Discovery
 
 **Objective**: Map all dependencies that could be affected or impact the solution.
 
+**Requirements**:
+
 **A. Direct Dependencies**:
-```
 - Imported modules and packages
 - Called functions and methods
 - Database tables and indexes
 - External API endpoints
 - Configuration files
 - Environment variables
-```
 
 **B. Indirect Dependencies**:
-```
 - Shared state and singletons
 - Event emitters/listeners
 - Kafka topics (producers/consumers)
@@ -529,77 +509,142 @@ WORKFLOW:
 - Cache invalidation triggers
 - Feature flags
 - A/B test configurations
-```
 
 **C. Integration Points**:
-```
 - Microservices communication (sync/async)
 - Third-party integrations (payment, auth, analytics)
 - Webhooks (incoming/outgoing)
 - CDN and asset pipelines
 - Monitoring and logging systems
-```
 
-**Deliverable**: Complete dependency graph with categorization and impact assessment.
+**Deliverable**: Complete dependency graph with categorization and impact assessment
 
-### Step 2.4: Code Quality Assessment
+### 4. Code Quality Assessment
 
 **Objective**: Evaluate technical health of affected areas.
 
-**Execute**:
-```
-1. Identify technical debt:
-   - TODO/FIXME comments
-   - Code duplication
-   - Complex/nested logic
-   - Missing error handling
+**Requirements**:
+- Identify technical debt (TODO/FIXME comments, code duplication, complex/nested logic, missing error handling)
+- Assess test coverage (unit test presence, integration test gaps, E2E test scenarios, mock/stub quality)
+- Note code smells (long functions/files, deep nesting, magic numbers/strings, tight coupling, god objects/classes)
+- Review recent changes (recent commits in affected areas, outstanding PRs, known issues/bugs)
 
-2. Assess test coverage:
-   - Unit test presence
-   - Integration test gaps
-   - E2E test scenarios
-   - Mock/stub quality
+**Deliverable**: Code quality report with specific file:line references to issues
 
-3. Note code smells:
-   - Long functions/files
-   - Deep nesting
-   - Magic numbers/strings
-   - Tight coupling
-   - God objects/classes
-
-4. Review recent changes:
-   - Recent commits in affected areas
-   - Outstanding PRs
-   - Known issues/bugs
-```
-
-**Deliverable**: Code quality report with specific file:line references to issues.
-
-### Step 2.5: Historical Context
+### 5. Historical Context
 
 **Objective**: Understand evolution and patterns.
 
-**Execute**:
+**Requirements**:
+- Review git history (recent changes to affected files, previous bug fixes in same area, related feature implementations, authors/teams involved)
+- Check for patterns (recurring issues, failed attempts at similar changes, deprecated approaches, migration history)
+- Identify stakeholders (code owners, frequent contributors, domain experts)
+
+**Deliverable**: Historical context summary with relevant commits and patterns
+
+## Output Format
+
+Please structure your findings in these sections:
+
+1. **Affected Components**: List of components with file:line references and their roles
+2. **User Flow**: Step-by-step flow showing problem occurrence
+3. **Data Flow**: Data movement through system
+4. **Dependencies**: Direct, indirect, and integration dependencies
+5. **Code Quality Issues**: Technical debt, test gaps, code smells with file:line refs
+6. **Historical Context**: Recent changes, patterns, stakeholders
+7. **Issues Identified**: For each issue found, provide: Problem → Evidence → Root cause (with file:line refs)
+
+## Important Notes
+- Use specific file:line references throughout (e.g., `src/services/UserService.ts:123`)
+- Focus on actionable findings that inform solution design
+- Prioritize information relevant to solving the problem
+- If you use JetBrains MCP tools, note which ones and why
 ```
-1. Review git history:
-   - Recent changes to affected files
-   - Previous bug fixes in same area
-   - Related feature implementations
-   - Authors/teams involved
 
-2. Check for patterns:
-   - Recurring issues
-   - Failed attempts at similar changes
-   - Deprecated approaches
-   - Migration history
+**After preparing the prompt**: Store it for use in Step 2.2.
 
-3. Identify stakeholders:
-   - Code owners
-   - Frequent contributors
-   - Domain experts
-```
+### Step 2.2: Invoke Plan Subagent
 
-**Deliverable**: Historical context summary with relevant commits and patterns.
+**Objective**: Delegate the comprehensive exploration to the Plan subagent in an isolated context.
+
+**Instructions**:
+
+1. **Acknowledge subagent invocation**:
+   ```
+   🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
+   ⏳ Spawning Plan subagent for analytical exploration...
+   ```
+
+2. **Use Task tool**:
+   ```
+   subagent_type: "Plan"
+   description: "Deep codebase analysis for problem understanding"
+   prompt: [The comprehensive prompt prepared in Step 2.1]
+   ```
+
+3. **Wait for subagent completion**: The Plan subagent will work in its isolated context and return structured findings.
+
+4. **Acknowledge completion**:
+   ```
+   ✅ **[Analyze-Problem]** Codebase analysis complete
+   ```
+
+**Important**: Do NOT execute the exploration instructions directly. The Plan subagent will handle all codebase exploration using its plan mode capabilities.
+
+### Step 2.3: Capture and Structure Exploration Results
+
+**Objective**: Extract and organize the Plan subagent's findings for use in Phase 3 (Analysis Generation).
+
+**Instructions**:
+
+1. **Extract key findings from subagent response**:
+   - affected_components = [List of components with file:line references and roles]
+   - user_flow = [Step-by-step user journey with file:line references]
+   - data_flow = [Data movement and transformations with file:line references]
+   - dependencies = [Categorized dependency graph: direct, indirect, integration]
+   - code_quality_issues = [Technical debt, test gaps, code smells with file:line refs]
+   - historical_context = [Recent changes, patterns, stakeholders]
+   - issues_identified = [Problems found with evidence and root causes, with file:line refs]
+   - code_locations = [Comprehensive list of all file:line references discovered]
+
+2. **Validate exploration completeness**:
+
+   Check that the subagent provided sufficient detail:
+   - [ ] At least 3 affected components identified with specific file:line references
+   - [ ] User flow traced from entry point to problem occurrence
+   - [ ] Data flow mapped through at least 3 transformation points
+   - [ ] Dependencies catalogued (direct, indirect, or integration)
+   - [ ] At least 2 code quality issues or technical observations noted
+   - [ ] Root causes identified with supporting evidence
+
+3. **If validation fails**:
+   ```
+   ⚠️ **[Analyze-Problem]** Exploration incomplete
+
+   The Plan subagent's analysis is missing:
+   - [List missing requirements]
+
+   This usually means:
+   - Problem description was too vague (add more context)
+   - Codebase doesn't have clear entry points (manual investigation needed)
+   - Problem area is unfamiliar (consider broader search)
+
+   Options:
+   1. Re-run exploration with more specific guidance
+   2. Supplement with targeted manual searches
+   3. Proceed with available information (note gaps in analysis)
+   ```
+
+   Ask user how to proceed. Do NOT continue to Phase 3 with incomplete data.
+
+4. **If validation passes**:
+   ```
+   ✅ **[Analyze-Problem]** Exploration findings validated and structured for analysis generation
+   ```
+
+   Store the structured findings for Phase 3 input.
+
+**Next**: Proceed to Phase 3 with the captured exploration results.
 
 ---
 
