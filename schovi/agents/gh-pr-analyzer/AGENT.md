@@ -402,7 +402,7 @@ No comments.
 
 **Token Budget by Mode:**
 - **Compact Mode**: Target 800-1000 tokens, max 1200 tokens
-- **Full Mode**: Target 1200-1500 tokens, max 2000 tokens
+- **Full Mode**: Target 2000-3000 tokens, max 5000 tokens
 
 ## Critical Rules
 
