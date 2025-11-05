@@ -194,7 +194,31 @@ IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
      ✅ Summary complete | ~[X] tokens
    ╰─────────────────────────────────────╯
 
-4. After receiving the summary, acknowledge:
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "API error"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch Jira issue [ISSUE-KEY]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Issue key is incorrect or doesn't exist
+   - You don't have access to this issue
+   - Jira API is unavailable
+   - MCP Jira server is not configured
+
+   Options:
+   1. Verify issue key and retry
+   2. Provide problem description manually
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
    ✅ **[Analyze-Problem]** Issue details fetched successfully
 
 5. You will receive a structured summary containing:
@@ -239,7 +263,31 @@ IMPORTANT: Delegate to the gh-pr-analyzer subagent to prevent context pollution.
      ✅ Summary complete | ~[X] tokens
    ╰─────────────────────────────────────╯
 
-4. After receiving the summary, acknowledge:
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch GitHub PR [PR reference]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - PR number/URL is incorrect
+   - Repository doesn't exist or is private
+   - gh CLI is not authenticated (run: gh auth login)
+   - Network connectivity issues
+
+   Options:
+   1. Verify PR reference and retry
+   2. Provide problem description manually
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
    ✅ **[Analyze-Problem]** PR details fetched successfully
 
 5. You will receive a structured summary containing:
@@ -289,7 +337,31 @@ IMPORTANT: Delegate to the gh-issue-analyzer subagent to prevent context polluti
      ✅ Summary complete | ~[X] tokens
    ╰─────────────────────────────────────╯
 
-4. After receiving the summary, acknowledge:
+4. After receiving the summary, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
+   ```
+   ❌ **[Analyze-Problem]** Failed to fetch GitHub issue [ISSUE reference]
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Issue number/URL is incorrect
+   - Repository doesn't exist or is private
+   - gh CLI is not authenticated (run: gh auth login)
+   - Network connectivity issues
+
+   Options:
+   1. Verify issue reference and retry
+   2. Provide problem description manually
+   3. Cancel analysis
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
+
+   **If subagent response is successful** (✅ marker present):
    ✅ **[Analyze-Problem]** Issue details fetched successfully
 
 5. You will receive a structured summary containing:
@@ -811,13 +883,35 @@ prompt: "Generate structured problem analysis from exploration results.
 
 ### Step 3.3: Receive and Store Analysis
 
-1. After receiving subagent output, acknowledge:
+1. After receiving subagent output, check for errors:
+
+   **If subagent response contains error markers** (❌, "failed", "incomplete", "Generation failed"):
    ```
-   ✅ **[Analyze-Problem]** Analysis generated successfully
+   ❌ **[Analyze-Problem]** Analysis generation failed
+
+   Error: [Extract error message from subagent response]
+
+   This usually means:
+   - Exploration results were incomplete or malformed
+   - Analysis template could not be populated
+   - Token budget exceeded
+
+   Options:
+   1. Review Phase 2 exploration results and re-run if incomplete
+   2. Simplify the problem scope and retry
+   3. Use --quick flag for simpler analysis
+   4. Cancel and review input data quality
+
+   How would you like to proceed?
    ```
 
+   **HALT**: Wait for user response. Do NOT proceed to Phase 3.5 (Exit Plan Mode) without valid analysis.
+
+   **If subagent response is successful** (✅ marker present):
+   ✅ **[Analyze-Problem]** Analysis generated successfully
+
 2. Extract the analysis markdown from subagent response:
-   - Remove the visual header/footer wrappers
+   - Remove the visual header/footer wrappers (╭─────╮ boxes)
    - Store the clean markdown (YAML frontmatter + content)
 
 3. Store analysis for Phase 4:
@@ -833,7 +927,27 @@ prompt: "Generate structured problem analysis from exploration results.
    - [ ] Implementation guidance exists
    - [ ] Resources & references exist
 
-If validation fails, report error and halt.
+   **If validation fails**:
+   ```
+   ⚠️ **[Analyze-Problem]** Analysis validation failed
+
+   Missing sections:
+   - [List which checklist items failed]
+
+   The analysis-generator returned incomplete output. This suggests:
+   - Input context was insufficient
+   - Template type mismatch (full vs quick)
+   - Subagent encountered internal error
+
+   Options:
+   1. Retry analysis generation with corrected inputs
+   2. Proceed with incomplete analysis (not recommended)
+   3. Cancel and review exploration quality
+
+   How would you like to proceed?
+   ```
+
+   **HALT**: Wait for user response. Do NOT proceed without complete analysis.
 
 ---
 
