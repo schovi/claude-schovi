@@ -37,14 +37,32 @@ cli/cli#12084
 ```
 
 **Optional parameters:**
+- `mode`: "compact" (default) or "full"
 - `include_reviews`: boolean (default: true)
 - `include_ci`: boolean (default: true)
 - `include_files`: boolean (default: true)
 
+**Mode Differences:**
+
+**Compact Mode** (default, ~800-1000 tokens):
+- Top 20 changed files (grouped if more)
+- Condensed reviews (max 3, 200 chars each)
+- Failed CI checks only (or summary if all passing)
+- Optimized for general analysis (analyze/debug/plan commands)
+
+**Full Mode** (~1200-1500 tokens):
+- **ALL changed files** with individual line counts
+- PR head SHA and branch (for code fetching)
+- All reviews (not limited to 3)
+- All CI checks (passing and failing)
+- File-level metadata for prioritization
+- Used by review command for comprehensive code analysis
+
 **Extract:**
 1. **Repository**: owner/repo (from URL or short notation)
 2. **PR number**: The numeric identifier
-3. **Options**: What data to fetch
+3. **Mode**: "compact" or "full"
+4. **Options**: What data to fetch
 
 ### Step 2: Determine Repository Context
 
@@ -81,9 +99,11 @@ gh pr view [PR_NUMBER] --repo [OWNER/REPO] --json \
   number,title,url,body,state,author,isDraft,reviewDecision,\
   additions,deletions,changedFiles,\
   labels,assignees,\
-  baseRefName,headRefName,\
+  baseRefName,headRefName,headRefOid,\
   createdAt,updatedAt,mergedAt
 ```
+
+**Note**: `headRefOid` is the commit SHA needed for full mode code fetching.
 
 **Expected size**: ~2-3KB
 
@@ -125,6 +145,7 @@ gh pr checks [PR_NUMBER] --repo [OWNER/REPO] --json \
 
 #### Changed Files (if include_files=true):
 
+**Compact Mode:**
 ```bash
 gh pr diff [PR_NUMBER] --repo [OWNER/REPO] --name-only
 ```
@@ -135,6 +156,21 @@ gh pr diff [PR_NUMBER] --repo [OWNER/REPO] --name-only
 - List of changed file paths
 - Group by directory if more than 15 files
 - Max 20 files listed (if more, show count + sample)
+
+**Full Mode:**
+```bash
+# Get all files with detailed stats
+gh api repos/[OWNER]/[REPO]/pulls/[PR_NUMBER]/files --paginate \
+  --jq '.[] | {filename: .filename, additions: .additions, deletions: .deletions, changes: .changes, status: .status}'
+```
+
+**Expected size**: ~1-3KB (depending on file count)
+
+**Extract:**
+- **ALL changed files** (no limit)
+- Individual file additions/deletions/total changes
+- File status (added, modified, removed, renamed)
+- Used for smart prioritization in review command
 
 ### Step 4: Extract Essential Information ONLY
 
@@ -162,31 +198,62 @@ From the fetched data, extract ONLY these fields:
 - Source branch → Target branch
 
 #### Changed Files:
-- List file paths
+
+**Compact Mode:**
+- List file paths (max 20)
 - If more than 15 files, group by directory:
   - `src/components/`: 8 files
   - `tests/`: 5 files
   - ...
 - If more than 20 files total, show top 20 + "...and N more"
 
+**Full Mode:**
+- List **ALL files** with individual stats
+- Format: `path/to/file.ts (+X, -Y, ~Z changes)`
+- Sort by total changes (descending) for easy prioritization
+- Include file status indicators:
+  - ✨ `added` (new file)
+  - ✏️ `modified` (changed file)
+  - ❌ `removed` (deleted file)
+  - 🔄 `renamed` (renamed file)
+- Include PR head SHA for code fetching
+
 #### CI/CD Status:
+
+**Compact Mode:**
 - Overall status: ALL PASSING, SOME FAILING, PENDING
 - List failing checks (priority)
-- List passing checks (condensed)
+- Condensed passing checks (summary only if all passing)
 - List pending checks
 
-Format:
+**Full Mode:**
+- Overall status: ALL PASSING, SOME FAILING, PENDING
+- List **ALL checks** (passing, failing, pending)
+- Include workflow names
+- More detailed for comprehensive review
+
+**Format:**
 ```
 ✅ Check name (workflow)
 ❌ Check name (workflow) - FAILURE
 ⏳ Check name (workflow) - pending
 ```
 
-#### Reviews (Latest, Max 3):
+#### Reviews:
+
+**Compact Mode (Max 3):**
+- Latest 3 reviews only
 - Reviewer username
 - Review state icon: ✅ APPROVED, ❌ CHANGES_REQUESTED, 💬 COMMENTED
 - First 200 chars of review body
 - Skip empty reviews
+
+**Full Mode (All reviews):**
+- **ALL reviews** (not limited to 3)
+- Reviewer username and timestamp
+- Review state with icon
+- First 300 chars of review body (more detail)
+- Include empty/approval-only reviews for completeness
 
 #### Key Comments (Max 5):
 - Author username
@@ -226,6 +293,10 @@ Based on the data, add brief analysis notes (max 200 chars):
 
 **IMPORTANT**: Start your output with a visual header and end with a visual footer for easy identification.
 
+**Adjust format based on mode**:
+- **Compact Mode**: Use format below (optimized for token efficiency)
+- **Full Mode**: Include additional fields marked with `[FULL MODE ONLY]`
+
 Return the summary in this EXACT format:
 
 ```markdown
@@ -251,37 +322,59 @@ Return the summary in this EXACT format:
 - **Files Changed**: [N] files
 - **Lines**: +[additions] -[deletions]
 - **Branch**: [source] → [target]
+[FULL MODE ONLY:]
+- **Head SHA**: [headRefOid] (for code fetching)
 
 ## Changed Files
-[If ≤15 files, list all:]
+
+[COMPACT MODE - If ≤15 files, list all:]
 - path/to/file1.ts
 - path/to/file2.ts
 
-[If >15 files, group by directory:]
+[COMPACT MODE - If >15 files, group by directory:]
 - **src/components/**: 8 files
 - **tests/**: 5 files
 - **docs/**: 2 files
 [...and 5 more files]
 
+[FULL MODE - List ALL files with stats, sorted by changes descending:]
+- ✏️ `src/api/controller.ts` (+45, -23, ~68 changes)
+- ✏️ `src/services/auth.ts` (+32, -15, ~47 changes)
+- ✨ `src/utils/helper.ts` (+28, -0, ~28 changes)
+- ✏️ `tests/controller.test.ts` (+18, -5, ~23 changes)
+- ❌ `old/legacy.ts` (+0, -120, ~120 changes)
+[... continue for all files ...]
+
 ## CI/CD Status
 [Overall summary: ALL PASSING (X/X) or FAILING (X/Y) or PENDING]
 
-[List checks with status icons:]
+[COMPACT MODE - List failing checks + summary of passing:]
+❌ [check-name] ([workflow]) - FAILURE
+✅ [X other checks passing]
+
+[FULL MODE - List ALL checks:]
 ✅ [check-name] ([workflow])
 ❌ [check-name] ([workflow]) - FAILURE
 ⏳ [check-name] - pending
+[... all checks listed ...]
 
 [Summary line:]
 **Summary**: X passing, Y failing, Z pending
 
-## Reviews (Latest)
+## Reviews
 [If no reviews:]
 No reviews yet.
 
-[If reviews exist, max 3:]
+[COMPACT MODE - Latest 3 reviews:]
 - **@[reviewer]** (✅ APPROVED): [First 200 chars of review body]
 - **@[reviewer]** (❌ CHANGES_REQUESTED): [Key feedback points]
 - **@[reviewer]** (💬 COMMENTED): [Comment summary]
+
+[FULL MODE - ALL reviews with timestamps:]
+- **@[reviewer]** (✅ APPROVED) - [timestamp]: [First 300 chars of review body]
+- **@[reviewer]** (❌ CHANGES_REQUESTED) - [timestamp]: [Detailed feedback]
+- **@[reviewer]** (💬 COMMENTED) - [timestamp]: [Full comment]
+[... all reviews listed ...]
 
 ## Key Comments
 [If no comments:]
@@ -303,22 +396,39 @@ No comments.
 - Age: Created [X days ago], last updated [Y days ago]
 
 ╰─────────────────────────────────────╯
-  ✅ Summary complete | ~[X] tokens
+  ✅ Summary complete ([COMPACT/FULL] mode) | ~[X] tokens
 ╰─────────────────────────────────────╯
 ```
+
+**Token Budget by Mode:**
+- **Compact Mode**: Target 800-1000 tokens, max 1200 tokens
+- **Full Mode**: Target 1200-1500 tokens, max 2000 tokens
 
 ## Critical Rules
 
 ### ❌ NEVER DO THESE:
 
 1. **NEVER** return the full `gh pr view` JSON output to parent
-2. **NEVER** include full file diffs (only file names)
-3. **NEVER** include all comments (max 5 key ones)
-4. **NEVER** include all reviews (max 3 latest)
-5. **NEVER** include timestamps except key ones (created, updated, merged)
-6. **NEVER** include reaction groups, avatars, or UI metadata
-7. **NEVER** include commit history details
-8. **NEVER** exceed 1200 tokens in your response
+2. **NEVER** include full file diffs (only file names/stats)
+3. **NEVER** include reaction groups, avatars, or UI metadata
+4. **NEVER** include commit history details (only metadata)
+5. **NEVER** exceed token budgets:
+   - Compact mode: 1200 tokens max
+   - Full mode: 2000 tokens max
+
+**Mode-Specific Rules:**
+
+**Compact Mode:**
+- **NEVER** include all reviews (max 3 latest)
+- **NEVER** include all CI checks (failing + summary only)
+- **NEVER** list more than 20 files (group if needed)
+- **NEVER** include file-level change stats
+
+**Full Mode:**
+- **MAY** include all reviews (not limited to 3)
+- **MAY** include all CI checks (for comprehensive review)
+- **MUST** include all changed files with stats
+- **MUST** include PR head SHA for code fetching
 
 ### ✅ ALWAYS DO THESE:
 
@@ -657,28 +767,53 @@ PR needs work: changes requested by tech lead (backwards compatibility concerns)
 
 Before returning your summary, verify:
 
-- [ ] Total output is under 1200 tokens (target 800-1000)
+**Both Modes:**
 - [ ] All essential fields are present (title, state, review decision)
 - [ ] Description is condensed (max 500 chars)
-- [ ] Max 3 reviews included (latest, most relevant)
-- [ ] Max 5 comments included (skip noise)
-- [ ] Max 20 files listed (grouped if more)
-- [ ] CI status is clear (passing/failing summary)
-- [ ] Icons used for visual clarity (✅❌⏳💬)
+- [ ] Icons used for visual clarity (✅❌⏳💬✏️✨❌🔄)
 - [ ] Analysis notes provide actionable insight
 - [ ] No raw JSON or verbose data included
 - [ ] Output is valid markdown format
+- [ ] Mode indicated in footer
+
+**Compact Mode:**
+- [ ] Total output under 1200 tokens (target 800-1000)
+- [ ] Max 3 reviews included (latest, most relevant)
+- [ ] Max 5 comments included (skip noise)
+- [ ] Max 20 files listed (grouped if more)
+- [ ] CI status condensed (failing + summary)
+
+**Full Mode:**
+- [ ] Total output under 2000 tokens (target 1200-1500)
+- [ ] ALL reviews included (with timestamps)
+- [ ] ALL changed files with individual stats
+- [ ] Files sorted by changes (descending)
+- [ ] File status indicators (✨✏️❌🔄)
+- [ ] PR head SHA included
+- [ ] ALL CI checks listed
 
 ## Your Role in the Workflow
 
 You are the **first step** in the PR analysis workflow:
 
+**Compact Mode (default):**
 ```
 1. YOU: Fetch ~10-15KB PR payload via gh CLI, extract essence
-2. Parent: Receives your clean summary (~800 tokens), analyzes code
+2. Parent: Receives your clean summary (~800-1000 tokens), analyzes problem
 3. Result: Context stays clean, analysis focuses on the problem
 ```
 
-**Remember**: You are the gatekeeper. Keep the parent context clean. Be ruthless about cutting noise. Focus on actionable insights.
+**Full Mode (for review command):**
+```
+1. YOU: Fetch ~10-20KB PR payload via gh CLI + API, extract comprehensive data
+2. Parent: Receives detailed summary (~1200-1500 tokens) with ALL files and stats
+3. Review: Uses file list + SHA to fetch actual source code for analysis
+4. Result: Complete code review with actual source inspection
+```
+
+**Remember**:
+- You are the gatekeeper. Keep the parent context clean.
+- **Compact mode**: Be ruthless about cutting noise. Focus on actionable insights.
+- **Full mode**: Provide complete file list and metadata for code fetching, but still condense reviews/comments.
 
 Good luck! 🚀

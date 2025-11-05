@@ -45,7 +45,7 @@ schovi/
 │   └── review.md                 # Comprehensive code review with issue detection
 ├── agents/                        # Context-isolated execution
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
-│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (max 1200 tokens)
+│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (compact: max 1200, full: max 2000 tokens)
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
@@ -419,10 +419,13 @@ gh pr ready <number>
 - Token budget: Max 1000 tokens
 
 **gh-pr-analyzer** (`schovi/agents/gh-pr-analyzer/AGENT.md`):
-- Input: PR URL, `owner/repo#123`, or `#123`
-- Uses: `gh` CLI via Bash tool
-- Output: ~800-1000 token summary (core info, description 500 chars, top 5 changed files, failed CI checks only, max 3 reviews, max 5 comments)
-- Token budget: Max 1200 tokens
+- Input: PR URL, `owner/repo#123`, or `#123` + optional `mode` parameter
+- Uses: `gh` CLI and GitHub API via Bash tool
+- Modes:
+  - **Compact** (default): ~800-1000 tokens (top 20 files, max 3 reviews, failed CI only, max 1200 tokens)
+  - **Full** (for review): ~1200-1500 tokens (ALL files with stats, all reviews, all CI checks, PR head SHA, max 2000 tokens)
+- Output: Condensed summary with mode-specific detail level
+- Used by: analyze/debug/plan (compact), review (full)
 
 **gh-issue-analyzer** (`schovi/agents/gh-issue-analyzer/AGENT.md`):
 - Input: GitHub issue URL or `owner/repo#123`

@@ -43,8 +43,9 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 
 1. **GitHub PR**:
    - Use Task tool with subagent_type: `schovi:gh-pr-analyzer:gh-pr-analyzer`
-   - Prompt: "Fetch and summarize GitHub PR [input]"
-   - Description: "Fetching GitHub PR summary"
+   - Prompt: "Fetch and summarize GitHub PR [input] with mode: full"
+   - Description: "Fetching GitHub PR summary (full mode)"
+   - **Important**: Full mode returns ALL changed files with stats and PR head SHA for code fetching
 
 2. **Jira Issue**:
    - Use Task tool with subagent_type: `schovi:jira-analyzer:jira-analyzer`
@@ -75,15 +76,25 @@ This phase is **CRITICAL** for providing accurate, code-aware reviews. Skip only
 
 **Extract file paths from fetched context**:
 
-1. For GitHub PRs: Extract changed files from gh-pr-analyzer summary
-2. For Jira/GitHub Issues: Extract file:line references from description/comments
-3. For file inputs: Already have content from Phase 2
+1. **For GitHub PRs** (full mode):
+   - gh-pr-analyzer returns **ALL changed files** with individual stats
+   - Files already include: additions, deletions, total changes, status (added/modified/removed)
+   - Files are sorted by changes (descending) for easy prioritization
+   - PR head SHA included for fetching
 
-**Prioritize files** (fetch up to 10 most relevant):
-- Changed files with most additions/deletions
-- Files mentioned in issue description
-- Core logic files (controllers, services, models)
+2. **For Jira/GitHub Issues**:
+   - Extract file:line references from description/comments
+   - May need to search for files if not explicitly mentioned
+
+3. **For file inputs**:
+   - Already have content from Phase 2
+
+**Prioritize files for fetching** (up to 10 most relevant for deep review):
+- **From PR context**: Top 10 files by total changes (already sorted)
+- Files mentioned in PR description or review comments
+- Core logic files (controllers, services, models) over config/docs
 - Test files related to changes
+- Exclude: package-lock.json, yarn.lock, large generated files
 
 #### Step 2: Determine Source Code Access Method
 
@@ -134,13 +145,17 @@ mcp__jetbrains__get_file_content(file_path: "src/api/controller.ts")
 
 **GitHub API Method**:
 ```bash
-# Extract owner, repo, and ref from PR context
+# Use PR head SHA from gh-pr-analyzer full mode output
+# Extract owner, repo, and headRefOid from PR summary
+
 # For each file path:
-gh api repos/{owner}/{repo}/contents/{file_path}?ref={pr_head_sha} \
+gh api repos/{owner}/{repo}/contents/{file_path}?ref={headRefOid} \
   --jq '.content' | base64 -d
 
 # Alternative: Use gh pr diff for changed files
 gh pr diff <PR_NUMBER>
+
+# Note: headRefOid (commit SHA) from full mode summary ensures exact version
 ```
 
 #### Step 4: Store Fetched Content
