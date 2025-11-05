@@ -10,61 +10,139 @@ You are **creating an implementation specification** that bridges problem analys
 
 ---
 
-## PHASE 1: INPUT RESOLUTION
+## PHASE 1: INPUT VALIDATION & RESOLUTION
 
 **Input Received**: $ARGUMENTS
 
-### Step 1.1: Parse Arguments and Determine Input Source
+### Step 1.1: Parse Arguments and Classify Input Type
 
-**Priority Order**:
+Parse command arguments to determine input type and validate against requirements.
 
-**PRIORITY 1: Explicit Arguments** (Highest Priority)
-Parse arguments first. If any explicit input provided, use it immediately.
+**Input Types**:
 
-1. **Jira Issue ID**: Matches pattern `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
-   - Command: `/schovi:plan EC-1234`
-   - Action: Fetch from Jira via jira-analyzer subagent
+1. **Analysis File** (✅ VALID - Contains technical analysis)
+   - Pattern: `--input ./analysis.md` or `--input ./path/to/file.md`
+   - Command: `/schovi:plan --input ./analysis-EC-1234.md`
+   - Indicators: File path provided explicitly via --input flag
+   - Action: Read file and extract analysis content
 
-2. **GitHub Issue URL**: Matches pattern `https://github.com/[owner]/[repo]/issues/\d+` or `[owner]/[repo]#\d+`
-   - Command: `/schovi:plan https://github.com/owner/repo/issues/123`
-   - Command: `/schovi:plan owner/repo#123`
-   - Action: Fetch from GitHub via gh-issue-analyzer subagent
-
-3. **File Path**: Uses `--input` flag
-   - Command: `/schovi:plan --input ./analysis.md`
-   - Action: Read markdown file from provided path
-
-4. **From Scratch**: Uses `--from-scratch` flag with description
+2. **From Scratch** (✅ VALID - Bypass analysis requirement)
+   - Pattern: `--from-scratch "description"`
    - Command: `/schovi:plan --from-scratch "Build user authentication"`
-   - Action: Create minimal spec interactively
+   - Indicators: --from-scratch flag present with description
+   - Action: Create minimal spec interactively (no analysis needed)
 
-**PRIORITY 2: File References in Conversation** (Smart Auto-Detect)
-If no explicit arguments, search conversation for file references from previous commands.
+3. **Conversation Analysis** (✅ VALID - Analysis in recent messages)
+   - Pattern: No arguments, but recent `/schovi:analyze` output in conversation
+   - Command: `/schovi:plan` (after running `/schovi:analyze`)
+   - Indicators: Conversation contains analysis sections with file:line references
+   - Action: Extract analysis from recent messages
 
-5. **Analysis File Reference** (Auto-detect)
+4. **Jira Issue ID** (❌ INVALID - Raw input, requires analysis first)
+   - Pattern: `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
+   - Command: `/schovi:plan EC-1234`
+   - Action: STOP and direct user to run `/schovi:analyze EC-1234` first
+
+5. **GitHub Issue URL** (❌ INVALID - Raw input, requires analysis first)
+   - Pattern: `https://github.com/[owner]/[repo]/issues/\d+` or `[owner]/[repo]#\d+`
+   - Command: `/schovi:plan https://github.com/owner/repo/issues/123`
+   - Action: STOP and direct user to run `/schovi:analyze` first
+
+6. **GitHub PR URL** (❌ INVALID - Raw input, requires analysis first)
+   - Pattern: `https://github.com/[owner]/[repo]/pull/\d+` or `#\d+`
+   - Command: `/schovi:plan #123`
+   - Action: STOP and direct user to run `/schovi:analyze` first
+
+7. **Text Description** (❌ INVALID - Raw input, requires analysis first)
+   - Pattern: Free-form problem statement without --from-scratch flag
+   - Command: `/schovi:plan "Fix the validation bug"`
+   - Action: STOP and suggest --from-scratch or analysis first
+
+8. **Empty/No Arguments** (❌ INVALID - Requires explicit input)
+   - Pattern: No arguments provided
    - Command: `/schovi:plan`
-   - Detect: Search last 50 messages for patterns like:
-     * "saved to ./analysis-*.md"
-     * "Output: ./analysis-*.md"
-     * Any mention of `./analysis-*.md` or `./problem-*.md`
-   - Action: Read detected file path
-   - Fallback: If file not found or invalid, proceed to Priority 3
+   - Action: STOP and direct user to provide explicit file path or run analysis first
 
-**PRIORITY 3: Raw Conversation Output** (Fallback)
-If no explicit arguments AND no file references found, search for raw command output.
+### Step 1.2: Validate Input and Enforce Analysis-First Workflow
 
-6. **Conversation Context** (Auto-detect fallback)
-   - Command: `/schovi:plan`
-   - Detect: Search last 50 messages for `/schovi:analyze` output structure
-   - Action: Extract analysis sections from conversation
-   - Fallback: If not found, ask user for input
+**Check input classification from Step 1.1:**
 
-**PRIORITY 4: User Prompt**
+**If input type is VALID (Analysis File, From Scratch, or Conversation Analysis):**
+- ✅ Proceed to Step 1.3 (Parse Output Flags)
 
-7. **Empty/Unclear**: Missing or ambiguous input
-   - Action: Ask user which input source to use
+**If input type is INVALID (Raw inputs without analysis):**
+- ❌ STOP execution and display guidance message:
 
-### Step 1.2: Parse Output Flags
+```markdown
+╭─────────────────────────────────────────────────────────────────╮
+│ ❌ ANALYSIS REQUIRED BEFORE SPECIFICATION GENERATION            │
+╰─────────────────────────────────────────────────────────────────╮
+
+**Problem**: Cannot generate actionable specification without technical analysis.
+
+**Input Detected**: [Describe what was provided - Jira ID, GitHub URL, description, or empty]
+
+**Why Analysis is Required**:
+Specifications need specific file locations, affected components, and technical context
+to generate actionable implementation tasks. Without analysis:
+
+  ❌ Tasks will be vague: "Fix the bug" instead of "Update validation in Validator.ts:67"
+  ❌ No clear entry points: Which files to change?
+  ❌ Missing context: How do components interact?
+  ❌ Unclear scope: What else might be affected?
+
+**Required Actions** - Choose ONE:
+
+  1️⃣ **Run analysis first, then create spec**:
+
+     # Analyze the problem (explores codebase, identifies components)
+     /schovi:analyze [your-input]
+
+     # Then create spec from analysis
+     /schovi:plan --input ./analysis-[id].md
+
+     OR just:
+     /schovi:plan    (auto-detects analysis in conversation)
+
+  2️⃣ **Provide existing analysis file**:
+
+     /schovi:plan --input ./path/to/analysis-file.md
+
+  3️⃣ **Create simple spec without analysis** (for straightforward tasks):
+
+     /schovi:plan --from-scratch "Task description"
+     # You'll be prompted for requirements interactively
+
+**Examples**:
+
+  # Wrong: Raw Jira ID
+  /schovi:plan EC-1234  ❌
+
+  # Right: Analyze first, then plan
+  /schovi:analyze EC-1234
+  /schovi:plan --input ./analysis-EC-1234.md  ✅
+
+  # Or use conversation output
+  /schovi:analyze EC-1234
+  /schovi:plan  ✅ (auto-detects from conversation)
+
+  # Or from scratch for simple tasks
+  /schovi:plan --from-scratch "Add loading spinner"  ✅
+
+**Workflow**:
+┌─────────────┐      ┌──────────────┐      ┌─────────────┐
+│   Problem   │  →   │   Analyze    │  →   │    Plan     │
+│ (Jira, GH)  │      │  (Explores)  │      │  (Spec Gen) │
+└─────────────┘      └──────────────┘      └─────────────┘
+
+╭─────────────────────────────────────────────────────────────────╮
+│ 💡 TIP: Run /schovi:analyze [input] first to explore codebase  │
+╰─────────────────────────────────────────────────────────────────╯
+```
+
+**HALT EXECUTION** - Do not proceed to subsequent steps.
+
+### Step 1.3: Parse Output Flags
 
 **Optional Output Flags**:
 - `--output path.md` - Save to specific file path
@@ -77,287 +155,157 @@ If no explicit arguments AND no file references found, search for raw command ou
 - Save to file: `./spec-[jira-id].md` or `./spec-[timestamp].md`
 - Do NOT post to Jira (explicit opt-in only)
 
-### Step 1.3: Fetch Analysis Content
+### Step 1.4: Extract Analysis Content (For Valid Inputs Only)
 
-Execute based on detected input source (in priority order):
+**This step executes ONLY if Step 1.2 validated input as VALID.**
 
----
-
-#### Source A1: Analysis File Reference (Auto-detected from Conversation)
-
-```
-PRIORITY 2: Search conversation for file references before parsing raw output.
-
-1. Acknowledge search:
-   🔍 **[Create-Spec]** No explicit arguments provided
-   🔍 **[Create-Spec]** Searching for analysis file references...
-
-2. Search conversation history (last 50 messages) for file path patterns:
-   - Regex pattern: `\./(?:analysis|problem)-[A-Z0-9-]+\.md`
-   - Look in contexts:
-     * "saved to [FILE_PATH]"
-     * "Output: [FILE_PATH]"
-     * "Analysis saved to [FILE_PATH]"
-     * Standalone mentions: "./analysis-EC-1234.md"
-
-3. If file reference found:
-   ✅ **[Create-Spec]** Found file reference: [FILE_PATH]
-   📄 **[Create-Spec]** Attempting to read file...
-
-   A. Use Read tool to load file:
-      - File path: [DETECTED_PATH]
-      - Full content read
-
-   B. Verify file validity:
-      - Check file exists (Read succeeds)
-      - Check contains analysis structure:
-        * Has markdown headers (##, ###)
-        * Contains problem/solution sections
-        * Has technical details or requirements
-
-   C. If file valid:
-      ✅ **[Create-Spec]** Analysis loaded from file ([X] lines)
-
-      Extract same content as Source D (File Path):
-      - Problem statement
-      - Solution options
-      - Technical details (files, flows, dependencies)
-      - User preferences and notes
-
-      STOP here - proceed to Step 1.4 (don't search raw conversation)
-
-   D. If file invalid or empty:
-      ⚠️ **[Create-Spec]** File found but invalid/empty
-      ⏭️ **[Create-Spec]** Falling back to conversation search...
-
-      Continue to Source A (raw conversation output)
-
-4. If NO file reference found:
-   ℹ️ **[Create-Spec]** No file references detected
-   ⏭️ **[Create-Spec]** Searching raw conversation output...
-
-   Continue to Source A (raw conversation output)
-```
-
-**Why Priority 2?**
-- Files are complete and structured (no truncation)
-- Files are faster to read than parsing conversation
-- Files are more reliable than extracting from messages
-- When analysis was saved to file, that's the source of truth
+Based on input type from Step 1.1, extract analysis content:
 
 ---
 
-#### Source A: Conversation Context (Raw Output Fallback)
-
-```
-PRIORITY 3: Only executed if no explicit args AND no file references found.
-
-1. Acknowledge search:
-   🔍 **[Create-Spec]** Searching conversation for raw analysis output...
-
-2. Search conversation history (last 50 messages) for:
-   - Messages containing "/schovi:analyze" command invocation
-   - Messages with analysis output structure:
-     * "🎯 1. PROBLEM SUMMARY"
-     * "📊 2. CURRENT STATE ANALYSIS"
-     * "💡 3. SOLUTION PROPOSALS"
-
-3. If found:
-   ✅ **[Create-Spec]** Found analysis from [N messages ago]
-
-   Extract:
-   - Problem summary (core issue, impact, urgency)
-   - Affected components (files with line numbers)
-   - User flow and data flow diagrams
-   - Solution proposals (Option 1, Option 2, etc.)
-   - User's comments indicating preference ("I think Option 2 makes sense")
-
-4. If NOT found:
-   ⚠️ **[Create-Spec]** No recent analysis found in conversation
-
-   Prompt user with AskUserQuestion:
-   "No recent analysis found. What should I use?
-   1. Provide Jira issue ID
-   2. Provide file path to analysis
-   3. Create spec from scratch
-   4. Paste analysis directly"
-
-   Wait for response and restart Phase 1
-```
-
----
-
-#### Source B: GitHub Issue (URL Provided)
-
-```
-IMPORTANT: Delegate to gh-issue-analyzer subagent to prevent context pollution.
-
-1. Acknowledge detection:
-   🛠️ **[Create-Spec]** Detected GitHub issue: [OWNER/REPO#NUMBER]
-   ⏳ Fetching issue details via gh-issue-analyzer...
-
-2. Use the Task tool to invoke gh-issue-analyzer subagent:
-   prompt: "Fetch and summarize GitHub issue [GITHUB-ISSUE-URL or owner/repo#number]"
-   subagent_type: "schovi:gh-issue-analyzer:gh-issue-analyzer"
-   description: "Fetching GitHub issue summary"
-
-3. The subagent will return structured summary (~800 tokens) with:
-   - Core information (number, title, url, state, author)
-   - Condensed description
-   - Labels and assignees
-   - Key comments (including requirements/clarifications)
-   - Analysis notes
-
-4. Acknowledge receipt:
-   ✅ **[Create-Spec]** Issue details fetched successfully
-
-5. Extract from summary:
-   - Problem description from issue body
-   - Requirements from comments (if present)
-   - User preferences from comment thread
-   - Labels indicating type (bug, feature, etc.)
-
-6. If GitHub issue contains detailed requirements:
-   - Use requirements as input for spec
-   - Create spec from issue description + comments
-
-7. If GitHub issue lacks detailed analysis:
-   - Create spec from issue description only
-   - Use minimal template (less technical detail)
-
-NEVER fetch GitHub issues directly - always use subagent for context isolation.
-```
-
----
-
-#### Source C: Jira Issue (ID Provided)
-
-```
-IMPORTANT: Delegate to jira-analyzer subagent to prevent context pollution.
-
-1. Acknowledge detection:
-   🛠️ **[Create-Spec]** Detected Jira issue: [ISSUE-KEY]
-   ⏳ Fetching issue details via jira-analyzer...
-
-2. Use the Task tool to invoke jira-analyzer subagent:
-   prompt: "Fetch and summarize Jira issue [ISSUE-KEY or URL]"
-   subagent_type: "schovi:jira-analyzer:jira-analyzer"
-   description: "Fetching Jira issue summary"
-
-3. The subagent will return structured summary (~800 tokens) with:
-   - Core information (key, title, type, status, priority)
-   - Condensed description
-   - Acceptance criteria
-   - Key comments (including analysis if present)
-   - Technical context
-
-4. Acknowledge receipt:
-   ✅ **[Create-Spec]** Issue details fetched successfully
-
-5. Extract from summary:
-   - Problem description from Jira description field
-   - Analysis content from comments (if present)
-   - User preferences from comment thread
-   - Acceptance criteria (for spec inclusion)
-
-6. If Jira contains analysis:
-   - Use analysis sections as input
-
-7. If Jira lacks detailed analysis:
-   - Create spec from Jira description + acceptance criteria
-   - Use minimal template (less technical detail)
-
-NEVER fetch Jira directly - always use subagent for context isolation.
-```
-
----
-
-#### Source D: File Path (--input Provided)
+#### Option A: Analysis File (--input flag provided)
 
 ```
 1. Acknowledge file read:
    📄 **[Create-Spec]** Reading analysis from file: [PATH]
 
-2. Use Read tool to load file contents
+2. Use Read tool to load file contents:
+   file_path: [PATH from --input flag]
 
-3. If file doesn't exist:
+3. If file doesn't exist or read fails:
    ❌ **[Create-Spec]** File not found: [PATH]
 
-   Ask user:
-   "File not found. Please provide:
-   - Correct file path, OR
-   - Different input source (Jira ID, conversation context, from-scratch)"
+   Use AskUserQuestion:
+   "File not found at [PATH]. Please provide:
+   - Correct file path with --input flag, OR
+   - Run /schovi:analyze first, then use conversation output"
 
-   Wait for response and restart Phase 1
+   HALT EXECUTION
 
-4. If file exists:
+4. If file exists and loads successfully:
    ✅ **[Create-Spec]** File loaded ([X] lines)
 
-5. Parse file structure (flexible format):
-   - Look for section headers (##, ###)
-   - Identify problem description
-   - Extract solution options
-   - Find affected files/components
-   - Capture user notes and preferences
+5. Parse file structure:
+   - Look for YAML frontmatter (analysis metadata)
+   - Look for section headers:
+     * "## 🎯 1. PROBLEM SUMMARY" or similar
+     * "## 📊 2. CURRENT STATE ANALYSIS" or similar
+     * "## 💡 3. SOLUTION PROPOSALS" or similar
+   - Extract file:line references (pattern: `file/path:123`)
+   - Extract affected components
+   - Extract solution options (if multiple)
 
-6. Handle various markdown formats:
-   - Structured analysis output (from analyze command)
-   - Unstructured notes with bullets
-   - Mix of text and code snippets
-   - Links and references
+6. Store extracted analysis:
+   - Problem summary (core issue, impact, severity)
+   - Affected components with file:line references
+   - User flow and data flow (if present)
+   - Solution proposals with pros/cons
+   - Technical details and dependencies
+   - User notes and preferences
 
-7. Extract key information:
-   - Problem statement
-   - Chosen approach (if indicated)
-   - Technical details (files, flows, dependencies)
-   - Any user comments or decisions
+7. Verify analysis quality:
+   - Check: Has file:line references? (Critical for actionable spec)
+   - Check: Has affected components identified?
+   - Check: Has problem description?
+
+   If missing critical elements → Flag for enrichment in Phase 1.5
 ```
 
 ---
 
-#### Source E: From Scratch (--from-scratch Provided)
+#### Option B: Conversation Analysis (no arguments, analysis in conversation)
+
+```
+1. Acknowledge search:
+   🔍 **[Create-Spec]** Searching conversation for analysis output...
+
+2. Search conversation history (last 100 messages) for:
+   - Messages containing "/schovi:analyze" command invocation
+   - Messages with analysis output structure:
+     * "## 🎯 1. PROBLEM SUMMARY"
+     * "## 📊 2. CURRENT STATE ANALYSIS"
+     * "## 💡 3. SOLUTION PROPOSALS"
+   - Look for file:line references in recent messages
+
+3. If analysis found in conversation:
+   ✅ **[Create-Spec]** Found analysis from [N messages ago]
+
+   Extract same content as Option A:
+   - Problem summary
+   - Affected components with file:line references
+   - Flow analysis
+   - Solution proposals
+   - Technical details
+
+4. If NOT found in conversation:
+   ⚠️ **[Create-Spec]** No analysis found in recent conversation
+
+   Use AskUserQuestion:
+   "No recent analysis found. Please either:
+   1. Run: /schovi:analyze [your-input] first
+   2. Provide analysis file: /schovi:plan --input ./analysis.md
+   3. Create simple spec: /schovi:plan --from-scratch \"description\""
+
+   HALT EXECUTION
+
+5. Verify analysis quality:
+   - Same checks as Option A
+   - Flag gaps for enrichment if needed
+```
+
+---
+
+#### Option C: From Scratch (--from-scratch flag provided)
 
 ```
 1. Acknowledge mode:
    ✨ **[Create-Spec]** Creating spec from scratch...
 
 2. Parse provided description:
-   - Extract brief description from argument
+   - Extract brief description from argument after --from-scratch
    - Example: "Build user authentication" → Title: "User Authentication Feature"
 
-3. Use AskUserQuestion tool for key details:
-   Question 1: "What is the primary goal of this task?"
-   - Options: Bug fix, New feature, Refactoring, Technical debt, Other
+3. Use AskUserQuestion tool for interactive requirements gathering:
 
-   Question 2: "Which components/areas are affected?"
-   - (Free text input for user to specify)
+   Question 1: "What is the primary goal of this task?"
+   - Options: "Bug fix", "New feature", "Refactoring", "Technical debt", "Other"
+
+   Question 2: "Which components or areas will be affected?"
+   - Free text input for user to specify
+   - Example: "Frontend login page, backend auth service"
 
    Question 3: "What are the key requirements or acceptance criteria?"
-   - (Free text input, bullet points)
+   - Free text input, can be bullet points
+   - Example: "- Users can log in with email/password\n- Session persists for 24h\n- Logout clears session"
 
-   Question 4: "Any known constraints or risks?"
-   - (Free text input, optional)
+   Question 4: "Any known constraints or risks?" (Optional)
+   - Free text input
+   - Example: "Must integrate with existing LDAP system"
 
 4. Acknowledge collected info:
-   ✅ **[Create-Spec]** Requirements collected, generating minimal spec...
+   ✅ **[Create-Spec]** Requirements collected
 
-5. Prepare minimal template data:
-   - Title from description
-   - Goal from user answer
-   - Affected components from user answer
-   - Basic acceptance criteria from user answer
-   - Constraints/risks if provided
+5. Prepare minimal spec data:
+   - Title: From description
+   - Goal: From Question 1
+   - Affected areas: From Question 2 (high-level, no file:line refs)
+   - Acceptance criteria: From Question 3
+   - Constraints/risks: From Question 4 (if provided)
+   - Template type: "minimal" (no flows, no solution comparisons)
 
-6. Skip detailed analysis sections:
-   - No user/data flow diagrams
-   - No dependency mapping
-   - No solution comparisons
-   - Focus on "what to build" not "how it works"
+6. Note: From-scratch specs will NOT have:
+   - Detailed file:line references
+   - User/data flow diagrams
+   - Dependency mapping
+   - Multiple solution options
+   - Focus is "what to build" not "how it works"
+
+7. Skip Phase 1.5 enrichment (from-scratch intentionally lacks technical detail)
 ```
 
 ---
 
-### Step 1.4: Detect User's Chosen Approach
+### Step 1.5: Detect User's Chosen Approach
 
 **If analysis contains multiple solution options:**
 
@@ -396,6 +344,207 @@ NEVER fetch Jira directly - always use subagent for context isolation.
 **If analysis has single approach or from-scratch mode:**
 - Skip selection step
 - Use the single approach or minimal template
+
+---
+
+## PHASE 1.5: CONTEXT ENRICHMENT (Optional)
+
+**Purpose**: Fill technical gaps in existing analysis when needed for actionable spec generation.
+
+**When to Execute This Phase**:
+
+Check if enrichment is needed by evaluating analysis quality from Step 1.4:
+
+```
+**Skip enrichment if ANY of these are true**:
+- Input type is "From Scratch" (intentionally lacks technical detail)
+- Analysis has comprehensive file:line references (3+ specific locations)
+- Analysis has clear component identification with entry points
+- All affected areas have specific file paths
+
+**Consider enrichment if**:
+- Analysis has vague component references ("the validator" without file path)
+- Analysis lacks file:line references (no specific code locations)
+- Analysis mentions components without file paths
+- Entry points unclear (no API endpoint or UI component file specified)
+```
+
+### Step 1.5.1: Detect Enrichment Gaps
+
+**Analyze extracted analysis content** from Step 1.4:
+
+```
+1. Check for technical detail quality:
+
+   ✅ GOOD - Has specific locations:
+      - "FieldMappingValidator (services/FieldMappingValidator.ts:67)"
+      - "MappingController handles creation (api/controllers/MappingController.ts:123)"
+      - "ProcessingPipeline fails on boolean (services/DataProcessor.ts:234)"
+
+   ⚠️ NEEDS ENRICHMENT - Vague references:
+      - "The mapping validator needs updating"
+      - "Backend API controller"
+      - "Processing service has the bug"
+
+2. Count file:line references found:
+   - 0-2 references: ⚠️ Likely needs enrichment
+   - 3-5 references: ✅ Probably sufficient
+   - 6+ references: ✅ Comprehensive, skip enrichment
+
+3. Check for entry points:
+   - Has API endpoint file specified? (e.g., controllers/X.ts:123)
+   - Has UI component file specified? (e.g., components/Dashboard.tsx:45)
+   - If missing: ⚠️ Consider enrichment
+
+4. Store enrichment decision:
+   needs_enrichment = [true | false]
+   gaps_identified = [list of what's missing]
+```
+
+### Step 1.5.2: Ask User for Enrichment Permission
+
+**If needs_enrichment == true:**
+
+```
+Use AskUserQuestion tool to ask permission:
+
+"The analysis is missing specific file locations for some components:
+
+**Gaps Identified**:
+[List gaps from Step 1.5.1]
+
+Examples:
+- "The validator" mentioned but no file path specified
+- No API controller file location found
+- Processing logic location unclear
+
+**I can enrich the analysis with specific file locations** by quickly exploring
+the codebase (20-40 seconds). This will make the spec more actionable.
+
+**Options**:
+1. **Yes, enrich now** - I'll find specific file:line references
+2. **No, skip enrichment** - Generate spec with current analysis
+3. **I'll provide locations manually** - You tell me the file paths
+
+Which would you like?"
+
+Wait for user response.
+```
+
+### Step 1.5.3: Execute Enrichment (If User Approves)
+
+**If user selected "Yes, enrich now":**
+
+```
+1. Acknowledge enrichment:
+   🔍 **[Create-Spec]** Enriching analysis with specific file locations...
+   ⏳ Spawning Explore subagent for targeted search...
+
+2. Prepare context for Explore subagent:
+   - List vague components from analysis
+   - List missing entry points
+   - Problem description for context
+
+3. Use Task tool to spawn Explore subagent:
+
+   subagent_type: "Explore"
+   thoroughness: "quick"
+   description: "Find specific file locations for spec generation"
+   prompt: "Find exact file paths and line numbers for these components.
+
+   **Problem Context**: [Brief problem from analysis]
+
+   **Components to Locate**:
+   [List from gaps_identified, e.g.:]
+   - Mapping validator logic
+   - API controller handling mapping creation
+   - Data processing service
+
+   **What I Need** (focus ONLY on this):
+   - Exact file paths (e.g., services/FieldValidator.ts)
+   - Specific line numbers where logic exists (e.g., :67)
+   - Entry point locations (API endpoints: controllers/X.ts, UI: components/Y.tsx)
+
+   **What I DON'T Need** (skip these):
+   - Flow diagrams (already in analysis)
+   - Dependency mapping (already in analysis)
+   - Solution proposals (already in analysis)
+   - Code quality assessment
+   - Historical context
+
+   **Output Format**: Return concise list:
+   - ComponentName: file/path.ts:line - [1-sentence role]
+
+   **Example**:
+   - FieldValidator: services/FieldMappingValidator.ts:67 - Validates mapping requests
+   - MappingAPI: api/controllers/MappingController.ts:123 - Handles POST /mappings
+   - DataProcessor: services/DataProcessor.ts:234 - Processes boolean types
+
+   **Time Limit**: Quick search only (20-40 seconds max)"
+
+4. Wait for Explore subagent response
+
+5. Receive enrichment results:
+   ✅ **[Create-Spec]** Enrichment complete
+
+6. Merge enrichment with analysis:
+   - Add file:line references to vague component mentions
+   - Fill in missing entry point locations
+   - Preserve ALL existing analysis content (flows, solution proposals, etc.)
+   - Store enriched analysis for Phase 2
+
+7. Summary:
+   📍 **[Create-Spec]** Added [N] specific file locations to analysis
+   ✅ Ready for spec generation with actionable file references
+
+**Time**: 20-40 seconds (targeted search)
+**Tokens**: ~300-500 (file locations only, not deep exploration)
+```
+
+**If user selected "No, skip enrichment":**
+
+```
+1. Acknowledge:
+   ⏭️ **[Create-Spec]** Skipping enrichment, using analysis as-is
+
+2. Note in spec generation context:
+   - Spec may have higher-level tasks without specific file:line refs
+   - Tasks will be more general ("Update validator logic" vs "Update FieldValidator.ts:67")
+   - Still actionable, just less specific
+
+3. Proceed to Phase 2
+```
+
+**If user selected "I'll provide locations manually":**
+
+```
+1. Use AskUserQuestion for each gap:
+   "Please provide file path for: [Component Name]
+   Example: services/FieldValidator.ts:67"
+
+2. Collect user-provided locations
+
+3. Merge with analysis:
+   - Add user-provided file:line references
+   - Store enriched analysis for Phase 2
+
+4. Confirm:
+   ✅ **[Create-Spec]** Manual locations added to analysis
+
+5. Proceed to Phase 2
+```
+
+### Step 1.5.4: Validation
+
+**Before proceeding to Phase 2, verify:**
+
+```
+- [ ] Enrichment decision made (yes/no/manual)
+- [ ] If enriched: File:line references added to analysis
+- [ ] If skipped: Noted for spec generation
+- [ ] Analysis content ready for spec-generator subagent
+- [ ] Chosen approach identified (if multiple options existed)
+```
 
 ---
 
@@ -654,10 +803,12 @@ Wait for user direction.
 
 Before presenting the spec, verify ALL of these are complete:
 
-### Input Resolution
-- [ ] Input source successfully identified (conversation/Jira/file/scratch)
-- [ ] Analysis content or requirements successfully extracted
+### Input Validation (Phase 1)
+- [ ] Input type classified correctly (analysis file, conversation, from-scratch, or raw)
+- [ ] If raw input: STOPPED with clear guidance message (not proceeded to spec generation)
+- [ ] If valid input: Analysis content successfully extracted
 - [ ] User's chosen approach identified (or prompted if multiple options)
+- [ ] Enrichment decision made (if applicable): yes/no/manual/skipped
 
 ### Spec Generation
 - [ ] Spec generated via spec-generator subagent (context isolated)

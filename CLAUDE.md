@@ -79,6 +79,74 @@ schovi/
 - At least 2 solution options with comprehensive pros/cons analysis
 - Actionable implementation plan with testing and rollout strategies
 
+### Command: `/schovi:plan`
+
+**Location**: `schovi/commands/plan.md`
+
+**Purpose**: Generate implementation specifications from problem analysis. **Does NOT perform analysis** - transforms existing analysis into actionable specs.
+
+**⚠️ CRITICAL**: **Analysis-first requirement** - Plan command enforces strict workflow:
+- Accepts ONLY analyzed inputs (analysis files, conversation analysis, or from-scratch)
+- REJECTS raw inputs (Jira IDs, GitHub URLs) with clear guidance to run `/schovi:analyze` first
+- This ensures specs have specific file:line references and technical context
+
+**Workflow**:
+1. **Phase 1: Input Validation** - Classify input type; STOP if raw input detected, direct user to analyze first
+2. **Phase 1 (cont): Extract Analysis** - Read from file or conversation; validate has file:line refs
+3. **Phase 1.5: Optional Enrichment** - Ask user if they want to enrich vague component references via Explore subagent
+4. **Phase 2: Spec Generation** - Use `spec-generator` subagent to transform analysis into structured spec
+5. **Phase 3: Output Handling** - Terminal, file, optional Jira posting
+
+**Valid Input Sources**:
+- Analysis file via `--input ./analysis-EC-1234.md`
+- Conversation output from recent `/schovi:analyze` command
+- From-scratch via `--from-scratch "description"` (bypasses analysis, creates minimal spec)
+
+**Invalid Input Sources** (will STOP with guidance):
+- Jira IDs (EC-1234) - **Must run** `/schovi:analyze EC-1234` **first**
+- GitHub issue/PR URLs - **Must analyze first**
+- Free-form descriptions without `--from-scratch` flag
+- Empty/no arguments without recent analysis in conversation
+
+**Key Features**:
+- **Strict validation**: Enforces analyze → plan workflow for quality
+- **Optional enrichment**: Can fill gaps in analysis using Explore subagent (with user permission)
+- **Context isolation**: Uses spec-generator subagent to prevent token pollution
+- **Multiple outputs**: Terminal, file (default: `./spec-[id].md`), optional Jira comment
+- **Template flexibility**: Full template (with analysis) or minimal (from-scratch mode)
+
+**Enrichment Phase** (new in Phase 1.5):
+- Detects if analysis lacks specific file:line references
+- Asks user permission before enriching via Explore subagent
+- Quick targeted search (20-40s) to find missing file locations
+- User can approve, skip, or provide locations manually
+
+**Example Usage**:
+```bash
+# Wrong: Raw Jira ID (will STOP with guidance)
+/schovi:plan EC-1234  ❌
+
+# Right: Analyze first, then plan
+/schovi:analyze EC-1234
+/schovi:plan --input ./analysis-EC-1234.md  ✅
+
+# Or use conversation
+/schovi:analyze EC-1234
+/schovi:plan  ✅ (auto-detects from conversation)
+
+# Or from-scratch for simple tasks
+/schovi:plan --from-scratch "Add loading spinner"  ✅
+```
+
+**Quality Gates** (all must be met):
+- Input validated as analyzed (not raw)
+- Analysis content successfully extracted
+- Chosen approach identified (if multiple options)
+- Spec generated via spec-generator subagent
+- Implementation tasks are specific and actionable
+- Acceptance criteria are testable
+- File references use `file:line` format
+
 ### Command: `/schovi:debug`
 
 **Location**: `schovi/commands/debug.md`
