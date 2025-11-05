@@ -1163,34 +1163,111 @@ Present completion summary:
 
 ### Step 5.2: Proactive Next Steps
 
-Based on analysis output, suggest next actions:
+Offer automatic next actions based on context:
 
+**If analysis file was created** (output_path exists):
 ```
-**Suggested Next Steps**:
+✅ **[Analyze-Problem]** Analysis saved to: [output_path]
 
-1. 📋 **Create Specification**: Use `/schovi:plan [analysis-file]` to generate implementation spec
-2. 💬 **Discuss Approach**: Review solution options and select preferred approach
-3. 🔍 **Deep Dive**: Explore specific technical aspects in more detail
-4. 🎯 **Assign Task**: Update Jira issue with analysis and assign to developer
+**Ready for next step?**
 
-**Quick Actions**:
-[If Jira ID exists] - Update Jira status to "In Progress"?
-[If analysis saved] - Create spec now using saved analysis?
-```
+I can automatically generate an implementation specification from this analysis.
+This will create a detailed spec with:
+- Implementation tasks broken down by component
+- Acceptance criteria
+- Testing strategy
+- Risk assessment
+- Timeline estimates
 
-### Step 5.3: User Interaction
-
-Ask user for direction (use conversational tone):
-
-```
-What would you like to do next?
-- Create implementation spec from this analysis?
-- Discuss solution options in more detail?
-- Explore a specific technical aspect further?
-- Something else?
+Would you like me to run `/schovi:plan [output_path]` now? [yes/no]
 ```
 
-Wait for user response and proceed accordingly.
+**If user says "yes"**:
+- Use SlashCommand tool: `/schovi:plan [output_path]`
+- Proceed directly to plan generation workflow
+- No need to wait for manual command
+
+**If user says "no"** or **if analysis was terminal-only** (--no-file):
+```
+**What would you like to do next?**
+
+1. 📋 **Create specification** - Generate implementation spec (manual: `/schovi:plan [file-path]`)
+2. 💬 **Discuss solution** - Review recommended option vs alternatives
+3. 🔍 **Deep dive** - Explore specific technical details further
+4. 🎯 **Update Jira** - Post analysis as comment (if not already posted)
+5. ✅ **Nothing** - You're all set
+
+Choose an option [1-5] or describe what you need:
+```
+
+### Step 5.3: Execute User Choice
+
+Based on user response from Step 5.2:
+
+**If user chose option 1** (Create specification):
+```
+Great! I'll need the analysis file path.
+
+[If file was created]: Use the saved file: `/schovi:plan [output_path]`
+[If terminal only]: Save analysis first, or provide problem input for plan command
+
+Shall I proceed with the saved analysis file? [yes/no]
+```
+
+If yes: Use SlashCommand tool: `/schovi:plan [output_path]`
+
+**If user chose option 2** (Discuss solution):
+```
+Let's review the solution options:
+
+[List recommended option name and key pros/cons]
+
+vs.
+
+[List alternative options with key trade-offs]
+
+Which aspects would you like to discuss?
+- Why [recommended] was chosen over alternatives?
+- Trade-offs between options?
+- Implementation complexity comparison?
+- Something specific?
+```
+
+**If user chose option 3** (Deep dive):
+```
+Which area would you like to explore further?
+- Specific file or component?
+- Data flow or user flow details?
+- Dependency analysis?
+- Code quality concerns?
+- Historical context?
+
+Let me know and I'll dive deeper.
+```
+
+**If user chose option 4** (Update Jira):
+```
+[If Jira ID exists and not already posted]:
+I'll post the analysis as a Jira comment now.
+[Use mcp__jira__addCommentToJiraIssue]
+
+[If no Jira ID]:
+No Jira issue was associated with this analysis.
+
+[If already posted]:
+Analysis was already posted to Jira: [JIRA-ID]
+```
+
+**If user chose option 5** (Nothing):
+```
+Perfect! The analysis is complete and saved. You can reference it anytime.
+
+Available commands:
+- `/schovi:plan [analysis-file]` - Generate implementation spec
+- `/schovi:implement` - Start implementation with spec
+
+Good luck! 🚀
+```
 
 ---
 
