@@ -1,6 +1,6 @@
 ---
 description: Deep analysis of bugs/features with codebase exploration, flow mapping, solution proposals, and structured output
-argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick]
+argument-hint: [jira-id|pr-url|#pr-number|github-issue-url|description] [--input PATH] [--output PATH] [--no-file] [--quiet] [--post-to-jira] [--quick] [--work-dir PATH]
 allowed-tools: ["Read", "Write", "Grep", "Glob", "Task", "ExitPlanMode", "mcp__jira__*", "mcp__jetbrains__*", "Bash", "AskUserQuestion"]
 ---
 
@@ -81,6 +81,11 @@ Parse optional flags (can appear in any order):
   - Faster, less comprehensive
   - Use for straightforward bugs or small features
 
+- **`--work-dir PATH`**: Use specific work folder
+  - Example: `--work-dir .WIP/EC-1234-add-auth`
+  - Overrides auto-detection
+  - Use when you have an existing work folder
+
 ### Flag Validation
 - `--input` overrides positional argument if both provided → Use file content
 - `--output` and `--no-file` cannot be used together → Error
@@ -96,11 +101,12 @@ If no output flags specified:
 - **Default mode**: Full analysis (unless `--quick` specified)
 
 ### Storage for Later Phases
-Store parsed values for use in Phases 3-5:
+Store parsed values for use in Phases 1-5:
 ```
 input_path = [--input PATH] or [null]
 problem_input = [extracted identifier or description or from file]
 output_path = [--output PATH] or [default filename] or [null if --no-file]
+work_dir = [--work-dir PATH] or [null - will auto-detect]
 terminal_output = true (unless --quiet)
 jira_posting = [true if --post-to-jira]
 quick_mode = [true if --quick]
@@ -726,6 +732,184 @@ DO:
 
 **Skip this step if**: Problem complexity is clearly aligned with flag choice (no mismatch detected).
 
+### Step 1.6: Work Folder Resolution & Metadata Setup
+
+**Objective**: Create or find work folder for storing analysis and tracking workflow state.
+
+**Integration Point**: Use work folder library (`schovi/lib/work-folder.md`)
+
+#### 1.6.1: Check for Explicit Work Folder
+
+If `work_dir` provided via `--work-dir` flag:
+```bash
+# Use exactly as specified
+work_folder="$work_dir"
+
+# Validate it exists
+if [ ! -d "$work_folder" ]; then
+  echo "⚠️ Work folder not found: $work_folder"
+  echo "Creating folder..."
+  mkdir -p "$work_folder/context"
+fi
+```
+
+#### 1.6.2: Auto-detect Existing Work Folder
+
+If no `--work-dir`, try to find existing folder:
+
+**a) From Git Branch**:
+```bash
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Extract identifier (Jira ID)
+identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
+
+# Find work folder
+if [ -n "$identifier" ]; then
+  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
+fi
+```
+
+**b) From Problem Input Identifier**:
+```bash
+# Extract Jira ID from problem_input
+jira_id=$(echo "$problem_input" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b')
+
+if [ -n "$jira_id" ]; then
+  work_folder=$(find .WIP -type d -name "${jira_id}*" | head -1)
+fi
+
+# Or extract GitHub issue
+gh_issue=$(echo "$problem_input" | grep -oE '(issues|pull)/[0-9]+' | grep -oE '[0-9]+')
+if [ -n "$gh_issue" ]; then
+  work_folder=$(find .WIP -type d -name "GH-${gh_issue}*" | head -1)
+fi
+```
+
+#### 1.6.3: Create New Work Folder
+
+If no existing folder found, create new one:
+
+**Generate Identifier**:
+
+If Jira ID present (from Phase 1 Step 1.3):
+```bash
+jira_id="EC-1234"
+jira_title="[from Jira summary]"
+
+# Generate slug from title
+slug=$(echo "$jira_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
+
+# Combine
+identifier="${jira_id}-${slug}"
+```
+
+If GitHub issue/PR present:
+```bash
+gh_number="123"
+gh_title="[from GitHub summary]"
+
+# Generate slug
+slug=$(echo "$gh_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
+
+identifier="GH-${gh_number}-${slug}"
+```
+
+If description-based (no external ID):
+```bash
+# Generate slug from problem description
+slug=$(echo "$problem_input" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
+
+identifier="$slug"
+```
+
+**Create Folder Structure**:
+```bash
+work_folder=".WIP/$identifier"
+mkdir -p "$work_folder/context"
+```
+
+#### 1.6.4: Load or Create Metadata
+
+**If metadata exists** (continuing work):
+```bash
+cat "$work_folder/.metadata.json"
+```
+
+Parse to understand:
+- workflow.completed: what's done
+- workflow.current: last step
+- files: existing outputs
+
+**If new folder** (first analysis):
+
+Use Write tool to create `$work_folder/.metadata.json`:
+```json
+{
+  "identifier": "[jira-id or GH-number or slug]",
+  "title": "[from Jira/GitHub or problem description]",
+  "slug": "[generated slug]",
+  "workFolder": ".WIP/[identifier]",
+
+  "workflow": {
+    "type": "technical",
+    "steps": ["analyze", "plan", "implement"],
+    "completed": [],
+    "current": "analyze"
+  },
+
+  "files": {},
+
+  "git": {
+    "branch": "[from git rev-parse --abbrev-ref HEAD]",
+    "commits": [],
+    "lastCommit": null
+  },
+
+  "external": {
+    "jiraIssue": "[if Jira]",
+    "jiraUrl": "[if Jira]",
+    "githubIssue": "[if GitHub issue]",
+    "githubIssueUrl": "[if GitHub issue]",
+    "githubPR": "[if GitHub PR]",
+    "githubPRUrl": "[if GitHub PR]"
+  },
+
+  "timestamps": {
+    "created": "[from date -u +\"%Y-%m-%dT%H:%M:%SZ\"]",
+    "lastModified": "[same as created]",
+    "completed": null
+  }
+}
+```
+
+**Get current timestamp**:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+**Get current git branch**:
+```bash
+git rev-parse --abbrev-ref HEAD
+```
+
+**Set workflow.type = "technical"** because analyze → plan → implement.
+
+#### 1.6.5: Store Work Folder Info
+
+Store for use in later phases:
+```
+work_folder = [.WIP/identifier]
+identifier = [jira-id or GH-number or slug]
+metadata_exists = [true|false]
+```
+
+**Acknowledge work folder**:
+```
+📁 **[Analyze-Problem]** Work folder: $work_folder
+```
+
 ---
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
@@ -1246,14 +1430,15 @@ Handle analysis output based on flags from Argument Parsing:
 **If `--quiet` flag present**:
 - Skip terminal display entirely
 
-### Step 4.2: File Output
+### Step 4.2: File Output & Metadata Update
 
 **If `output_path != null`** (default, unless `--no-file`):
 
 1. Determine filename:
    - If `--output PATH` specified: Use provided path
-   - Else if Jira ID present: `./analysis-[JIRA-ID].md` (current directory)
-   - Else: `./analysis-[YYYY-MM-DD-HHMMSS].md` (current directory)
+   - Else if work_folder exists: `$work_folder/02-analysis.md` (work folder)
+   - Else if Jira ID present: `./analysis-[JIRA-ID].md` (current directory - fallback)
+   - Else: `./analysis-[YYYY-MM-DD-HHMMSS].md` (current directory - fallback)
 
 2. Resolve and validate output path:
 
@@ -1328,8 +1513,43 @@ Handle analysis output based on flags from Argument Parsing:
    📄 **[Analyze-Problem]** Analysis saved to: [output_path]
    ```
 
+5. Update Metadata (if work folder exists):
+
+   **If work_folder is set** (from Step 1.6):
+
+   Read existing metadata:
+   ```bash
+   cat "$work_folder/.metadata.json"
+   ```
+
+   Update fields:
+   ```json
+   {
+     ...existing,
+     "workflow": {
+       ...existing.workflow,
+       "completed": ["analyze"],
+       "current": "analyze"
+     },
+     "files": {
+       ...existing.files,
+       "analysis": "02-analysis.md"
+     },
+     "timestamps": {
+       ...existing.timestamps.created,
+       "lastModified": "[now from date -u]"
+     }
+   }
+   ```
+
+   Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
+
+   **If no work folder** (fallback mode):
+   - Skip metadata update
+
 **If `--no-file` flag present**:
 - Skip file creation entirely
+- Skip metadata update
 
 ### Step 4.3: Jira Posting (Optional)
 
@@ -1394,6 +1614,8 @@ Present completion summary:
 
 **Analysis Type**: [Full|Quick]
 
+**Work Folder**: [If work_folder exists: $work_folder]
+
 **Output**:
 [If file created] - 📄 Saved to: [filename]
 [If posted to Jira] - 📋 Posted to Jira: [JIRA-ID]
@@ -1410,6 +1632,7 @@ Offer automatic next actions based on context:
 **If analysis file was created** (output_path exists):
 ```
 ✅ **[Analyze-Problem]** Analysis saved to: [output_path]
+[If work_folder exists] 📁 Work folder: $work_folder
 
 **Ready for next step?**
 
@@ -1421,11 +1644,17 @@ This will create a detailed spec with:
 - Risk assessment
 - Timeline estimates
 
-Would you like me to run `/schovi:plan [output_path]` now? [yes/no]
+[If work_folder exists]
+Would you like me to run `/schovi:plan` now? [yes/no]
+(Plan will auto-detect from work folder)
+
+[If no work_folder]
+Would you like me to run `/schovi:plan --input [output_path]` now? [yes/no]
 ```
 
 **If user says "yes"**:
-- Use SlashCommand tool: `/schovi:plan [output_path]`
+- [If work_folder exists] Use SlashCommand tool: `/schovi:plan`
+- [If no work_folder] Use SlashCommand tool: `/schovi:plan --input [output_path]`
 - Proceed directly to plan generation workflow
 - No need to wait for manual command
 
@@ -1433,7 +1662,9 @@ Would you like me to run `/schovi:plan [output_path]` now? [yes/no]
 ```
 **What would you like to do next?**
 
-1. 📋 **Create specification** - Generate implementation spec (manual: `/schovi:plan [file-path]`)
+1. 📋 **Create specification** - Generate implementation spec
+   [If work_folder]: Run `/schovi:plan` (auto-detects from work folder)
+   [If no work_folder]: Run `/schovi:plan --input [file-path]`
 2. 💬 **Discuss solution** - Review recommended option vs alternatives
 3. 🔍 **Deep dive** - Explore specific technical details further
 4. 🎯 **Update Jira** - Post analysis as comment (if not already posted)
