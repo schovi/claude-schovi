@@ -95,11 +95,20 @@ Autonomously executes implementation tasks with validation and phase-based commi
 
 **Input**: Spec file, Jira ID, or auto-detect from conversation
 **Output**: Phase-based git commits + execution log
-**Features**: Project type detection, automatic validation, auto-fixing
+**Features**: Project type detection, automatic validation with 2 retry attempts, auto-fixing, progress tracking
+
+**v1.4.0 New Features**:
+- `--verbose` flag for enhanced conventional commits (feat/fix/chore with type detection)
+- Robust spec parsing (supports h1/h2 headers, flat task lists, shortened headers)
+- Validation retry logic (max 2 attempts with clear status updates)
+- Progress visibility for long tasks (complexity estimation, periodic updates every 15-20s)
+- Improved error messages with detailed explanations and resolution steps
+- Confetti celebration on successful completion
 
 ```bash
 /schovi:implement ./spec-EC-1234.md
-/schovi:implement EC-1234
+/schovi:implement EC-1234 --verbose
+/schovi:implement --input ./spec.md --output ./log.txt
 ```
 
 #### `/schovi:commit` - Structured Git Commits
@@ -138,6 +147,10 @@ All commands support these output control flags:
 - `--no-file` - Skip file output, terminal only
 - `--quiet` - Suppress terminal output, file only
 - `--post-to-jira` - Post output as Jira comment
+
+**Implementation-Specific Flags:**
+- `--verbose` - Use enhanced conventional commits with type detection (feat/fix/chore)
+- `--resume` - Resume from checkpoint (v2.0 feature, coming soon)
 
 **Command-Specific Flags:**
 
