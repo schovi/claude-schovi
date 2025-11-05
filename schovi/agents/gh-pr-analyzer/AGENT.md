@@ -50,7 +50,7 @@ cli/cli#12084
 - Failed CI checks only (or summary if all passing)
 - Optimized for general analysis (analyze/debug/plan commands)
 
-**Full Mode** (~2000-8000 tokens, depending on PR size):
+**Full Mode** (~2000-10000 tokens, depending on PR size):
 - **ALL changed files** with individual line counts
 - **Complete diff content** (actual code changes)
 - PR head SHA and branch (for code fetching)
