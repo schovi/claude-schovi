@@ -589,31 +589,54 @@ Analyze git log:
 
 ### Step 5.2: Construct PR Description
 
+**Description Generation Principles**:
+
+**Target Length**: 150-250 words (concise, human-readable)
+
+**Brevity Guidelines**:
+1. **Problem**: 2-3 sentences max - what's wrong and why it matters, no verbose context
+2. **Solution**: Single paragraph - what we're doing and how, NO subsections (no "Approach:", "Columns:", etc.)
+3. **Changes**: Group by logical area (code/tests/impact), simple bullets, no "Phase 1/2/3" ceremony
+4. **Quality & Impact**: One combined section for testing + breaking changes + rollback (not separate "Other" subsections)
+5. **Remove**: Phase numbering, detailed file:line paths, exhaustive lists, future work, redundant explanations
+
+**Formatting for Human Consumption**:
+- Use ⚠️ for breaking changes (inline, not separate subsection)
+- Use ✅ for testing status (one line summary)
+- Use 🔄 for rollback info (one line if non-trivial)
+- Group bullets under **bold area headers** (e.g., **Application Code**, **Tests**), NOT execution phases
+- Focus on WHAT changed, not step-by-step HOW it was changed
+- Inline code with backticks (e.g., `ignored_columns`) for clarity
+
 **Template Structure**:
 ```markdown
 ## Problem
 
-[Describe what problem this PR solves]
-[Extracted from spec/Jira description/commit summary]
+[2-3 sentences: What's broken/needed and why it matters. No exhaustive background.]
 
 ## Solution
 
-[Describe the approach taken to solve the problem]
-[Extracted from spec technical overview/Jira comments/commit analysis]
+[Single paragraph: What we're doing and how. No subsections, no detailed lists, no redundancy with "Approach".]
 
 ## Changes
 
-- [Bullet point describing specific change]
-- [Bullet point describing specific change]
-- [Bullet point describing specific change]
-- [Bullet point describing specific change]
+**[Logical Group 1]**:
+- Bullet describing change (no file:line unless critical)
+- Bullet describing change
 
-[Extracted from spec tasks/Jira acceptance criteria/commit list]
+**[Logical Group 2]**:
+- Bullet describing change
 
-## Other
+⚠️ **Breaking change**: [Inline warning if applicable]
 
-[Additional context: testing notes, deployment steps, breaking changes, etc.]
-[Extracted from spec testing strategy/Jira comments/commit notes]
+## Quality & Impact
+
+✅ [One-line testing summary]
+
+⚠️ **Breaking**: [If applicable]
+🔄 **Rollback**: [If non-trivial]
+
+[Brief context or key impact notes, 1-2 lines max]
 
 ---
 
@@ -632,37 +655,39 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ╰─────────────────────────────────────────────╯
 
 **Source**: Spec file (./spec-EC-1234.md)
-**Sections**: Problem, Solution, Changes, Other
-**Length**: ~500 words
+**Sections**: Problem, Solution, Changes, Quality & Impact
+**Length**: ~180 words
 
 **Preview**:
 ```
 ## Problem
 
-Implements JSON Web Token based authentication system to replace
-session-based auth. Current system uses server-side sessions which
-don't scale well in distributed environments.
+Current session-based authentication doesn't scale in distributed environments. Server-side sessions create bottlenecks and don't support stateless API architecture needed for microservices migration.
 
 ## Solution
 
-Add JWT-based authentication with token generation, verification,
-and refresh capabilities. Tokens are signed with RS256 algorithm
-and include user claims for authorization.
+Implement JWT-based authentication with token generation, verification, and refresh capabilities. Tokens are signed with RS256 algorithm and include user claims for authorization.
 
 ## Changes
 
+**Application Code**:
 - Add AuthController with login/logout endpoints
 - Implement JwtService for token operations
-- Create User model with password hashing
 - Add authentication middleware
-- Update tests for new auth flow
 
-## Other
+**Data Model**:
+- Create User model with bcrypt password hashing
 
-**Testing**: Unit tests added for all new services. Integration
-tests cover full auth flow. Manual testing guide in TESTING.md.
+**Tests**: Update test suite for new auth flow
 
-**Breaking Changes**: Session-based endpoints deprecated.
+⚠️ **Breaking change**: Session-based endpoints deprecated
+
+## Quality & Impact
+
+✅ Unit and integration tests passing, manual testing guide in TESTING.md
+
+⚠️ **Breaking**: Legacy session endpoints will return 401
+🔄 **Rollback**: Trivial - revert commits (database unchanged)
 
 ---
 
@@ -1260,25 +1285,27 @@ When no spec, no Jira, and minimal commits:
 ```markdown
 ## Problem
 
-[TODO: Describe what problem this PR solves]
+[TODO: Describe what problem this PR solves - 2-3 sentences]
 
 ## Solution
 
-[TODO: Describe the approach taken]
+[TODO: Describe the approach taken - single paragraph]
 
 ## Changes
 
 - [Commit 1 subject line]
 - [Commit 2 subject line]
 
-## Other
+## Quality & Impact
 
-[TODO: Add testing notes, deployment instructions, etc.]
+✅ [TODO: Add testing status]
+
+[TODO: Add breaking changes, rollback notes if applicable]
 
 ---
 
 ⚠️ **Note**: This description was auto-generated from commits.
-Please update it with more details about the problem and solution.
+Please update with problem context and solution details.
 
 Edit PR: `gh pr edit <number> --body-file <file>`
 
