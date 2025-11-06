@@ -46,9 +46,6 @@ You will receive a structured input package containing:
 ### Code Locations
 [All file:line references discovered]
 
-### Template Type
-[full|quick]
-
 ### Metadata
 - Jira ID: [ID or N/A]
 - PR URL: [URL or N/A]
@@ -67,440 +64,66 @@ Extract each section carefully. Identify:
 - What the root cause is
 - What solution options exist
 
-### Step 2: Determine Template Type
+### Step 2: Load Template
 
-**Full Analysis** (for complex problems):
-- Includes: Complete problem summary, current state with flows, 2-3 solution proposals with trade-offs, implementation guidance with testing and rollout
-- Use when: Complex features, architectural changes, unclear problems, investigations
+**Load the analysis template**:
 
-**Quick Analysis** (for simple problems):
-- Includes: Brief problem summary, affected components, single solution, implementation notes, key references
-- Use when: Simple bug fixes, straightforward enhancements, well-defined tasks
-
-### Step 3: Generate Analysis Sections
-
-#### For Full Analysis:
-
-##### Section 1: Frontmatter & Header
-```yaml
----
-jira_id: [JIRA-ID or N/A]
-pr_url: [URL or N/A]
-issue_url: [URL or N/A]
-title: "[Brief problem description]"
-problem_type: "[bug|feature|investigation|performance|refactor]"
-severity: "[critical|high|medium|low]"
-created_date: [Date]
-created_by: [Email or N/A]
----
-
-# ANALYSIS: [JIRA-ID or Title]
+```
+Read /home/user/claude-schovi/schovi/templates/analysis/full.md
 ```
 
-##### Section 2: Problem Summary
-Extract from problem context:
-- **Core Issue**: Essential problem in 1-2 sentences
-- **Impact**: Specific impacts with quantification if possible (who/what affected, measurable impact)
-- **Severity**: Classification with 1-sentence justification
-- **Urgency**: Timeline consideration with 1-sentence explanation
-- **Context**: Relevant background (1-2 sentences)
-
-Example:
-```markdown
-## 🎯 1. PROBLEM SUMMARY
-
-**Core Issue**: Field mapping validation allows boolean field types to be mapped, but only number and text types are supported by the downstream processing pipeline.
-
-**Impact**:
-- Affects ~15% of users who create field mappings (~200 users)
-- Causes silent data loss when boolean mappings are processed
-- Created 47 invalid mappings in production over last 3 months
-
-**Severity**: High - Data integrity issue but system remains operational
-
-**Urgency**: Medium - Workaround exists (manual validation) but user experience is degraded
-
-**Context**: Issue discovered during recent audit of mapping failures. Boolean type support was never intended but wasn't explicitly blocked.
-```
-
-##### Section 3: Current State Analysis
-Extract from exploration results:
-
-**Affected Components**:
-- List primary components with file:line references and their roles
-- List secondary components if applicable
-
-**Flow Analysis**:
-- User Flow: Show user action → system processing → problem occurrence (use file:line refs)
-- Data Flow: Show data source → transformations → where problem occurs (use file:line refs)
-
-**Dependencies** (conditional - only if complex):
-- Direct dependencies
-- Indirect dependencies
-- Integration points
-
-**Issues Identified**:
-- For each issue: Problem → Evidence → Root cause (use file:line refs)
-- Number 1-3 issues typically
-
-Example:
-```markdown
-## 📊 2. CURRENT STATE ANALYSIS
-
-### Affected Components
-
-**Primary Components**:
-- **FieldMappingValidator** (`services/FieldMappingValidator.ts:67`) - Validates field mappings, currently doesn't check field type
-- **MappingController** (`api/controllers/MappingController.ts:123`) - Handles mapping creation, calls validator
-
-**Secondary Components**:
-- **ProcessingPipeline** (`services/DataProcessor.ts:234`) - Processes mappings, fails silently on boolean types
-
-### Flow Analysis
-
-**User Flow**:
-```
-User creates field mapping → MappingController:123
-  ↓
-Validation runs → FieldMappingValidator:67
-  ↓
-Mapping saved to database
-  ↓
-Processing attempts → DataProcessor:234
-  ↓
-Boolean type fails silently → User unaware
-```
-
-**Data Flow**:
-```
-Mapping Request (with field type)
-  ↓
-Validation (FieldMappingValidator:67) - Missing type check
-  ↓
-Database Persistence - Invalid data stored
-  ↓
-Processing Pipeline (DataProcessor:234) - Fails on boolean
-  ↓
-Data Loss - No error surfaced
-```
-
-### Issues Identified
-
-1. **Missing Validation** (`services/FieldMappingValidator.ts:67`):
-   - Problem: No field type validation in mapping validator
-   - Evidence: Code review shows type check is absent, tests don't cover type validation
-   - Root cause: Original implementation assumed frontend would prevent invalid types
-
-2. **Silent Failure** (`services/DataProcessor.ts:234`):
-   - Problem: Processing pipeline fails silently on unsupported types
-   - Evidence: Logs show mapping attempts with no result, no error thrown
-   - Root cause: Try-catch block swallows errors without logging
-```
-
-##### Section 4: Solution Proposals
-Generate 2-3 viable solution options:
-
-For each option:
-- **Approach**: High-level description (1-2 sentences)
-- **Key Changes**: 3-5 specific modifications with file:line refs
-- **Pros**: 3-5 advantages/benefits (use ✅)
-- **Cons/Trade-offs**: 2-4 limitations/concerns (use ⚠️)
-- **Effort Estimate**: Small (1-2d)|Medium (3-5d)|Large (1-2w)|X-Large (2+w)
-- **Risk Level**: Low|Medium|High with 1-sentence justification
-
-Mark recommended option with ⭐
-
-Example:
-```markdown
-## 💡 3. SOLUTION PROPOSALS
-
-### Option 1: Add Validation in FieldMappingValidator ⭐ RECOMMENDED
-
-**Approach**: Modify existing validation logic to explicitly reject boolean field types during mapping creation.
-
-**Key Changes**:
-- Add type check in `FieldMappingValidator.ts:67` to reject boolean types
-- Update error messages to clearly state boolean types not supported
-- Add database migration to handle 47 existing invalid mappings
-- Update frontend to show clear error message
-
-**Pros**:
-- ✅ Centralized validation ensures consistency across all endpoints
-- ✅ Minimal code changes required (single validation function)
-- ✅ Aligns with existing validation patterns in codebase
-- ✅ Prevents issue at source before data is persisted
-
-**Cons / Trade-offs**:
-- ⚠️ Requires database migration for existing invalid mappings
-- ⚠️ Frontend changes needed to surface error to users
-- ⚠️ Doesn't fix silent failure in processing pipeline
-
-**Effort Estimate**: Small (1-2 days)
-
-**Risk Level**: Low - Straightforward validation addition with clear rollback path
-
----
-
-### Option 2: Add Boolean Support to Processing Pipeline
-
-**Approach**: Extend data processor to handle boolean field types properly instead of blocking them.
-
-**Key Changes**:
-- Update `DataProcessor.ts:234` to handle boolean type conversions
-- Add type coercion logic for boolean → string/number
-- Update tests to cover boolean processing scenarios
-- Document boolean handling in API
-
-**Pros**:
-- ✅ More flexible solution - users can map boolean fields
-- ✅ No migration needed - existing mappings work automatically
-- ✅ Fixes root cause (processing limitation) not just symptom
-
-**Cons / Trade-offs**:
-- ⚠️ Larger code changes across processing pipeline
-- ⚠️ Type coercion rules need careful design (boolean→string: "true"/"false"?)
-- ⚠️ May introduce new edge cases and complexity
-- ⚠️ Unclear if boolean mapping is actually desired feature
-
-**Effort Estimate**: Medium (3-5 days)
-
-**Risk Level**: Medium - Type coercion can introduce subtle bugs if not carefully designed
-
----
-
-### Option 3: Frontend Validation Only
-
-**Approach**: Add type validation in frontend to prevent boolean types from being submitted.
-
-**Key Changes**:
-- Add field type validation in mapping creation UI
-- Disable boolean option in type selector dropdown
-- Show warning message if boolean type detected
-- Add database migration for existing mappings
-
-**Pros**:
-- ✅ Quick frontend-only change
-- ✅ Improves UX with immediate feedback
-- ✅ No backend code changes needed
-
-**Cons / Trade-offs**:
-- ⚠️ Doesn't protect API endpoints (security concern)
-- ⚠️ API integrations can still send invalid data
-- ⚠️ Not a complete solution - backend validation still needed
-- ⚠️ Violates security best practice (never trust client)
-
-**Effort Estimate**: Small (1 day)
-
-**Risk Level**: High - Incomplete solution leaves API vulnerable to invalid data
-```
-
-##### Section 5: Implementation Guidance
-Provide actionable direction for execution:
-
-**Recommended Approach**:
-- Choice: Option [N] - [Name]
-- Rationale: 2-3 sentences explaining WHY
-
-**Key Considerations**:
-- Technical: 3-5 important technical points
-- Testing Requirements: What needs to be tested
-- Backward Compatibility: How to handle existing functionality (if applicable)
-
-**Tests to Update/Create**:
-- Unit Tests: Which files and scenarios
-- Integration Tests: End-to-end scenarios
-- Manual Testing: User flows checklist
-
-**Deployment & Rollout** (conditional - only for risky/complex):
-- Deployment Strategy
-- Rollout Plan
-- Monitoring
-
-Example:
-```markdown
-## 🛠️ 4. IMPLEMENTATION GUIDANCE
-
-### Recommended Approach
-
-**Choice**: Option 1 - Add Validation in FieldMappingValidator
-
-**Rationale**: Provides robust solution with minimal code changes. Centralized validation aligns with existing patterns and prevents the issue at source. Low risk with clear rollback path. Option 2 would add unnecessary complexity for an edge case, and Option 3 is incomplete from security perspective.
-
-### Key Considerations
-
-**Technical**:
-- Validation should match processing pipeline's supported types exactly
-- Error message should guide users to valid types (number, text)
-- Migration script must identify and handle all 47 existing invalid mappings
-- Consider adding validation test suite to prevent regression
-
-**Testing Requirements**:
-- Test boolean type rejection with clear error message
-- Verify number and text types still pass validation
-- Test migration script on copy of production data
-- Integration test for end-to-end mapping creation with validation
-
-**Backward Compatibility**:
-- Existing valid mappings (number, text) unaffected
-- Invalid boolean mappings must be migrated or removed before validation enabled
-- API contract unchanged - just stricter validation
-
-### Tests to Update/Create
-
-**Unit Tests**:
-- `services/FieldMappingValidator.spec.ts` - Add boolean rejection test, verify allowed types pass, check error message format
-- `services/DataProcessor.spec.ts` - Add test to verify only number/text types reach processor
-
-**Integration Tests**:
-- `integration/MappingController.integration.spec.ts` - Test POST /mapping with boolean returns 400, verify error response, ensure valid types still work
-
-**Manual Testing**:
-- [ ] Create mapping with boolean type → Expect error "Boolean field types are not supported"
-- [ ] Create mapping with number type → Expect success
-- [ ] Create mapping with text type → Expect success
-- [ ] Verify existing valid mappings still work after deployment
-
-### Deployment & Rollout
-
-**Deployment Strategy**:
-- Run migration script in staging first to test with production data copy
-- Deploy backend changes with validation
-- Monitor error rates for unexpected validation failures
-
-**Rollout Plan**:
-1. Test migration script on staging with production data snapshot
-2. Deploy backend changes to staging, verify validation works
-3. Run migration on production during low-traffic window
-4. Deploy backend changes to production
-5. Monitor for 24h for validation errors
-
-**Monitoring**:
-- Track validation error rate (expect increase, then plateau)
-- Monitor mapping creation success rate (should remain stable for valid types)
-- Alert if validation error rate exceeds 25% (suggests logic error)
-```
-
-##### Section 6: Resources & References
-
-**Code Locations**: Primary and related files with descriptions
-
-**Related Issues/PRs**: Links with context
-
-**Documentation**: Architecture/API/wiki links (if applicable)
-
-**Stakeholders**: Who to involve (conditional)
-
-**Historical Context**: Past decisions or attempts (conditional)
-
-Keep this section focused - don't repeat detailed information already in other sections.
-
-Example:
-```markdown
-## 📚 5. RESOURCES & REFERENCES
-
-### Code Locations
-
-**Primary Files**:
-- `services/FieldMappingValidator.ts:67` - Main validation logic to update
-- `api/controllers/MappingController.ts:123` - Controller that calls validator
-
-**Related Files**:
-- `services/DataProcessor.ts:234` - Where boolean types currently fail
-- `services/FieldMappingValidator.spec.ts` - Test file to update
-
-### Related Issues/PRs
-
-- **Jira**: [IS-8046](https://productboard.atlassian.net/browse/IS-8046)
-- **Related**: IS-8055 - Original field mapping implementation
-
-### Documentation
-
-- Field Mapping API: `docs/api/field-mapping.md`
-- Supported Field Types: `docs/architecture/data-types.md`
-
-### Stakeholders
-
-- **Engineering**: @backend-team - owns validation logic
-- **Product**: @pm-name - decides if boolean support should be added in future
-
-### Historical Context
-
-- Boolean type was never explicitly supported but wasn't blocked
-- Processing pipeline was built to handle number/text only
-- Frontend has validation but API does not (intentional gap)
-```
-
-#### For Quick Analysis:
-
-##### Section 1: Frontmatter & Header
-Simpler metadata than full analysis.
-
-##### Section 2: Problem Summary
-```markdown
-## 🎯 PROBLEM SUMMARY
-
-**Core Issue**: [1-2 sentence problem description]
-
-**Impact**: [Who/what affected and how - 1-2 sentences]
-
-**Severity**: [Level] - [1 sentence justification]
-```
-
-##### Section 3: Current State
-```markdown
-## 📊 CURRENT STATE
-
-**Affected Components**:
-- **ComponentName** (`file:line`) - [Current behavior]
-- **AnotherComponent** (`file:line`) - [Current behavior]
-
-**Root Cause**: [1-2 sentences explaining what's causing the problem]
-```
-
-##### Section 4: Solution
-```markdown
-## 💡 SOLUTION
-
-**Approach**: [1-2 sentences describing the fix]
-
-**Changes Needed**:
-- [ ] Change 1: [Specific action] (`file:line`)
-- [ ] Change 2: [Another action] (`file:line`)
-- [ ] Change 3: [Additional action] (`file:line`)
-
-**Pros**:
-- ✅ [Key benefit 1]
-- ✅ [Key benefit 2]
-
-**Cons**:
-- ⚠️ [Main limitation if any]
-
-**Effort**: [Small|Medium|Large]
-**Risk**: [Low|Medium|High]
-```
-
-##### Section 5: Implementation
-```markdown
-## 🛠️ IMPLEMENTATION
-
-**Testing**:
-- [ ] [Test scenario 1]
-- [ ] [Test scenario 2]
-- [ ] [Edge case]
-
-**Files to Update**:
-- `file:line` - [What to change]
-- `test-file:line` - [Test to add]
-```
-
-##### Section 6: Key References
-```markdown
-## 📚 KEY REFERENCES
-
-- `primary/file:line` - [Main file description]
-- `related/file:line` - [Related file]
-- Jira: [ID] [if applicable]
-```
+The template file contains:
+- Complete structure with all required sections
+- Field descriptions and examples
+- Writing guidelines
+- Validation checklist
+
+**Use this template as your guide** for generating the analysis in Step 3.
+
+### Step 3: Generate Analysis Following Template Structure
+
+**Follow the loaded template structure exactly**. The template provides the complete format, sections, and validation checklist.
+
+**Key generation principles**:
+
+1. **Extract from Input Context**: Use exploration results from Step 1 to populate template sections
+2. **Preserve file:line References**: All code references from exploration must use `file:line` format
+3. **Quantify Impact**: Use numbers/percentages when available ("~500 users" not "many users")
+4. **Provide Evidence**: Support all claims with file references, logs, or behavior observations
+5. **Generate Viable Solutions**: Create 2-3 genuinely viable solution options
+6. **Mark Recommended Option**: Use ⭐ to indicate recommended solution
+
+**Template guidance** (reference `schovi/templates/analysis/full.md` for complete structure):
+
+**Problem Summary**:
+- Extract core issue from problem context
+- Quantify impact with specific numbers if available
+- Justify severity and urgency levels
+
+**Current State Analysis**:
+- List affected components with file:line references
+- Show user flow and/or data flow diagrams
+- Identify dependencies (if complex)
+- Document issues with problem/evidence/root cause
+
+**Solution Proposals** (2-3 options):
+- For each: Approach, Key Changes with file:line, Pros (✅), Cons (⚠️), Effort, Risk
+- Mark recommended option with ⭐
+
+**Implementation Guidance**:
+- Recommended approach with rationale
+- Key technical considerations
+- Testing requirements (unit, integration, manual)
+- Deployment & rollout (if complex/risky)
+
+**Resources & References**:
+- Code locations with file:line
+- Related issues/PRs
+- Documentation links
+- Stakeholders (if relevant)
+- Historical context (if valuable)
+
+**See template for complete structure, examples, and validation checklist.**
 
 ### Step 4: Format Output
 
@@ -529,11 +152,11 @@ Return the analysis in this format:
 4. **NEVER** skip solution proposals or implementation guidance
 5. **NEVER** exceed 4000 tokens in your response
 6. **NEVER** omit file:line references from code locations
-7. **NEVER** provide only one solution (full analysis requires 2-3 options)
+7. **NEVER** provide only one solution (requires 2-3 options)
 
 ### ✅ ALWAYS DO THESE:
 1. **ALWAYS** structure analysis following template format
-2. **ALWAYS** provide 2-3 solution options for full analysis
+2. **ALWAYS** provide 2-3 solution options
 3. **ALWAYS** preserve file:line references from exploration
 4. **ALWAYS** mark recommended option with ⭐
 5. **ALWAYS** quantify impact when possible (numbers, percentages)

@@ -39,9 +39,6 @@ Option [N]: [Solution Name]
 ### User Notes
 [Any user preferences or comments]
 
-### Template Type
-[full|minimal]
-
 ### Metadata
 - Jira ID: [ID or N/A]
 - Created by: [User email if available]
@@ -55,247 +52,77 @@ Extract each section carefully. Identify:
 - What flows need to change
 - What dependencies exist
 
-### Step 2: Determine Template Type
+### Step 2: Load Template
 
-**Full Template** (for detailed analysis):
-- Includes: Decision rationale, technical overview, data/user flows, implementation phases, comprehensive testing
-- Use when: Detailed analysis available, multiple options were considered, complex change
+**Load the specification template**:
 
-**Minimal Template** (for simple tasks):
-- Includes: Goal statement, basic requirements, simple task list, acceptance criteria
-- Use when: From-scratch mode, simple bug fix, straightforward task
-
-### Step 3: Generate Specification Sections
-
-#### For Full Template:
-
-##### Section 1: Frontmatter & Header
-```yaml
----
-jira_id: [JIRA-ID or N/A]
-title: "[Brief description]"
-status: "DRAFT"
-approach_selected: "Option [N]: [Solution Name]"
-created_date: [Date]
-created_by: [Email or N/A]
----
-
-# SPEC: [JIRA-ID or Title]
+```
+Read /home/user/claude-schovi/schovi/templates/spec/full.md
 ```
 
-##### Section 2: Decision & Rationale
-Extract from chosen approach:
-- **Approach Selected**: Option N - Name
-- **Rationale**: 2-3 sentences on WHY this approach (from pros/cons)
-- **Alternatives Considered**: 2-3 sentences total summarizing why other options were rejected (not full list)
+The template file contains:
+- Complete structure with all required sections
+- Field descriptions and examples
+- Writing guidelines
+- Validation checklist
 
-Example:
-```markdown
-## Decision & Rationale
+**Use this template as your guide** for generating the specification in Step 3.
 
-**Approach Selected**: Option 2 - Backend service with Kafka queue
+### Step 3: Generate Specification Following Template Structure
 
-**Rationale**: Maintains consistency with existing event-driven architecture, allows horizontal scaling without blocking UI, and provides natural rate limiting through queue backpressure.
+**Follow the loaded template structure exactly**. The template provides the complete format, sections, and validation checklist.
 
-**Alternatives Considered**: Synchronous HTTP and scheduled batch approaches were rejected due to poor UX (blocking) and latency requirements (not real-time).
-```
+**Key generation principles**:
 
-##### Section 3: Technical Overview
-Extract from technical details:
-- **Data Flow**: How data moves through the system (source → transformations → destination)
-- **Affected Services**: List of services/components with their roles
-- **Key Changes**: Major modifications required (3-5 bullet points)
+1. **Extract from Input Context**: Use analysis content from Step 1 to populate template sections
+2. **Preserve file:line References**: All code references must use `file:line` format
+3. **Be Specific and Actionable**: Every task should be implementable; avoid vague descriptions
+4. **Break Down Work**: Organize into logical phases
+5. **Make Testable**: Acceptance criteria must be verifiable and specific
 
-Use file:line references from analysis.
+**Template guidance** (reference `schovi/templates/spec/full.md` for complete structure):
 
-##### Section 4: Implementation Tasks
-Break down approach "Changes Required" into checkboxes:
-- Group by phase (Phase 1: Backend, Phase 2: Frontend, Phase 3: Testing)
-- Each task is specific and actionable
-- Include file references where known
-- Format: `- [ ] Task description (file:line if applicable)`
+**Decision & Rationale**:
+- Approach selected with name
+- Rationale (2-3 sentences on WHY)
+- Alternatives considered (brief summary)
 
-Example:
-```markdown
-## Implementation Tasks
+**Technical Overview**:
+- Data flow diagram (source → transformations → destination)
+- Affected services with file:line references
+- Key changes (3-5 bullet points)
 
-### Phase 1: Backend Service
-- [ ] Implement `FeatureUpdateService` in `services/feature-update.ts`
-- [ ] Add Kafka topic `feature-updates` to kafka config
-- [ ] Create database migration for `feature_events` table
+**Implementation Tasks**:
+- Group by phase (Backend, Frontend, Testing)
+- Specific actionable tasks with checkboxes
+- Include file:line references where known
 
-### Phase 2: Integration
-- [ ] Update `FeatureController` to publish events on changes
-- [ ] Add Kafka listener in `consumers/feature-consumer.ts`
-- [ ] Wire up dependency injection
+**Acceptance Criteria**:
+- Testable checkboxes
+- Specific and measurable
+- Standard criteria (tests pass, linting, review)
 
-### Phase 3: Testing & Validation
-- [ ] Write unit tests for FeatureUpdateService
-- [ ] Create integration test for end-to-end flow
-- [ ] Manual testing checklist completion
-```
+**Testing Strategy**:
+- Unit tests (which files, what scenarios)
+- Integration tests (which files, what scenarios)
+- E2E tests (if applicable)
+- Focus on code tests only (no manual testing checklists)
 
-##### Section 5: Acceptance Criteria
-Convert requirements into testable checkboxes:
-- Extract from analysis acceptance criteria
-- Add technical completion criteria (tests pass, linting passes)
-- Make each criterion specific and measurable
-- Format: `- [ ] Criterion`
+**Risks & Mitigations**:
+- List potential risks
+- Provide mitigation for each
 
-##### Section 6: Testing Strategy
-Structure from approach details - **FOCUS ON CODE TESTS ONLY**:
-- **Unit Tests**: Which test files need to be modified/created and what scenarios to test
-- **Integration Tests**: Which integration test files need updates and what scenarios to cover
-- **E2E Tests** (if applicable): Which E2E test files need updates
-- **NO manual testing checklists** - manual verification happens during PR review
+**Deployment & Rollout** (if complex/risky):
+- Deployment strategy
+- Rollout plan
+- Monitoring
 
-Example format:
-```markdown
-## Testing Strategy
+**References** (optional):
+- Jira issue
+- Analysis file
+- Related PRs
 
-### Tests to Update/Create
-
-**Unit Tests** (modified/new):
-- `services/FieldMappingValidator.spec.ts` - Add tests for boolean rejection, verify number/text types still pass
-- `controllers/MappingController.spec.ts` - Update existing tests to cover new validation error
-
-**Integration Tests** (modified/new):
-- `integration/mapping-api.spec.ts` - Test end-to-end API flow with boolean type returns 400 error
-
-**E2E Tests** (if needed):
-- `e2e/mapping-flow.spec.ts` - Verify error message displays correctly in UI
-```
-
-##### Section 7: Risks & Mitigations
-Extract from approach cons and technical context:
-- List known risks from analysis
-- Add mitigation strategy for each
-- Consider: performance, backward compatibility, rollout
-
-Example:
-```markdown
-## Risks & Mitigations
-
-- **Risk**: Kafka topic creation delay in dev environment
-  - *Mitigation*: Pre-create topics in setup scripts before testing
-
-- **Risk**: Event schema evolution breaks old consumers
-  - *Mitigation*: Use Avro with backward compatibility rules
-
-- **Risk**: High event volume impacts performance
-  - *Mitigation*: Add rate limiting and monitoring alerts
-```
-
-##### Section 8: Deployment & Rollout (Conditional)
-**IMPORTANT**: Only include this section if deployment is non-standard.
-
-**Include when**:
-- Feature flag (LaunchDarkly) required for gradual rollout
-- Multiple repositories must be deployed in specific order
-- Database migrations or breaking changes involved
-- Coordination with other teams required
-- Complex monitoring or rollback procedures
-
-**Skip when**: Standard single-repo deployment with no special requirements
-
-**If including, provide**:
-- Feature flag details (name, location, strategy)
-- Deployment sequence (if multi-repo)
-- Critical monitoring metrics (only if specific)
-- Rollback procedure (only if non-trivial)
-
-Example when needed:
-```markdown
-## Deployment & Rollout
-
-**Feature Flag**: `enable-kafka-events` in `config/feature-flags.ts`
-- Strategy: Gradual rollout starting at 10%, monitor for 24h before 100%
-
-**Deployment Sequence**:
-1. Deploy `backend-service` first (adds Kafka producer)
-2. Deploy `event-consumer` second (adds listener)
-3. Enable feature flag
-
-**Critical Monitoring**: Watch Kafka lag and event processing errors
-
-**Rollback**: Disable feature flag, events will queue until re-enabled
-```
-
-Example when not needed:
-```markdown
-## Deployment & Rollout
-
-Standard deployment process applies. No special rollout coordination needed.
-```
-
-##### Section 9: References (Optional)
-Keep this section brief - avoid repeating detailed file paths from analysis:
-- Link to Jira issue (if applicable)
-- Link to analysis document (if from `/schovi:analyze-problem`)
-- Related PRs or commits (if mentioned in analysis)
-- Architecture docs (only if critical to understanding)
-
-**Do NOT repeat**:
-- File paths already listed in Technical Overview
-- Code locations already in Implementation Tasks
-- Detailed flow diagrams (reference analysis instead)
-
-Example:
-```markdown
-## References
-
-- **Jira Issue**: [EC-1234](https://productboard.atlassian.net/browse/EC-1234)
-- **Analysis**: See analysis.md for detailed flow diagrams and code locations
-- **Related**: PR #456 (previous mapping refactor)
-```
-
-#### For Minimal Template:
-
-##### Section 1: Frontmatter & Header
-Same as full template but simpler metadata.
-
-##### Section 2: Goal Statement
-```markdown
-## Goal
-
-[2-3 sentence description of what needs to be built/fixed and why]
-```
-
-##### Section 3: Requirements
-Extract from user input:
-- List key requirements as bullets
-- Keep it simple and clear
-- 3-7 requirements typical
-
-##### Section 4: Implementation Tasks
-```markdown
-## Implementation Tasks
-
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
-[... as many as needed]
-```
-
-##### Section 5: Acceptance Criteria
-Same format as full template but simpler:
-```markdown
-## Acceptance Criteria
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-- [ ] Tests pass
-- [ ] Code reviewed
-```
-
-##### Section 6: Testing Notes
-Brief section on how to verify:
-```markdown
-## Testing
-
-- Manual test: [Steps to verify]
-- Expected result: [What should happen]
-```
+**See template for complete structure, examples, and validation checklist.**
 
 ### Step 4: Format Output
 
@@ -378,8 +205,7 @@ When explaining "why this approach":
 - [Critical info needed]
 
 **Suggest**:
-- Provide more detailed analysis, OR
-- Use minimal template for simple spec
+- Provide more detailed analysis to generate a complete spec
 
 ╭─────────────────────────────────────────────╮
   ❌ Generation failed - incomplete input
@@ -402,7 +228,7 @@ Still generate spec but note ambiguity:
 Before returning your spec, verify:
 - [ ] YAML frontmatter present and valid
 - [ ] Title and status included
-- [ ] Decision rationale present (full) OR goal statement (minimal)
+- [ ] Decision rationale present with approach selected
 - [ ] Implementation tasks are checkboxes
 - [ ] Tasks are specific and actionable (not "fix bug" - instead "update validation in Validator.ts:45")
 - [ ] Acceptance criteria are testable checkboxes
@@ -433,9 +259,6 @@ Modify validation logic to explicitly reject boolean field types during mapping.
 
 ### User Notes
 Need migration for 3 existing boolean mappings in production.
-
-### Template Type
-full
 
 ### Metadata
 - Jira ID: IS-8046
@@ -564,81 +387,6 @@ Standard deployment process applies. Migration script will run as part of deploy
 
 ╭─────────────────────────────────────────────╮
   ✅ Spec generated | ~1850 tokens | 142 lines
-╰─────────────────────────────────────────────╯
-```
-
-### Example Input (Minimal Template):
-
-```markdown
-## Input Context
-
-### Problem Summary
-Add loading spinner to dashboard while data loads
-
-### Template Type
-minimal
-
-### Metadata
-- Created date: 2025-04-11
-```
-
-### Example Output (Minimal Template):
-
-```markdown
-╭─────────────────────────────────────────────╮
-│ 📋 SPEC GENERATOR                           │
-╰─────────────────────────────────────────────╯
-
----
-title: "Add loading spinner to dashboard"
-status: "DRAFT"
-created_date: 2025-04-11
----
-
-# SPEC: Add Loading Spinner to Dashboard
-
-## Goal
-
-Add a visual loading indicator to the dashboard to improve user experience while data is being fetched from the API. Currently users see a blank screen during load, which can be confusing.
-
-## Requirements
-
-- Display spinner when dashboard data is loading
-- Hide spinner when data is ready
-- Spinner should be centered and visible
-- Use existing spinner component from design system
-- Don't block user interaction with other UI elements
-
-## Implementation Tasks
-
-- [ ] Import spinner component
-- [ ] Add loading state to dashboard component
-- [ ] Show spinner when loading state is true
-- [ ] Set loading state during API fetch
-- [ ] Hide spinner when data arrives
-- [ ] Handle error case (hide spinner, show error)
-
-## Acceptance Criteria
-
-- [ ] Spinner displays during dashboard load
-- [ ] Spinner disappears when data loaded
-- [ ] Spinner doesn't block other UI interactions
-- [ ] Error state handles spinner correctly
-- [ ] Tests pass
-- [ ] Code reviewed
-
-## Testing
-
-**Manual test**:
-1. Open dashboard
-2. Observe spinner appears immediately
-3. Wait for data load
-4. Confirm spinner disappears when data displays
-
-**Expected result**: User sees loading feedback, smooth transition to content
-
-╭─────────────────────────────────────────────╮
-  ✅ Spec generated | ~580 tokens | 52 lines
 ╰─────────────────────────────────────────────╯
 ```
 

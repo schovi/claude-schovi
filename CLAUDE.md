@@ -78,6 +78,11 @@ schovi/
 │   ├── phase-template.md          # Standard command phase structure (~300 lines) [Phase 3]
 │   ├── code-fetcher.md            # Source code fetching with fallback (~80 lines) [Phase 3]
 │   └── COMMAND-TEMPLATE.md        # Command template and development guide (~200 lines) [Phase 3]
+├── templates/                     # Output structure templates (read by agents)
+│   ├── analysis/                  # Analysis templates for analyze command
+│   │   └── full.md                # Problem analysis structure (expandable with variants)
+│   └── spec/                      # Specification templates for plan command
+│       └── full.md                # Implementation spec structure (expandable with variants)
 ├── commands/
 │   ├── analyze.md        # Deep problem analysis workflow
 │   ├── debug.md          # Deep debugging workflow with root cause analysis
@@ -93,6 +98,7 @@ schovi/
 │   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 15000 tokens) [Phase 3]
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
+│   ├── analysis-generator/AGENT.md # Generate problem analyses (max 4000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
 └── skills/                        # Auto-detection intelligence
     ├── jira-auto-detector/SKILL.md   # Detects EC-1234, IS-8046, etc.
@@ -639,6 +645,50 @@ Always use `file:line` format for specificity and navigation:
 - Pros/Cons: ✅ for advantages, ⚠️ for trade-offs
 - Status indicators: ✅ passing, ❌ failing, ⏳ pending, 💬 comment
 
+### Template System
+
+**Purpose**: Output structure templates that agents read dynamically to generate consistent, well-structured analyses and specifications.
+
+**Architecture**:
+```
+analyze command → analysis-generator agent → Read templates/analysis/full.md
+plan command → spec-generator agent → Read templates/spec/full.md
+```
+
+**Benefits**:
+- ✅ Single source of truth for output structure
+- ✅ Easy to update without changing agent code
+- ✅ Clean architecture with separation of structure and logic
+- ✅ Extensible design ready for future template variants
+
+**Available Templates**:
+- `templates/analysis/full.md` - Problem analysis structure (~516 lines)
+- `templates/spec/full.md` - Implementation spec structure (~150 lines)
+
+**Current Implementation**:
+- Each agent reads its single template file
+- Template provides complete structure, examples, guidelines, and validation checklist
+- Agent populates template sections with content from input context
+- Straightforward and maintainable
+
+**Future Extensibility** (when needed):
+1. Create new template variant (e.g., `templates/analysis/quick.md`, `templates/analysis/investigative.md`)
+2. Add conditional logic to agent to select template based on input
+3. Update command to pass template selection parameter
+4. Templates remain self-contained - no other changes needed
+
+**Example future variants**:
+- `analysis/quick.md` - Lightweight analysis for simple bugs
+- `analysis/investigative.md` - Deep-dive for unclear problems
+- `analysis/performance.md` - Performance-focused analysis
+- `spec/migration.md` - Migration/refactor specifications
+
+**Token Considerations**:
+- Reading template adds ~200-500 tokens to agent context
+- But templates were already embedded inline (~400-600 lines)
+- Net token usage is approximately the same
+- Main benefit is maintainability, not token reduction
+
 ### Token Budgets (Strict)
 - Jira summaries: **Max 1000 tokens**
 - PR summaries (compact mode): **Max 1200 tokens**
@@ -755,11 +805,16 @@ Use lib/work-folder.md with: [config]
 - `schovi/lib/work-folder.md`
 - `schovi/lib/subagent-invoker.md`
 
+**Templates**:
+- `schovi/templates/analysis/full.md` - Problem analysis structure
+- `schovi/templates/spec/full.md` - Implementation spec structure
+
 **Subagents**:
 - `schovi/agents/jira-analyzer/AGENT.md`
 - `schovi/agents/gh-pr-analyzer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
+- `schovi/agents/analysis-generator/AGENT.md`
 - `schovi/agents/debug-fix-generator/AGENT.md`
 
 **Marketplace**:
