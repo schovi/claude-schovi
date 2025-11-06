@@ -522,6 +522,6 @@ Total: ~300 lines
 ## Related Documentation
 
 - **Library System**: `schovi/lib/README.md`
-- **Command Scaffolding**: `schovi/lib/command-scaffold.md`
+- **Command Template**: `schovi/lib/COMMAND-TEMPLATE.md`
 - **Existing Commands**: `schovi/commands/`
 - **Architecture**: `CLAUDE.md`

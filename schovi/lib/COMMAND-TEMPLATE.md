@@ -1,6 +1,6 @@
 ---
-name: command-scaffold
-description: Guide for rapidly creating new commands using standardized templates and libraries
+name: COMMAND-TEMPLATE
+description: Template and guide for rapidly creating new commands using standardized templates and libraries
 ---
 
 # Command Scaffolding Guide

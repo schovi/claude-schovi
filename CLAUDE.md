@@ -54,7 +54,7 @@ Command (analyze.md) → References → Library (argument-parser.md)
 - **subagent-invoker.md** (~70 lines): Standardized subagent invocation with error handling
 - **phase-template.md** (~300 lines): Standard command phase structure for consistency (Phase 3)
 - **code-fetcher.md** (~80 lines): Unified source code fetching with fallback strategies (Phase 3)
-- **command-scaffold.md** (~200 lines): Guide for rapid new command development (Phase 3)
+- **COMMAND-TEMPLATE.md** (~200 lines): Template and guide for rapid new command development (Phase 3)
 
 **Benefits**:
 - ✅ Single source of truth (bug fixes apply everywhere)
@@ -77,7 +77,7 @@ schovi/
 │   ├── subagent-invoker.md        # Subagent invocation patterns (~70 lines)
 │   ├── phase-template.md          # Standard command phase structure (~300 lines) [Phase 3]
 │   ├── code-fetcher.md            # Source code fetching with fallback (~80 lines) [Phase 3]
-│   └── command-scaffold.md        # Rapid command development guide (~200 lines) [Phase 3]
+│   └── COMMAND-TEMPLATE.md        # Command template and development guide (~200 lines) [Phase 3]
 ├── commands/
 │   ├── analyze.md        # Deep problem analysis workflow
 │   ├── debug.md          # Deep debugging workflow with root cause analysis

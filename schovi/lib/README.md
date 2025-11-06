@@ -430,9 +430,9 @@ Returns:
 
 ---
 
-#### 7. command-scaffold.md
+#### 7. COMMAND-TEMPLATE.md
 
-**Purpose**: Guide for rapidly creating new commands using standardized templates and libraries
+**Purpose**: Template and guide for rapidly creating new commands using standardized templates and libraries
 
 **Size**: ~200 lines
 
@@ -463,7 +463,7 @@ Returns:
 6. Add quality gates
 7. Test thoroughly
 
-See command-scaffold.md for detailed guide.
+See COMMAND-TEMPLATE.md for detailed guide.
 ```
 
 ---
