@@ -78,6 +78,13 @@ schovi/
 │   ├── phase-template.md          # Standard command phase structure (~300 lines) [Phase 3]
 │   ├── code-fetcher.md            # Source code fetching with fallback (~80 lines) [Phase 3]
 │   └── COMMAND-TEMPLATE.md        # Command template and development guide (~200 lines) [Phase 3]
+├── templates/                     # Output structure templates (read by agents)
+│   ├── analysis/                  # Analysis templates for analyze command
+│   │   ├── full.md                # Complex problems with comprehensive exploration
+│   │   └── quick.md               # Simple problems with clear solutions
+│   └── spec/                      # Specification templates for plan command
+│       ├── full.md                # Detailed specs from analysis with decision rationale
+│       └── minimal.md             # Simple specs for from-scratch mode
 ├── commands/
 │   ├── analyze.md        # Deep problem analysis workflow
 │   ├── debug.md          # Deep debugging workflow with root cause analysis
@@ -93,6 +100,7 @@ schovi/
 │   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 15000 tokens) [Phase 3]
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
+│   ├── analysis-generator/AGENT.md # Generate problem analyses (max 4000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
 └── skills/                        # Auto-detection intelligence
     ├── jira-auto-detector/SKILL.md   # Detects EC-1234, IS-8046, etc.
@@ -639,6 +647,46 @@ Always use `file:line` format for specificity and navigation:
 - Pros/Cons: ✅ for advantages, ⚠️ for trade-offs
 - Status indicators: ✅ passing, ❌ failing, ⏳ pending, 💬 comment
 
+### Template System
+
+**Purpose**: Output structure templates that agents read dynamically to generate consistent, well-structured analyses and specifications.
+
+**Architecture**:
+```
+analyze command → analysis-generator agent → Read templates/analysis/{full|quick}.md
+plan command → spec-generator agent → Read templates/spec/{full|minimal}.md
+```
+
+**Benefits**:
+- ✅ Single source of truth for output structure
+- ✅ Easy to update without changing agent code
+- ✅ Supports multiple template variants per output type
+- ✅ Templates can evolve independently
+
+**Available Templates**:
+- `templates/analysis/full.md` - Complex problems with comprehensive exploration (~516 lines)
+- `templates/analysis/quick.md` - Simple problems with clear solutions (~180 lines)
+- `templates/spec/full.md` - Detailed specs from analysis (~150 lines)
+- `templates/spec/minimal.md` - Simple specs for from-scratch mode (~90 lines)
+
+**Template Selection**:
+- Agents receive `template_type` in input context (e.g., "full" or "quick")
+- Agent reads appropriate template file based on type
+- Template provides structure, examples, and validation checklist
+- Agent populates template with content from input context
+
+**Adding New Templates**:
+1. Create template file in appropriate directory (e.g., `templates/analysis/investigative.md`)
+2. Define structure with sections, examples, guidelines, validation checklist
+3. Update agent to support new template type (add conditional Read logic)
+4. No other changes needed - templates are self-contained
+
+**Token Considerations**:
+- Reading template adds ~200-500 tokens to agent context
+- But templates were already embedded inline (~400-600 lines)
+- Net token usage is approximately the same
+- Main benefit is maintainability, not token reduction
+
 ### Token Budgets (Strict)
 - Jira summaries: **Max 1000 tokens**
 - PR summaries (compact mode): **Max 1200 tokens**
@@ -755,11 +803,18 @@ Use lib/work-folder.md with: [config]
 - `schovi/lib/work-folder.md`
 - `schovi/lib/subagent-invoker.md`
 
+**Templates**:
+- `schovi/templates/analysis/full.md` - Complex problem analysis structure
+- `schovi/templates/analysis/quick.md` - Simple problem analysis structure
+- `schovi/templates/spec/full.md` - Detailed specification structure
+- `schovi/templates/spec/minimal.md` - Minimal specification structure
+
 **Subagents**:
 - `schovi/agents/jira-analyzer/AGENT.md`
 - `schovi/agents/gh-pr-analyzer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
+- `schovi/agents/analysis-generator/AGENT.md`
 - `schovi/agents/debug-fix-generator/AGENT.md`
 
 **Marketplace**:
