@@ -352,11 +352,13 @@ gh pr ready <number>
 - **Multi-source Fetching**: Local filesystem (preferred), JetBrains MCP, or GitHub API fallback
 - **Smart File Prioritization**: Fetches most relevant files based on changes and impact
 - **Dependency Exploration**: Discovers and analyzes related files and test coverage
+- **Holistic Assessment**: Risk, Security, and Performance sections always included
+- **Priority-Based Issues**: Organizes by urgency (Must Fix / Should Fix / Consider) with Action items
+- **Clear Verdict**: Explicit merge decision with criteria checklist and estimated fix time
 - **Terminal Output Only**: No file creation, no work folder integration
 - **Security Focus**: Code-level vulnerability detection (SQL injection, XSS, auth issues)
 - **Code-Specific Issues**: Detects TODO comments, debug statements, hardcoded values
-- **Severity Classification**: Issues categorized as Critical/Medium/Minor
-- **Actionable Feedback**: Specific file:line references from actual code
+- **Actionable Feedback**: Specific file:line references with Action recommendations
 - **Multi-dimensional Analysis**: Functionality, quality, security, performance, testing, architecture
 
 **Output Structure**:
@@ -366,22 +368,42 @@ gh pr ready <number>
 ## 📝 Summary
 [2-3 sentence overview and overall assessment]
 
+## 🎯 Risk Assessment
+**Risk Level:** Low/Medium/High
+- Technical risk factors, test coverage, deployment risk
+
+## 🔒 Security Review
+✅ No concerns / ⚠️ Concerns identified
+- Verified security patterns or specific issues
+
+## ⚡ Performance Impact
+✅ No concerns / ⚠️ Concerns identified
+- Database queries, memory handling, algorithm efficiency
+
 ## 🔍 Key Changes/Information
 - **2-5 word title**
   - Short detail with file:line reference
-  - Short detail with file:line reference
-- **Another title**
-  - Short detail
 
-## ⚠️ Potential Issues
-### 🚨 Critical / ⚠️ Medium / 💭 Minor
-- Issues with file:line and explanation
+## ⚠️ Issues Found
+### 🚨 Must Fix
+1. **Issue** (file:line) - **Action:** Fix recommendation
 
-## 💡 Improvement Suggestions
-1-5 actionable suggestions with benefits
+### ⚠️ Should Fix
+2. **Issue** (file:line) - **Action:** Fix recommendation
 
-## 🎯 Overall Assessment
-[Approve with minor changes / Needs work / Blocked by issues]
+### 💭 Consider
+3. **Issue** (file:line) - **Action:** Suggestion
+
+## 💡 Recommendations
+1-5 actionable suggestions with benefits and optional code examples
+
+## 🎯 Verdict
+**⚠️ Approve with changes / ✅ Approve / 🚫 Needs work / ❌ Blocked**
+
+**Merge Criteria:**
+- [ ] Specific requirements from Must Fix items
+
+**Estimated Fix Time:** X minutes/hours
 ```
 
 **Example Usage**:
@@ -405,12 +427,15 @@ gh pr ready <number>
 - Context successfully fetched from external sources
 - Source code fetched via local/JetBrains/GitHub (with method reported to user)
 - Analysis completed on actual code (deep or quick mode)
+- Summary with 2-3 sentence overview
+- Risk Assessment with risk level and 2-4 factors
+- Security Review section present (concerns found OR explicit "no concerns")
+- Performance Impact section present (concerns found OR explicit "no concerns")
 - At least 3 key changes/info points identified with specific code references
-- Issues section populated with code-level findings or marked as none found
-- Security analysis performed on fetched code
-- 2-5 improvement suggestions provided with specific file:line references
-- File references use `file:line` format for all code mentions
-- Overall assessment with clear recommendation
+- Issues organized by priority (Must Fix / Should Fix / Consider) with Action items
+- 2-5 recommendations with benefits and optional code examples
+- All file references use `file:line` format
+- Verdict with approval status, merge criteria checklist, and estimated fix time
 
 **Integration**: Standalone command (not integrated with implement/debug workflows)
 
