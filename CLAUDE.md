@@ -52,6 +52,9 @@ Command (analyze.md) → References → Library (argument-parser.md)
 - **input-processing.md** (~200 lines): Unified context fetching from Jira/GitHub/Datadog/text
 - **work-folder.md** (~483 lines): Work folder resolution and metadata management
 - **subagent-invoker.md** (~70 lines): Standardized subagent invocation with error handling
+- **phase-template.md** (~300 lines): Standard command phase structure for consistency (Phase 3)
+- **code-fetcher.md** (~80 lines): Unified source code fetching with fallback strategies (Phase 3)
+- **command-scaffold.md** (~200 lines): Guide for rapid new command development (Phase 3)
 
 **Benefits**:
 - ✅ Single source of truth (bug fixes apply everywhere)
@@ -66,12 +69,15 @@ Command (analyze.md) → References → Library (argument-parser.md)
 ```
 schovi/
 ├── .claude-plugin/plugin.json    # Plugin metadata
-├── lib/                           # Shared libraries (NEW - Phase 1)
+├── lib/                           # Shared libraries
 │   ├── README.md                  # Library system documentation
 │   ├── argument-parser.md         # Standardized argument parsing (~80 lines)
 │   ├── input-processing.md        # Unified context fetching (~200 lines)
 │   ├── work-folder.md             # Work folder management (~483 lines)
-│   └── subagent-invoker.md        # Subagent invocation patterns (~70 lines)
+│   ├── subagent-invoker.md        # Subagent invocation patterns (~70 lines)
+│   ├── phase-template.md          # Standard command phase structure (~300 lines) [Phase 3]
+│   ├── code-fetcher.md            # Source code fetching with fallback (~80 lines) [Phase 3]
+│   └── command-scaffold.md        # Rapid command development guide (~200 lines) [Phase 3]
 ├── commands/
 │   ├── analyze.md        # Deep problem analysis workflow
 │   ├── debug.md          # Deep debugging workflow with root cause analysis
@@ -81,8 +87,10 @@ schovi/
 │   ├── publish.md              # GitHub pull request creation
 │   └── review.md                 # Comprehensive code review with issue detection
 ├── agents/                        # Context-isolated execution
+│   ├── TEMPLATE.md                # Standard subagent template [Phase 3]
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
-│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR (compact: max 1200, full: max 15000 with diff)
+│   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR compact mode (max 1200 tokens) [Phase 3]
+│   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 15000 tokens) [Phase 3]
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
@@ -485,15 +493,24 @@ gh pr ready <number>
 - Token budget: Max 1000 tokens
 
 **gh-pr-analyzer** (`schovi/agents/gh-pr-analyzer/AGENT.md`):
-- Input: PR URL, `owner/repo#123`, or `#123` + optional `mode` parameter
+- Input: PR URL, `owner/repo#123`, or `#123`
+- Uses: `gh` CLI via Bash tool
+- Mode: **Compact only** (simplified in Phase 3)
+- Output: ~800-1000 tokens (top 20 files, max 3 reviews, failed CI only)
+- Token budget: Max 1200 tokens
+- Used by: analyze, debug, plan commands
+- Purpose: Provide concise PR context for general analysis
+
+**gh-pr-reviewer** (`schovi/agents/gh-pr-reviewer/AGENT.md`):
+- Input: PR URL, `owner/repo#123`, or `#123`
 - Uses: `gh` CLI and GitHub API via Bash tool
-- Modes:
-  - **Compact** (default): ~800-1000 tokens (top 20 files, max 3 reviews, failed CI only, max 1200 tokens)
-  - **Full** (for review): ~2000-8000 tokens (ALL files with stats, complete diff, all reviews, all CI checks, PR head SHA)
-    - Normal PRs (≤50 files, ≤5000 lines): Includes complete diff content (max 15000 tokens)
-    - Massive PRs (>50 files or >5000 lines): File stats only, diff omitted (max 3000 tokens)
-- Output: Condensed summary (compact) or comprehensive with diff (full)
-- Used by: analyze/debug/plan (compact), review (full)
+- Mode: **Full only** (new in Phase 3)
+- Output: Comprehensive PR data with ALL files, reviews, CI checks, and PR head SHA
+  - Normal PRs (≤50 files, ≤5000 lines): Includes complete diff content (max 15000 tokens)
+  - Massive PRs (>50 files or >5000 lines): File stats only, diff omitted (max 3000 tokens)
+- Token budget: Max 15000 tokens (normal), max 3000 tokens (massive)
+- Used by: review command only
+- Purpose: Provide complete code review data with actual diff
 
 **gh-issue-analyzer** (`schovi/agents/gh-issue-analyzer/AGENT.md`):
 - Input: GitHub issue URL or `owner/repo#123`
