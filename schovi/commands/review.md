@@ -333,12 +333,17 @@ gh pr diff <PR_NUMBER>
 
 ## 🔍 Key Changes/Information
 
-[Bullet points of major changes, features, or information]
+[Bullet list where each item has a 2-5 word title and sub-bullets with details]
 
-- Change/info 1 with file:line references
-- Change/info 2 with file:line references
-- Change/info 3 with file:line references
-- ...
+- **2-5 word title**
+  - Short detail with file:line reference
+  - Short detail with file:line reference
+- **Another 2-5 word title**
+  - Short detail
+  - Short detail
+- **Third change title**
+  - Detail
+  - Detail
 
 ## ⚠️ Potential Issues
 

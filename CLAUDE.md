@@ -367,7 +367,11 @@ gh pr ready <number>
 [2-3 sentence overview and overall assessment]
 
 ## 🔍 Key Changes/Information
-- Bullet points with file:line references
+- **2-5 word title**
+  - Short detail with file:line reference
+  - Short detail with file:line reference
+- **Another title**
+  - Short detail
 
 ## ⚠️ Potential Issues
 ### 🚨 Critical / ⚠️ Medium / 💭 Minor
