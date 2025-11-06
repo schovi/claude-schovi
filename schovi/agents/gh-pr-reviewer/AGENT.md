@@ -93,14 +93,15 @@ gh pr view [PR_NUMBER] --repo [OWNER/REPO] --json \
 **Extract from reviews:**
 - Reviewer username and timestamp
 - Review state: APPROVED, CHANGES_REQUESTED, COMMENTED
-- First 300 chars of review body (more detail than compact mode)
-- **ALL reviews** (not limited to 3)
-- Include empty/approval-only reviews for completeness
+- First 200 chars of review body (condensed from 300)
+- **Top 5 most recent/relevant reviews** (reduced from ALL for token efficiency)
+- Prioritize: CHANGES_REQUESTED > APPROVED > COMMENTED
+- Skip empty/approval-only reviews unless they're the only reviews
 
 **Extract from comments:**
 - Author username and timestamp
-- First 250 chars of comment
-- Max 10 most relevant comments (skip bot comments, "LGTM" noise)
+- First 150 chars of comment (condensed from 250)
+- Max 5 most relevant comments (reduced from 10, skip bot comments, "LGTM" noise)
 
 #### CI/CD Status (ALWAYS FETCH):
 
@@ -114,8 +115,11 @@ gh pr checks [PR_NUMBER] --repo [OWNER/REPO] --json \
 - State: SUCCESS, FAILURE, PENDING, SKIPPED
 - Bucket: pass, fail, pending
 - Workflow name
-- **ALL checks** (passing, failing, pending)
-- Include workflow names for context
+- **Prioritize failing/pending checks** (reduced for token efficiency):
+  - ALL failing checks (FAILURE state)
+  - ALL pending checks (PENDING state)
+  - Summary count of passing checks (e.g., "15 checks passing")
+  - Only list individual passing checks if there are ≤5 total checks
 
 #### Changed Files (ALWAYS FETCH WITH STATS):
 
@@ -193,29 +197,29 @@ From the fetched data, extract these fields:
   - ❌ `removed` (deleted file)
   - 🔄 `renamed` (renamed file)
 
-#### CI/CD Status (ALL checks):
-- Overall status: ALL PASSING, SOME FAILING, PENDING
-- List **ALL checks** (passing, failing, pending)
-- Include workflow names
-- More detailed for comprehensive review
+#### CI/CD Status (Prioritized):
+- Overall status: ALL PASSING (X checks), SOME FAILING (X/Y), PENDING
+- List **ALL failing and pending checks** with full details
+- **Passing checks**: Summary count only (unless ≤5 total checks)
+- Include workflow names for failing/pending
 
 **Format:**
 ```
-✅ Check name (workflow)
 ❌ Check name (workflow) - FAILURE
 ⏳ Check name (workflow) - pending
+✅ 15 checks passing
 ```
 
-#### Reviews (ALL reviews):
-- **ALL reviews** (not limited to 3)
+#### Reviews (Top 5):
+- **Top 5 most recent/relevant reviews** (prioritize CHANGES_REQUESTED > APPROVED > COMMENTED)
 - Reviewer username and timestamp
 - Review state with icon: ✅ APPROVED, ❌ CHANGES_REQUESTED, 💬 COMMENTED
-- First 300 chars of review body (more detail)
-- Include empty/approval-only reviews for completeness
+- First 200 chars of review body (token optimized)
+- Skip empty/approval-only reviews unless they're the only reviews
 
-#### Key Comments (Max 10):
+#### Key Comments (Max 5):
 - Author username and timestamp
-- First 250 chars of comment
+- First 150 chars of comment (token optimized)
 - Skip bot comments unless relevant
 - Skip "LGTM", "+1" style comments
 - Prioritize: questions, concerns, substantive feedback
@@ -300,35 +304,38 @@ Return the summary in this EXACT format:
 ⚠️ **Diff omitted**: PR is too large (X files, +Y -Z lines). Fetch specific files manually or use file stats above for targeted code review.
 
 ## CI/CD Status
-[Overall summary: ALL PASSING (X/X) or FAILING (X/Y) or PENDING]
+[Overall summary: ALL PASSING (X checks) or FAILING (X/Y) or PENDING]
 
-[List ALL checks:]
-✅ [check-name] ([workflow])
+[List failing/pending checks with details:]
 ❌ [check-name] ([workflow]) - FAILURE
-⏳ [check-name] - pending
-[... all checks listed ...]
+⏳ [check-name] ([workflow]) - pending
 
-[Summary line:]
+[Summary line for passing:]
+✅ X checks passing
+
+[Only if ≤5 total checks, list individual passing checks:]
+✅ [check-name] ([workflow])
+
 **Summary**: X passing, Y failing, Z pending
 
 ## Reviews
 [If no reviews:]
 No reviews yet.
 
-[ALL reviews with timestamps:]
-- **@[reviewer]** (✅ APPROVED) - [timestamp]: [First 300 chars of review body]
-- **@[reviewer]** (❌ CHANGES_REQUESTED) - [timestamp]: [Detailed feedback]
-- **@[reviewer]** (💬 COMMENTED) - [timestamp]: [Full comment]
-[... all reviews listed ...]
+[Top 5 most relevant reviews, prioritize CHANGES_REQUESTED > APPROVED > COMMENTED:]
+- **@[reviewer]** (✅ APPROVED) - [timestamp]: [First 200 chars of review body]
+- **@[reviewer]** (❌ CHANGES_REQUESTED) - [timestamp]: [First 200 chars]
+- **@[reviewer]** (💬 COMMENTED) - [timestamp]: [First 200 chars]
+[... up to 5 reviews total ...]
 
 ## Key Comments
 [If no comments:]
 No comments.
 
-[If comments exist, max 10:]
-- **@[author]** - [timestamp]: [First 250 chars]
-- **@[author]** - [timestamp]: [First 250 chars]
-[... up to 10 comments ...]
+[If comments exist, max 5:]
+- **@[author]** - [timestamp]: [First 150 chars]
+- **@[author]** - [timestamp]: [First 150 chars]
+[... up to 5 comments ...]
 
 ## Labels & Assignees
 - **Labels**: [label1], [label2], [label3], ...
@@ -348,8 +355,8 @@ No comments.
 ```
 
 **Token Budget:**
-- **Normal PRs** (with diff): Target 2000-5000 tokens, max 15000 tokens
-- **Massive PRs** (no diff): Target 1500-2000 tokens, max 3000 tokens
+- **Normal PRs** (with diff): Target 1500-3500 tokens, max 10000 tokens (reduced for efficiency)
+- **Massive PRs** (no diff): Target 1000-1500 tokens, max 2000 tokens (reduced for efficiency)
 
 ## Critical Rules
 
@@ -359,16 +366,16 @@ No comments.
 2. **NEVER** include reaction groups, avatars, or UI metadata
 3. **NEVER** include commit history details (only metadata)
 4. **NEVER** exceed token budgets:
-   - Normal PRs: 15000 tokens max
-   - Massive PRs: 3000 tokens max
-5. **NEVER** limit to 3 reviews (include ALL reviews)
-6. **NEVER** show only failing CI checks (include ALL checks)
+   - Normal PRs: 10000 tokens max (reduced from 15000)
+   - Massive PRs: 2000 tokens max (reduced from 3000)
+5. **NEVER** include more than 5 reviews (prioritize relevance over completeness)
+6. **NEVER** list individual passing CI checks when >5 total checks (use summary count)
 7. **NEVER** limit file list to 20 (include ALL files with stats)
 
 ### ✅ ALWAYS DO THESE:
 
-1. **ALWAYS** include all reviews (with timestamps)
-2. **ALWAYS** include all CI checks (for comprehensive review)
+1. **ALWAYS** include top 5 most relevant reviews (with timestamps)
+2. **ALWAYS** include failing/pending CI checks with details, summary count for passing
 3. **ALWAYS** include all changed files with individual stats
 4. **ALWAYS** sort files by changes (descending) for prioritization
 5. **ALWAYS** include PR head SHA for code fetching
@@ -505,14 +512,14 @@ Before returning your summary, verify:
 - [ ] No raw JSON or verbose data included
 - [ ] Output is valid markdown format
 - [ ] Token budget met:
-  - Normal PRs (with diff): under 15000 tokens
-  - Massive PRs (no diff): under 3000 tokens
-- [ ] ALL reviews included (with timestamps)
+  - Normal PRs (with diff): under 10000 tokens (reduced from 15000)
+  - Massive PRs (no diff): under 2000 tokens (reduced from 3000)
+- [ ] Top 5 most relevant reviews included (with timestamps, prioritized by importance)
 - [ ] ALL changed files with individual stats
 - [ ] Files sorted by changes (descending)
 - [ ] File status indicators (✨✏️❌🔄)
 - [ ] PR head SHA included
-- [ ] ALL CI checks listed
+- [ ] Failing/pending CI checks listed with details, passing checks summarized
 - [ ] Complete diff included for normal PRs (≤50 files AND ≤5000 lines)
 - [ ] Diff omission noted for massive PRs (>50 files OR >5000 lines)
 

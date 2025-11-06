@@ -90,11 +90,38 @@ This phase is **CRITICAL** for providing accurate, code-aware reviews. Skip only
    - Already have content from Phase 2
 
 **Prioritize files for fetching** (up to 10 most relevant for deep review):
-- **From PR context**: Top 10 files by total changes (already sorted)
-- Files mentioned in PR description or review comments
-- Core logic files (controllers, services, models) over config/docs
-- Test files related to changes
-- Exclude: package-lock.json, yarn.lock, large generated files
+
+**Smart file selection based on size and impact**:
+- **High priority** (always fetch):
+  - Top 5 files by total changes (from PR context)
+  - Files mentioned in PR description or review comments
+  - Core logic files: controllers, services, models, API handlers
+- **Medium priority** (fetch if token budget allows):
+  - Related test files for changed code
+  - Configuration files with actual logic changes
+  - Utility/helper files referenced by high-priority files
+- **Low priority** (fetch only if small and relevant):
+  - Documentation files (*.md, *.txt)
+  - Schema/type definition files (if referenced)
+  - Migration files (if database changes)
+
+**Size-based fetching strategy**:
+- **Small files** (<200 lines): Fetch entire file
+- **Medium files** (200-500 lines): Fetch entire file if high priority, else fetch changed sections ±30 lines
+- **Large files** (500-1000 lines): Fetch changed sections ±50 lines only
+- **Very large files** (>1000 lines): Fetch changed sections ±30 lines, note limitation in review
+
+**Token budget awareness**:
+- Target total: ~15-25k tokens for file content (deep review)
+- Average file: ~150 lines = ~2-3k tokens
+- **Stop fetching if approaching budget**: After 5-7 files, check token usage
+- Prioritize quality over quantity: Better to deeply review 5 files than skim 14
+
+**Always exclude**:
+- Lock files: package-lock.json, yarn.lock, Gemfile.lock, poetry.lock
+- Build artifacts: dist/, build/, .min.js files
+- Large generated files: database dumps, compiled binaries
+- IDE/editor configs: .vscode/, .idea/ (unless explicitly mentioned in PR)
 
 #### Step 2: Determine Source Code Access Method
 
@@ -166,6 +193,7 @@ gh pr diff <PR_NUMBER>
    - Key: file path (e.g., "src/api/controller.ts")
    - Value: file content or relevant excerpt
    - Include line numbers for changed sections
+   - **Track fetched files**: Maintain list to prevent duplicate reads
 
 2. **Handle large files**:
    - For files >500 lines, fetch only changed sections ±50 lines of context
@@ -176,6 +204,35 @@ gh pr diff <PR_NUMBER>
    - File size, lines changed (additions/deletions)
    - File type/language
    - Related test files
+
+**⚠️ CRITICAL - Prevent Duplicate Operations**:
+
+**NEVER perform these redundant operations after fetching files**:
+- ❌ **DON'T** use `git diff` to re-fetch content already in Read tool output
+- ❌ **DON'T** use `Read tool` twice on the same file (unless different line ranges needed)
+- ❌ **DON'T** use `grep` within already-fetched file content
+- ❌ **DON'T** use `bash cat/head/tail` on files already read
+
+**Instead, analyze fetched content directly**:
+- ✅ **DO** use the file content from Read tool output
+- ✅ **DO** reference specific line numbers from already-fetched files
+- ✅ **DO** cross-reference between multiple fetched files in memory
+- ✅ **DO** use Explore subagent if you need NEW files not yet fetched
+
+**Example - BAD (Duplicate)**:
+```bash
+Read(SyncFeatureToPbServiceTest.kt)  # Fetched 150 lines
+# Later...
+Read(SyncFeatureToPbServiceTest.kt)  # ❌ DUPLICATE - Same file read again!
+git diff master...branch -- SyncFeatureToPbServiceTest.kt  # ❌ DUPLICATE - Content already fetched!
+```
+
+**Example - GOOD (Efficient)**:
+```bash
+Read(SyncFeatureToPbServiceTest.kt)  # Fetched once
+# Analyze the content from this read directly, no re-fetching
+# Reference: SyncFeatureToPbServiceTest.kt:45-67 in your analysis
+```
 
 #### Step 5: Fetch Related Dependencies (Deep Review Only)
 

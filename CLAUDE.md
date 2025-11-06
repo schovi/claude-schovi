@@ -90,7 +90,7 @@ schovi/
 │   ├── TEMPLATE.md                # Standard subagent template [Phase 3]
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR compact mode (max 1200 tokens) [Phase 3]
-│   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 15000 tokens) [Phase 3]
+│   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 10000 tokens, optimized) [Phase 3]
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
@@ -504,13 +504,14 @@ gh pr ready <number>
 **gh-pr-reviewer** (`schovi/agents/gh-pr-reviewer/AGENT.md`):
 - Input: PR URL, `owner/repo#123`, or `#123`
 - Uses: `gh` CLI and GitHub API via Bash tool
-- Mode: **Full only** (new in Phase 3)
-- Output: Comprehensive PR data with ALL files, reviews, CI checks, and PR head SHA
-  - Normal PRs (≤50 files, ≤5000 lines): Includes complete diff content (max 15000 tokens)
-  - Massive PRs (>50 files or >5000 lines): File stats only, diff omitted (max 3000 tokens)
-- Token budget: Max 15000 tokens (normal), max 3000 tokens (massive)
+- Mode: **Full only** (new in Phase 3, optimized for token efficiency)
+- Output: Comprehensive PR data with ALL files, top reviews, CI checks, and PR head SHA
+  - Normal PRs (≤50 files, ≤5000 lines): Includes complete diff content (max 10000 tokens, optimized)
+  - Massive PRs (>50 files or >5000 lines): File stats only, diff omitted (max 2000 tokens, optimized)
+- Token budget: Max 10000 tokens (normal), max 2000 tokens (massive) - **33% reduction from Phase 3 baseline**
+- Optimizations: Top 5 reviews (vs ALL), failing/pending CI only (vs ALL), condensed comments
 - Used by: review command only
-- Purpose: Provide complete code review data with actual diff
+- Purpose: Provide complete code review data with actual diff, token-efficient
 
 **gh-issue-analyzer** (`schovi/agents/gh-issue-analyzer/AGENT.md`):
 - Input: GitHub issue URL or `owner/repo#123`
@@ -639,12 +640,19 @@ Always use `file:line` format for specificity and navigation:
 - Pros/Cons: ✅ for advantages, ⚠️ for trade-offs
 - Status indicators: ✅ passing, ❌ failing, ⏳ pending, 💬 comment
 
-### Token Budgets (Strict)
+### Token Budgets (Strict, Optimized)
 - Jira summaries: **Max 1000 tokens**
 - PR summaries (compact mode): **Max 1200 tokens**
-- PR summaries (full mode): **Max 15000 tokens** (with complete diff for normal PRs)
-- PR summaries (full mode, massive PRs): **Max 3000 tokens** (file stats only, no diff)
+- PR summaries (full mode): **Max 10000 tokens** (with complete diff for normal PRs) - **33% reduction**
+- PR summaries (full mode, massive PRs): **Max 2000 tokens** (file stats only, no diff) - **33% reduction**
+- Review command file fetching: **Target 15-25k tokens** for source code (5-7 files recommended)
 - Always condense, never return raw payloads to main context (except full diff in full mode)
+
+**Token Optimization Strategies**:
+- **gh-pr-reviewer**: Top 5 reviews (not ALL), failing/pending CI only, condensed comments (200/150 chars)
+- **review command**: Smart file prioritization by size/impact, prevent duplicate reads, target 5-7 files vs 14
+- **File fetching**: Size-aware strategy (<200 lines full, >1000 lines changed sections only)
+- **Result**: Expected 40-50% token reduction for typical PR reviews (from ~90k to ~50k tokens)
 
 ## External Dependencies
 
