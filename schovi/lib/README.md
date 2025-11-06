@@ -32,7 +32,9 @@ Library (argument-parser.md, input-processing.md, etc.)
 
 ## Available Libraries
 
-### 1. argument-parser.md
+### Core Libraries (Phase 1)
+
+#### 1. argument-parser.md
 
 **Purpose**: Standardized argument parsing with validation
 
@@ -194,6 +196,148 @@ Returns:
     "response": "[Subagent response]",
     "metadata": { "tokens_used": 850, ... }
   }
+```
+
+### Phase 2 Libraries (Output & Completion)
+
+#### 5. output-handler.md
+
+**Purpose**: Unified output handling for terminal, file, Jira, and metadata updates
+
+**Size**: ~200 lines
+
+**Functionality**:
+- Terminal display with visual separators (unless --quiet)
+- File writing with path resolution and directory creation
+- Jira comment posting (via mcp__jira__addCommentToJiraIssue)
+- Metadata updates (workflow state, timestamps)
+- Consolidated error handling for all output operations
+
+**Used by**: analyze, debug, plan commands
+
+**Example Usage**:
+```markdown
+Use lib/output-handler.md with:
+
+Configuration:
+  content: "[Generated markdown content]"
+  content_type: "analysis" | "debug" | "plan" | "review"
+  command_label: "Analyze-Problem"
+
+  flags:
+    terminal_output: true       # false if --quiet
+    file_output: true           # false if --no-file
+    jira_posting: false         # true if --post-to-jira
+
+  file_config:
+    output_path: null           # From --output flag
+    default_basename: "analysis"
+    work_folder: ".WIP/EC-1234"
+    jira_id: "EC-1234"
+    workflow_step: "analyze"
+
+  jira_config:
+    jira_id: "EC-1234"
+    cloud_id: "productboard.atlassian.net"
+    jira_title: "Problem Analysis"
+    jira_author: "Claude Code"
+
+Returns:
+  {
+    "terminal": {"displayed": true, "skipped_reason": null},
+    "file": {"created": true, "path": ".WIP/EC-1234/02-analysis.md", "error": null},
+    "jira": {"posted": true, "comment_url": "https://...", "error": null},
+    "metadata": {"updated": true, "fields_changed": ["workflow.completed"], "error": null}
+  }
+```
+
+#### 6. exit-plan-mode.md
+
+**Purpose**: Standard transition from plan mode to execution mode
+
+**Size**: ~60 lines
+
+**Functionality**:
+- Consistent ExitPlanMode tool invocation
+- Standardized summary formats for analyze and debug commands
+- Visual acknowledgment of mode transition
+- Next steps documentation
+
+**Used by**: analyze, debug commands (plan and review don't use plan mode)
+
+**Example Usage**:
+```markdown
+Use lib/exit-plan-mode.md with:
+
+Configuration:
+  command_type: "analyze" | "debug"
+  command_label: "Analyze-Problem"
+
+  summary (for analyze):
+    problem: "One-line problem summary"
+    analysis_type: "Full" | "Quick"
+    key_findings: ["Finding 1", "Finding 2", "Finding 3"]
+    solution_options_count: 3
+    recommended_option: "Option 2 - Backend service approach"
+
+  summary (for debug):
+    problem: "One-line problem summary"
+    root_cause: "Null pointer dereference"
+    fix_location: "src/auth/validate.ts:142"
+    fix_type: "Add null check"
+    severity: "High"
+
+Displays transition message and invokes ExitPlanMode tool.
+```
+
+#### 7. completion-handler.md
+
+**Purpose**: Standard completion summaries and proactive next step suggestions
+
+**Size**: ~150 lines
+
+**Functionality**:
+- Visual completion summary boxes
+- Command-specific next step suggestions
+- Proactive workflow continuation (auto-suggest next commands)
+- User interaction handling (discuss, explore, post to Jira)
+
+**Used by**: analyze, debug, plan commands
+
+**Example Usage**:
+```markdown
+Use lib/completion-handler.md with:
+
+Configuration:
+  command_type: "analyze" | "debug" | "plan"
+  command_label: "Analyze-Problem"
+
+  summary_data:
+    problem: "One-line problem summary"
+    output_files: [".WIP/EC-1234/02-analysis.md"]
+    jira_posted: true
+    jira_id: "EC-1234"
+    work_folder: ".WIP/EC-1234-feature"
+    terminal_only: false
+
+  command_specific_data (for analyze):
+    analysis_type: "Full"
+    solution_options_count: 3
+    recommended_option: "Option 2"
+
+  command_specific_data (for debug):
+    root_cause: "Null pointer dereference"
+    fix_location: "src/auth/validate.ts:142"
+    severity: "High"
+
+  command_specific_data (for plan):
+    spec_title: "Add user authentication feature"
+    template: "Full"
+    task_count: 15
+    criteria_count: 8
+    test_count: 6
+
+Displays summary, offers next steps, handles user choices.
 ```
 
 ## Integration Guide
@@ -360,9 +504,20 @@ Before committing library changes:
 
 | Metric | Before | After | Improvement |
 |--------|--------|-------|-------------|
-| **Duplicated Lines** | 1,980 | 450 | 77% reduction |
-| **Average Command Length** | 1,185 | ~600 | 49% reduction |
-| **Maintenance Points** | 4× per change | 1× per change | 75% reduction |
+| **Total Libraries** | 4 (Phase 1) | 7 (Phase 1+2) | +75% |
+| **Library Lines** | 450 | 860 | +410 lines |
+| **Duplicated Lines Eliminated** | 1,980 (Phase 1) | 4,408 (Total) | 2,018 net reduction |
+| **Average Command Length** | 1,390 lines | 582 lines | 58% reduction |
+| **Maintenance Points** | 3× per change | 1× per change | 67% reduction |
+
+### Phase 2 Specific Metrics
+
+| Command | Before | After | Reduction |
+|---------|--------|-------|-----------|
+| **plan.md** | 987 lines | 580 lines | 41% (407 lines) |
+| **debug.md** | 1,390 lines | 575 lines | 59% (815 lines) |
+| **analyze.md** | 1,796 lines | 590 lines | 67% (1,206 lines) |
+| **Total** | 4,173 lines | 1,745 lines | 58% (2,428 lines) |
 
 ### Development Speed
 
@@ -393,11 +548,11 @@ Before committing library changes:
 
 Potential additions to the library system:
 
-- **output-handler.md**: Standardize file writing and terminal output
-- **exit-plan-mode.md**: Consistent plan mode exit logic
-- **completion-handler.md**: Workflow completion and confetti
 - **code-fetcher.md**: Standardize source code fetching (for review command)
 - **phase-template.md**: Template for multi-phase command structure
+- **error-handler.md**: Centralized error message templates and handling
+- **analysis-generator.md**: Subagent for generating analysis documents
+- **validation-framework.md**: Reusable validation patterns
 
 ## References
 

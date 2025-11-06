@@ -12,7 +12,7 @@ You are performing a **comprehensive problem analysis** for a bug or feature req
 
 ## ⚙️ MODE ENFORCEMENT
 
-**CRITICAL**: This command operates in **PLAN MODE** throughout Phases 1-3 (analysis and exploration). You MUST use the **ExitPlanMode tool** before Phase 4 (output handling) to transition from analysis to execution.
+**CRITICAL**: This command operates in **PLAN MODE** throughout Phases 1-2 (analysis and exploration). You MUST use the **ExitPlanMode tool** before Phase 4 (output handling) to transition from analysis to execution.
 
 **Why Plan Mode**:
 - Phases 1-3 require deep exploration and understanding WITHOUT making changes
@@ -39,913 +39,173 @@ You are performing a **comprehensive problem analysis** for a bug or feature req
 
 ## ARGUMENT PARSING
 
-**Input Received**: $ARGUMENTS
+Use lib/argument-parser.md:
 
-Parse command arguments to determine:
-
-### Problem Input
-Extract the problem identifier (first non-flag argument):
-- **Jira Issue ID**: Pattern `[A-Z]+-\d+` (e.g., EC-1234)
-- **GitHub PR**: Full URL, `owner/repo#123`, or `#123`
-- **GitHub Issue**: Full URL or `owner/repo#123`
-- **Text Description**: Free-form problem statement
-- **Empty**: No problem specified
-
-### Flags
-Parse optional flags (can appear in any order):
-
-- **`--input PATH`**: Read problem description from file
-  - Example: `--input ~/docs/problem.md`
-  - File should contain problem description or context
-  - Overrides positional argument if both provided
-
-- **`--output PATH`**: Save analysis to specific file path
-  - Example: `--output ~/docs/analysis.md`
-  - Overrides default filename
-
-- **`--no-file`**: Skip file output, terminal only
-  - Mutually exclusive with `--output`
-  - Use when you only want to see analysis, not save it
-
-- **`--quiet`**: Skip terminal output, file only
-  - Still creates file (unless `--no-file`)
-  - Use for automation or when you just want the artifact
-
-- **`--post-to-jira`**: Post analysis as Jira comment
-  - Requires Jira ID in problem input
-  - Fails gracefully if no Jira ID
-  - Posts after successful analysis generation
-
-- **`--quick`**: Generate quick analysis instead of full
-  - Minimal sections for simple problems
-  - Faster, less comprehensive
-  - Use for straightforward bugs or small features
-
-- **`--work-dir PATH`**: Use specific work folder
-  - Example: `--work-dir .WIP/EC-1234-add-auth`
-  - Overrides auto-detection
-  - Use when you have an existing work folder
-
-### Flag Validation
-- `--input` overrides positional argument if both provided → Use file content
-- `--output` and `--no-file` cannot be used together → Error
-- `--post-to-jira` without Jira ID → Warning, skip Jira posting
-- Unknown flags → Warn user but continue
-
-### Defaults
-If no output flags specified:
-- **Default behavior**: Terminal display + save to file
-- **Default filename**:
-  - With Jira ID: `analysis-[JIRA-ID].md` (e.g., `analysis-EC-1234.md`)
-  - Without Jira ID: `analysis-[timestamp].md` (e.g., `analysis-2025-04-11-143022.md`)
-- **Default mode**: Full analysis (unless `--quick` specified)
-
-### Storage for Later Phases
-Store parsed values for use in Phases 1-5:
 ```
-input_path = [--input PATH] or [null]
-problem_input = [extracted identifier or description or from file]
-output_path = [--output PATH] or [default filename] or [null if --no-file]
-work_dir = [--work-dir PATH] or [null - will auto-detect]
-terminal_output = true (unless --quiet)
-jira_posting = [true if --post-to-jira]
-quick_mode = [true if --quick]
+Configuration:
+  command_name: "analyze"
+  command_label: "Analyze-Problem"
+
+  positional:
+    - name: "problem_input"
+      description: "Jira ID, GitHub URL, or problem description"
+      required: false
+
+  flags:
+    - name: "--input"
+      type: "path"
+      description: "Read problem description from file"
+    - name: "--output"
+      type: "path"
+      description: "Custom output file path for analysis"
+    - name: "--work-dir"
+      type: "path"
+      description: "Custom work directory"
+    - name: "--no-file"
+      type: "boolean"
+      description: "Skip file creation, terminal only"
+    - name: "--quiet"
+      type: "boolean"
+      description: "Suppress terminal output"
+    - name: "--post-to-jira"
+      type: "boolean"
+      description: "Post analysis as Jira comment"
+    - name: "--quick"
+      type: "boolean"
+      description: "Generate quick analysis (minimal sections)"
+
+  validation:
+    - --output and --no-file are mutually exclusive
+    - --post-to-jira requires Jira ID in problem_input
+    - At least one input source required (positional or --input)
 ```
+
+**Store parsed values:**
+- `problem_input`: Positional argument or --input file content
+- `output_path`: --output value or null
+- `work_dir`: --work-dir value or null
+- `file_output`: true (unless --no-file)
+- `terminal_output`: true (unless --quiet)
+- `jira_posting`: true if --post-to-jira
+- `quick_mode`: true if --quick
 
 ---
 
 ## PHASE 1: INPUT PROCESSING & CLARIFICATION
 
-**Problem Input**: [From argument parsing above]
-
-### Step 1.1: Parse Input
-
-**If `--input PATH` flag provided**:
-```
-1. Read file content using Read tool:
-   file_path: [input_path from argument parsing]
-
-2. Use file content as problem_input (overrides positional argument)
-
-3. Continue to determine input type from file content
-```
-
-**Determine input type** (from positional argument or file content):
-- **Jira Issue ID**: Matches pattern `[A-Z]+-\d+` (e.g., EC-1234, PROJ-567)
-- **GitHub PR**: Matches patterns:
-  - Full URL: `https://github.com/owner/repo/pull/123`
-  - Short reference: `owner/repo#123`
-  - Issue number: `#123` (requires git remote detection)
-- **GitHub Issue**: Matches patterns:
-  - Full URL: `https://github.com/owner/repo/issues/123`
-  - Short reference: `owner/repo#123` (disambiguate from PR)
-- **Textual Description**: Free-form problem statement
-- **Empty/Unclear**: Missing or ambiguous input
-
-### Step 1.2: Smart Clarification Detection
-
-**IMPORTANT**: Before proceeding with analysis, evaluate if the input is sufficient. Ask clarifying questions ONLY if ANY of these conditions are true:
-
-1. **Ambiguous Scope**:
-   - Problem mentions "login" but unclear which login flow (OAuth, username/password, SSO, etc.)
-   - Feature request without clear success criteria
-   - Bug without reproduction steps
-
-2. **Missing Critical Context**:
-   - No indication of affected system/component
-   - Unclear user journey or entry point
-   - Unknown environment (production, staging, specific version)
-
-3. **Multiple Interpretations**:
-   - Request could apply to multiple features/flows
-   - Unclear priority or urgency
-   - Ambiguous technical requirements
-
-**If clarification is needed**, use the AskUserQuestion tool to ask focused questions:
-- What is the affected component/feature?
-- What is the expected behavior vs. actual behavior?
-- Are there specific reproduction steps?
-- Which environment is affected?
-- Are there any related systems or dependencies to consider?
-
-**If input is clear**, proceed directly to Step 1.3.
-
-### Step 1.3: Fetch Detailed Information
-
-**If Jira Issue ID Provided**:
-```
-IMPORTANT: Delegate to the jira-analyzer subagent to prevent context pollution.
-
-1. Acknowledge detection:
-   🛠️ **[Analyze-Problem]** Detected Jira issue: [ISSUE-KEY]
-   ⏳ Fetching issue details via jira-analyzer...
-
-2. Use the Task tool to invoke the jira-analyzer subagent:
-   prompt: "Fetch and summarize Jira issue [ISSUE-KEY or URL]"
-   subagent_type: "schovi:jira-analyzer:jira-analyzer"
-   description: "Fetching Jira issue summary"
-
-3. The subagent will:
-   - Fetch the full Jira payload (~10k tokens) in its isolated context
-   - Extract ONLY essential information
-   - Return a clean summary (~800 tokens) with visual wrappers:
-
-   ╭─────────────────────────────────────╮
-   │ 🔍 JIRA ANALYZER                    │
-   ╰─────────────────────────────────────╯
-
-   [Structured summary content]
-
-   ╭─────────────────────────────────────╮
-     ✅ Summary complete | ~[X] tokens
-   ╰─────────────────────────────────────╯
-
-4. After receiving the summary, check for errors:
-
-   **If subagent response contains error markers** (❌, "failed", "not found", "API error"):
-   ```
-   ❌ **[Analyze-Problem]** Failed to fetch Jira issue [ISSUE-KEY]
-
-   Error: [Extract error message from subagent response]
-
-   This usually means:
-   - Issue key is incorrect or doesn't exist
-   - You don't have access to this issue
-   - Jira API is unavailable
-   - MCP Jira server is not configured
-
-   Options:
-   1. Verify issue key and retry
-   2. Provide problem description manually
-   3. Cancel analysis
-
-   How would you like to proceed?
-   ```
-
-   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
-
-   **If subagent response is successful** (✅ marker present):
-   ✅ **[Analyze-Problem]** Issue details fetched successfully
-
-5. You will receive a structured summary containing:
-   - Core information (key, title, type, status, priority)
-   - Condensed description
-   - Acceptance criteria
-   - Key comments (max 3)
-   - Related issues
-   - Technical context
-
-6. Use this summary as the primary source of truth for your analysis
-
-NEVER fetch Jira directly using mcp__jira__* tools - always delegate to the subagent.
-This prevents massive Jira payloads from polluting your context.
-```
-
-**If GitHub PR Provided**:
-```
-IMPORTANT: Delegate to the gh-pr-analyzer subagent to prevent context pollution.
-
-1. Acknowledge detection:
-   🛠️ **[Analyze-Problem]** Detected GitHub PR: [PR reference]
-   ⏳ Fetching PR details via gh-pr-analyzer...
-
-2. Use the Task tool to invoke the gh-pr-analyzer subagent:
-   prompt: "Fetch and summarize GitHub PR [URL, owner/repo#123, or #123]"
-   subagent_type: "schovi:gh-pr-analyzer:gh-pr-analyzer"
-   description: "Fetching GitHub PR summary"
-
-3. The subagent will:
-   - Fetch the full PR payload via gh CLI (~20-50k tokens) in its isolated context
-   - Extract ONLY essential information
-   - Return a clean summary (~800-1000 tokens) with visual wrappers:
-
-   ╭─────────────────────────────────────╮
-   │ 🔍 PR ANALYZER                      │
-   ╰─────────────────────────────────────╯
-
-   [Structured summary content]
-
-   ╭─────────────────────────────────────╮
-     ✅ Summary complete | ~[X] tokens
-   ╰─────────────────────────────────────╯
-
-4. After receiving the summary, check for errors:
-
-   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
-   ```
-   ❌ **[Analyze-Problem]** Failed to fetch GitHub PR [PR reference]
-
-   Error: [Extract error message from subagent response]
-
-   This usually means:
-   - PR number/URL is incorrect
-   - Repository doesn't exist or is private
-   - gh CLI is not authenticated (run: gh auth login)
-   - Network connectivity issues
-
-   Options:
-   1. Verify PR reference and retry
-   2. Provide problem description manually
-   3. Cancel analysis
-
-   How would you like to proceed?
-   ```
-
-   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
-
-   **If subagent response is successful** (✅ marker present):
-   ✅ **[Analyze-Problem]** PR details fetched successfully
-
-5. You will receive a structured summary containing:
-   - Core information (PR number, title, state, author, base/head branches)
-   - Condensed description (max 500 chars)
-   - Top 5 changed files with stats
-   - CI check status (failures only)
-   - Key reviews (max 3, failures/blocks prioritized)
-   - Important comments (max 5)
-
-6. Use this summary to understand:
-   - Why the PR is failing (CI checks, review feedback)
-   - What changes were made (affected files and their impact)
-   - What needs to be fixed based on failures
-   - Test failures or build issues
-   - Code quality concerns from reviews
-
-NEVER fetch PR details directly using gh CLI - always delegate to the subagent.
-This prevents massive PR payloads from polluting your context.
-```
-
-**If GitHub Issue Provided**:
-```
-IMPORTANT: Delegate to the gh-issue-analyzer subagent to prevent context pollution.
-
-1. Acknowledge detection:
-   🛠️ **[Analyze-Problem]** Detected GitHub issue: [ISSUE reference]
-   ⏳ Fetching issue details via gh-issue-analyzer...
-
-2. Use the Task tool to invoke the gh-issue-analyzer subagent:
-   prompt: "Fetch and summarize GitHub issue [URL or owner/repo#123]"
-   subagent_type: "schovi:gh-issue-analyzer:gh-issue-analyzer"
-   description: "Fetching GitHub issue summary"
-
-3. The subagent will:
-   - Fetch the full issue payload via gh CLI (~5-15k tokens) in its isolated context
-   - Extract ONLY essential information
-   - Return a clean summary (~800 tokens) with visual wrappers:
-
-   ╭─────────────────────────────────────╮
-   │ 🐛 ISSUE ANALYZER                   │
-   ╰─────────────────────────────────────╯
-
-   [Structured summary content]
-
-   ╭─────────────────────────────────────╮
-     ✅ Summary complete | ~[X] tokens
-   ╰─────────────────────────────────────╯
-
-4. After receiving the summary, check for errors:
-
-   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
-   ```
-   ❌ **[Analyze-Problem]** Failed to fetch GitHub issue [ISSUE reference]
-
-   Error: [Extract error message from subagent response]
-
-   This usually means:
-   - Issue number/URL is incorrect
-   - Repository doesn't exist or is private
-   - gh CLI is not authenticated (run: gh auth login)
-   - Network connectivity issues
-
-   Options:
-   1. Verify issue reference and retry
-   2. Provide problem description manually
-   3. Cancel analysis
-
-   How would you like to proceed?
-   ```
-
-   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
-
-   **If subagent response is successful** (✅ marker present):
-   ✅ **[Analyze-Problem]** Issue details fetched successfully
-
-5. You will receive a structured summary containing:
-   - Core information (issue number, title, state, author)
-   - Condensed description (max 500 chars)
-   - Labels and assignees
-   - Key comments (max 5, requirements prioritized)
-   - Analysis notes (status, activity, type)
-
-6. Use this summary to understand:
-   - What problem needs to be solved (from issue description)
-   - What requirements exist (from comments)
-   - What type of work it is (bug, feature, etc. from labels)
-   - Current status and activity level
-
-NEVER fetch issue details directly using gh CLI - always delegate to the subagent.
-This prevents massive issue payloads from polluting your context.
-```
-
-**If Datadog Trace/Error Provided**:
-```
-IMPORTANT: Delegate to the datadog-analyzer subagent (when available) to prevent context pollution.
-
-1. Acknowledge detection:
-   🛠️ **[Analyze-Problem]** Detected Datadog trace: [Trace URL or error ID]
-   ⏳ Fetching trace details via datadog-analyzer...
-
-2. Use the Task tool to invoke the datadog-analyzer subagent:
-   prompt: "Fetch and summarize Datadog trace [URL or trace ID]"
-   subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
-   description: "Fetching Datadog trace summary"
-
-3. The subagent will:
-   - Fetch the full trace payload via Datadog API (~10-30k tokens) in its isolated context
-   - Extract ONLY essential information
-   - Return a clean summary (~800-1000 tokens) with visual wrappers:
-
-   ╭─────────────────────────────────────╮
-   │ 📊 DATADOG ANALYZER                 │
-   ╰─────────────────────────────────────╯
-
-   [Structured summary content]
-
-   ╭─────────────────────────────────────╮
-     ✅ Summary complete | ~[X] tokens
-   ╰─────────────────────────────────────╯
-
-4. After receiving the summary, check for errors:
-
-   **If subagent response contains error markers** (❌, "failed", "not found", "authentication"):
-   ```
-   ❌ **[Analyze-Problem]** Failed to fetch Datadog trace [Trace reference]
-
-   Error: [Extract error message from subagent response]
-
-   This usually means:
-   - Trace URL/ID is incorrect
-   - Datadog API authentication not configured
-   - Trace has expired or been deleted
-   - Network connectivity issues
-
-   Options:
-   1. Verify trace reference and retry
-   2. Provide error details manually (copy from Datadog UI)
-   3. Cancel analysis
-
-   How would you like to proceed?
-   ```
-
-   **HALT**: Wait for user response. Do NOT proceed to Phase 2 without valid input.
-
-   **If subagent response is successful** (✅ marker present):
-   ✅ **[Analyze-Problem]** Trace details fetched successfully
-
-5. You will receive a structured summary containing:
-   - Core information (trace ID, timestamp, service, environment)
-   - Error message and type
-   - Affected endpoints/operations
-   - Key spans with duration and status
-   - Related logs (max 5, errors prioritized)
-   - Host and infrastructure context
-
-6. Use this summary to understand:
-   - What operation failed (from trace spans)
-   - Where the error occurred (service, endpoint, file)
-   - When it happened (timestamp, frequency if available)
-   - Performance context (latency, span durations)
-   - Related errors or patterns
-
-NOTE: If datadog-analyzer subagent is not available:
-- Ask user to provide error details manually from Datadog UI
-- Include: trace ID, error message, affected service, key spans, timestamp
-- Continue analysis with manual context
-
-NEVER fetch Datadog traces directly using API calls - always delegate to the subagent when available.
-This prevents massive trace payloads from polluting your context.
-```
-
-**If Textual Description Provided**:
-```
-1. Parse the problem statement carefully
-2. Identify:
-   - Expected behavior
-   - Actual behavior (for bugs)
-   - Desired outcome (for features)
-   - Mentioned files, services, or components
-   - User-facing vs. internal impact
-3. Document assumptions made
-```
-
-**If No Input Provided**:
-```
-1. Ask user: "Please provide either:
-   - A Jira issue ID (e.g., EC-1234)
-   - A GitHub PR (URL, owner/repo#123, or #123)
-   - A GitHub Issue (URL or owner/repo#123)
-   - A Datadog trace URL or trace ID
-   - A problem description with context"
-2. Wait for response and restart this phase
-```
-
-### Step 1.4: Handle Additional Context (Error Stacktraces, Logs, etc.)
-
-**If user provides additional context** (error stacktraces, logs, screenshots, etc.):
+Use lib/input-processing.md:
 
 ```
-IMPORTANT: Handle pasted content carefully to avoid tool errors.
-
-1. Acknowledge additional context:
-   📎 **[Analyze-Problem]** Additional context provided: [error stacktrace/logs/etc.]
-
-2. Check if the content is directly accessible:
-   - If user mentions "Pasted text #N" or similar references
-   - This indicates Claude Code has stored pasted content
-   - DO NOT try to access it via Bash commands
-   - DO NOT use heredoc syntax to process it
-
-3. If content is NOT directly accessible:
-   Use AskUserQuestion tool:
-   "I see you've referenced additional context (error stacktrace/logs), but I cannot
-   access pasted text references directly. Could you please:
-   - Copy-paste the full error stacktrace directly in your next message, OR
-   - Save it to a file and provide the file path"
-
-4. If content IS accessible (user pasted directly in message):
-
-   **Parse it directly from the message text** (no tools needed):
-
-   **For stack traces** (Python, JavaScript, Java, etc.):
-   ```
-   Look for these patterns in the message:
-
-   Exception/Error Type:
-   - Python: "Exception:", "Error:", "Traceback"
-   - JavaScript: "Error:", "TypeError:", "ReferenceError:"
-   - Java: "Exception in thread", "Exception:", "Caused by:"
-
-   File Paths:
-   - Python: 'File "/path/to/file.py", line 123'
-   - JavaScript: 'at /path/to/file.js:123:45'
-   - Java: 'at com.example.Class.method(File.java:123)'
-
-   Error Message:
-   - Usually on first line after exception type
-   - Extract full message before stack frames begin
-
-   Stack Frames:
-   - List of file:line:function calls
-   - Identify entry point (first frame) and error point (last frame)
-   - Note the deepest frame in your codebase (not libraries)
-   ```
-
-   **For log messages**:
-   ```
-   Look for these patterns:
-
-   Timestamp:
-   - ISO format: "2025-04-11T14:23:45Z"
-   - Log format: "[2025-04-11 14:23:45]"
-
-   Log Level:
-   - ERROR, WARN, INFO, DEBUG, FATAL
-
-   Component/Logger:
-   - [ComponentName], [service.submodule]
-
-   Message:
-   - After timestamp and level
-   - May include context data (user IDs, request IDs, etc.)
-
-   File References:
-   - Sometimes includes file:line where log was emitted
-   ```
-
-   **For error messages from console/terminal**:
-   ```
-   Look for:
-   - Command that failed: First line, often starts with $ or >
-   - Error code: "Error: ENOENT", "exit code 1"
-   - Suggested fix: "Did you mean...", "Try running..."
-   - File paths: Absolute or relative paths mentioned
-   ```
-
-   **Extract and document**:
-   - exception_type = [e.g., "TypeError", "NullPointerException"]
-   - error_message = [e.g., "Cannot read property 'foo' of undefined"]
-   - file_locations = [List of file:line from stack frames or logs]
-   - entry_point = [First file:line in your codebase, not libraries]
-   - error_point = [Last file:line where error occurred]
-   - timestamp = [When error occurred, if available]
-   - context_data = [User ID, request ID, etc. if available]
-
-   **Example parsing (Python stack trace)**:
-   ```
-   Input message contains:
-   "Traceback (most recent call last):
-     File "/app/services/user.py", line 45, in authenticate
-       user = User.query.filter_by(email=email).first()
-     File "/app/models/user.py", line 12, in filter_by
-       return self.session.query(cls).filter_by(**kwargs)
-   AttributeError: 'NoneType' object has no attribute 'query'"
-
-   Extracted:
-   - exception_type = "AttributeError"
-   - error_message = "'NoneType' object has no attribute 'query'"
-   - file_locations = ["/app/services/user.py:45", "/app/models/user.py:12"]
-   - entry_point = "/app/services/user.py:45" (authenticate function)
-   - error_point = "/app/models/user.py:12" (filter_by function)
-   - root_cause_indicator = "self.session is None"
-   ```
-
-5. Store extracted context for Phase 2:
-   - File paths from stack trace → Will guide codebase exploration
-   - Exception types → Will guide error handling analysis
-   - Line numbers → Will provide exact code locations to examine
-   - Entry/error points → Will help trace execution flow
-   - Context data → Will help reproduce issue
-
-6. Include in Phase 2 exploration prompt:
-   ```
-   Additional Context from Error:
-   - Exception: [exception_type]: [error_message]
-   - Entry Point: [entry_point] - Start exploration here
-   - Error Point: [error_point] - Problem occurs here
-   - Other References: [file_locations]
-
-   Exploration Focus:
-   - Read files at entry_point and error_point
-   - Trace execution path between entry and error
-   - Check for null/undefined handling
-   - Verify object initialization before use
-   ```
-
-DO NOT:
-- Use Bash with heredoc to process pasted content
-- Attempt to access "Pasted text #N" references directly
-- Assume pasted content format without verification
-- Use grep/sed/awk to parse stack traces (parse from message directly)
-
-DO:
-- Read content directly from user message
-- Parse using pattern matching (look for known formats)
-- Extract structured data (exception, files, lines)
-- Pass extracted data to Phase 2 for codebase exploration
-```
-
-### Step 1.5: Validate Template Type (--quick flag check)
-
-**Objective**: Ensure the template type (full vs quick) matches problem complexity.
-
-**Instructions**:
-
-1. **Assess problem complexity** based on Phase 1 findings:
-
-   **Use Full Analysis if**:
-   - Multiple systems/components mentioned
-   - Unclear or multiple root causes
-   - Feature request with architectural implications
-   - Bug with complex reproduction steps (>3 steps)
-   - Multiple possible solutions needed
-   - Integration points or dependencies mentioned
-   - User flow involves >2 components
-   - Data flow crosses system boundaries
-
-   **Use Quick Analysis if**:
-   - Single file/component affected
-   - Clear root cause identified
-   - Simple bug fix (obvious error)
-   - Well-defined problem with obvious solution
-   - No architectural changes needed
-   - Isolated change (no dependencies)
-
-2. **Check for template type mismatch**:
-
-   **If user specified `--quick` flag BUT problem appears complex**:
-   ```
-   ⚠️ **[Analyze-Problem]** Template type recommendation
-
-   You requested quick analysis (`--quick` flag), but this problem appears complex:
-
-   Complexity indicators found:
-   - [List what makes it complex, e.g., "Multiple components affected"]
-   - [e.g., "Unclear root cause from description"]
-   - [e.g., "Integration points mentioned"]
-
-   **Recommendation**: Use full analysis for:
-   - Better solution exploration (2-3 options vs 1)
-   - Deeper technical analysis
-   - More comprehensive implementation guidance
-   - Detailed testing strategy
-
-   **Quick analysis** will provide:
-   - Single solution option
-   - Basic implementation guidance
-   - Minimal context
-
-   Would you like to:
-   1. Use full analysis (recommended) - Override --quick flag
-   2. Keep quick analysis - Proceed as requested
-   3. Cancel and re-run without --quick flag
-
-   Choose [1-3]:
-   ```
-
-   **If user chooses option 1**: Override `--quick` flag, use full template
-   **If user chooses option 2**: Proceed with quick template as requested
-   **If user chooses option 3**: Exit analysis (user will re-run command)
-
-   **If user did NOT specify `--quick` BUT problem appears simple**:
-   ```
-   💡 **[Analyze-Problem]** Template type suggestion
-
-   This problem appears straightforward:
-   - [e.g., "Single file affected"]
-   - [e.g., "Clear error with obvious fix"]
-
-   You can use `--quick` flag for faster analysis with:
-   - Focused solution (one option)
-   - Streamlined output
-
-   Would you like to:
-   1. Continue with full analysis (default) - More comprehensive
-   2. Switch to quick analysis - Faster, more focused
-
-   Choose [1-2] or press Enter for full:
-   ```
-
-   **If user chooses option 1 or presses Enter**: Use full template (default)
-   **If user chooses option 2**: Use quick template
-
-3. **Store final decision**:
-   ```
-   template_type = "full" | "quick"
-   template_override_reason = [If overridden, note why]
-   ```
-
-4. **Acknowledge decision**:
-   ```
-   📋 **[Analyze-Problem]** Analysis type: [Full|Quick]
-   [If overridden]: (Overridden from user preference due to complexity)
-   ```
-
-**Skip this step if**: Problem complexity is clearly aligned with flag choice (no mismatch detected).
-
-### Step 1.6: Work Folder Resolution & Metadata Setup
-
-**Objective**: Create or find work folder for storing analysis and tracking workflow state.
-
-**Integration Point**: Use work folder library (`schovi/lib/work-folder.md`)
-
-#### 1.6.1: Check for Explicit Work Folder
-
-If `work_dir` provided via `--work-dir` flag:
-```bash
-# Use exactly as specified
-work_folder="$work_dir"
-
-# Validate it exists
-if [ ! -d "$work_folder" ]; then
-  echo "⚠️ Work folder not found: $work_folder"
-  echo "Creating folder..."
-  mkdir -p "$work_folder/context"
-fi
-```
-
-#### 1.6.2: Auto-detect Existing Work Folder
-
-If no `--work-dir`, try to find existing folder:
-
-**a) From Git Branch**:
-```bash
-# Get current branch
-branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-# Extract identifier (Jira ID)
-identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
-
-# Find work folder
-if [ -n "$identifier" ]; then
-  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
-fi
-```
-
-**b) From Problem Input Identifier**:
-```bash
-# Extract Jira ID from problem_input
-jira_id=$(echo "$problem_input" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b')
-
-if [ -n "$jira_id" ]; then
-  work_folder=$(find .WIP -type d -name "${jira_id}*" | head -1)
-fi
-
-# Or extract GitHub issue
-gh_issue=$(echo "$problem_input" | grep -oE '(issues|pull)/[0-9]+' | grep -oE '[0-9]+')
-if [ -n "$gh_issue" ]; then
-  work_folder=$(find .WIP -type d -name "GH-${gh_issue}*" | head -1)
-fi
-```
-
-#### 1.6.3: Create New Work Folder
-
-If no existing folder found, create new one:
-
-**Generate Identifier**:
-
-If Jira ID present (from Phase 1 Step 1.3):
-```bash
-jira_id="EC-1234"
-jira_title="[from Jira summary]"
-
-# Generate slug from title
-slug=$(echo "$jira_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
-
-# Combine
-identifier="${jira_id}-${slug}"
-```
-
-If GitHub issue/PR present:
-```bash
-gh_number="123"
-gh_title="[from GitHub summary]"
-
-# Generate slug
-slug=$(echo "$gh_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
-
-identifier="GH-${gh_number}-${slug}"
-```
-
-If description-based (no external ID):
-```bash
-# Generate slug from problem description
-slug=$(echo "$problem_input" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
-
-identifier="$slug"
-```
-
-**Create Folder Structure**:
-```bash
-work_folder=".WIP/$identifier"
-mkdir -p "$work_folder/context"
-```
-
-#### 1.6.4: Load or Create Metadata
-
-**If metadata exists** (continuing work):
-```bash
-cat "$work_folder/.metadata.json"
-```
-
-Parse to understand:
-- workflow.completed: what's done
-- workflow.current: last step
-- files: existing outputs
-
-**If new folder** (first analysis):
-
-Use Write tool to create `$work_folder/.metadata.json`:
-```json
-{
-  "identifier": "[jira-id or GH-number or slug]",
-  "title": "[from Jira/GitHub or problem description]",
-  "slug": "[generated slug]",
-  "workFolder": ".WIP/[identifier]",
-
-  "workflow": {
-    "type": "technical",
-    "steps": ["analyze", "plan", "implement"],
-    "completed": [],
-    "current": "analyze"
-  },
-
-  "files": {},
-
-  "git": {
-    "branch": "[from git rev-parse --abbrev-ref HEAD]",
-    "commits": [],
-    "lastCommit": null
-  },
-
-  "external": {
-    "jiraIssue": "[if Jira]",
-    "jiraUrl": "[if Jira]",
-    "githubIssue": "[if GitHub issue]",
-    "githubIssueUrl": "[if GitHub issue]",
-    "githubPR": "[if GitHub PR]",
-    "githubPRUrl": "[if GitHub PR]"
-  },
-
-  "timestamps": {
-    "created": "[from date -u +\"%Y-%m-%dT%H:%M:%SZ\"]",
-    "lastModified": "[same as created]",
-    "completed": null
+Configuration:
+  command_context: "analyze"
+  command_label: "Analyze-Problem"
+
+  input_sources:
+    - jira: true         # Fetch issue details from Jira via jira-analyzer
+    - github_pr: true    # Fetch PR context via gh-pr-analyzer
+    - github_issue: true # Fetch issue context via gh-issue-analyzer
+    - text: true         # Parse free-form problem descriptions
+    - file: true         # Read from --input file
+
+  parsing_hints:
+    - Extract problem description, severity, type (bug/feature)
+    - Identify affected areas, user impact, business context
+    - Note technical details, reproduction steps, acceptance criteria
+    - Extract stakeholder info, priority, deadlines
+
+  validation:
+    - Ensure problem description is clear
+    - Verify problem type is identified (bug/feature/refactor)
+    - Check severity/priority is noted
+
+Output (store for Phase 2):
+  problem_summary: "[One-line problem description]"
+  problem_details: {
+    description: "...",
+    type: "bug|feature|refactor|investigation",
+    severity: "Critical|High|Medium|Low",
+    affected_area: "...",
+    user_impact: "...",
+    business_context: "..."
   }
-}
+  acceptance_criteria: ["..."]
+  technical_notes: ["..."]
+  jira_id: "EC-1234" or null
 ```
 
-**Get current timestamp**:
-```bash
-date -u +"%Y-%m-%dT%H:%M:%SZ"
+---
+
+### Step 1.3: Work Folder Resolution
+
+Use lib/work-folder.md:
+
+```
+Configuration:
+  mode: "auto-detect"
+
+  identifier: [jira_id from input processing, or null]
+  description: [problem_summary from input processing]
+
+  workflow_type: "full"  # Full workflow: analyze → plan → implement
+
+  workflow_steps:
+    - "analyze"     # Current step
+    - "plan"
+    - "implement"
+
+  custom_work_dir: [work_dir from arguments, or null]
+
+  file_numbering:
+    "analyze": "02-analysis.md"
+    "plan": "03-plan.md"
+    "implement": "04-implementation-notes.md"
+
+Output (store for later phases):
+  work_folder: ".WIP/EC-1234-feature" or null
+  metadata: {JSON object with workflow state} or null
 ```
 
-**Get current git branch**:
-```bash
-git rev-parse --abbrev-ref HEAD
-```
+---
 
-**Set workflow.type = "technical"** because analyze → plan → implement.
-
-#### 1.6.5: Store Work Folder Info
-
-Store for use in later phases:
+**Phase 1 Validation Checkpoint:**
 ```
-work_folder = [.WIP/identifier]
-identifier = [jira-id or GH-number or slug]
-metadata_exists = [true|false]
-```
-
-**Acknowledge work folder**:
-```
-📁 **[Analyze-Problem]** Work folder: $work_folder
+- [ ] Problem input parsed successfully
+- [ ] Context fetched (Jira/GitHub/text)
+- [ ] Problem details extracted (description, type, severity)
+- [ ] Acceptance criteria noted (if available)
+- [ ] Work folder resolved (if applicable)
 ```
 
 ---
 
 ## PHASE 2: DEEP CODEBASE ANALYSIS
 
-**CRITICAL**: Use the **Task tool with Plan subagent type** for analytical exploration in plan mode. DO NOT use direct search tools unless for targeted follow-up queries.
-
-**When spawning Plan subagent, acknowledge:**
-```
-🛠️ **[Analyze-Problem]** Starting deep codebase analysis...
-⏳ Spawning Plan subagent for analytical exploration...
-```
-
-**Subagent Configuration:**
-- **subagent_type**: "Plan"
-- **description**: "Deep codebase analysis for problem understanding"
-- **prompt**: [Detailed exploration requirements from Steps 2.1-2.5 below]
-
-**Why Plan Subagent**: The Plan subagent operates in plan mode by design, providing analytical capabilities for understanding codebase structure, flows, and dependencies without making changes. This aligns with the command's plan mode enforcement for Phases 1-3.
-
-**After receiving analysis results:**
-```
-✅ **[Analyze-Problem]** Codebase analysis complete
-```
+**CRITICAL**: Use the **Task tool with Plan subagent type** for analytical exploration in plan mode.
 
 ### Step 2.1: Prepare Comprehensive Exploration Prompt
 
-**Objective**: Create a detailed, structured prompt for the Plan subagent that incorporates ALL exploration requirements.
+**Construct detailed prompt for Plan subagent:**
 
-**Instructions**: Construct the following prompt to pass to the Plan subagent. Include the problem context from Phase 1 and all exploration requirements below.
-
-**Prompt Template**:
 ```markdown
 # Codebase Analysis Request
 
 ## Problem Context
-[Insert problem summary from Phase 1: problem description, type (bug/feature), severity, affected area]
+[problem_summary from Phase 1]
+
+**Problem Details**:
+- Type: [type - bug/feature/refactor]
+- Severity: [severity]
+- Affected Area: [affected_area]
+- User Impact: [user_impact]
+- Business Context: [business_context]
+
+[If acceptance criteria available]:
+**Acceptance Criteria**:
+[List criteria from Phase 1]
+
+[If technical notes available]:
+**Technical Notes**:
+[List notes from Phase 1]
 
 ## Required Analysis
 
@@ -1049,13 +309,7 @@ Please structure your findings in these sections:
 - If you use JetBrains MCP tools, note which ones and why
 ```
 
-**After preparing the prompt**: Store it for use in Step 2.2.
-
 ### Step 2.2: Invoke Plan Subagent
-
-**Objective**: Delegate the comprehensive exploration to the Plan subagent in an isolated context.
-
-**Instructions**:
 
 1. **Acknowledge subagent invocation**:
    ```
@@ -1070,685 +324,225 @@ Please structure your findings in these sections:
    prompt: [The comprehensive prompt prepared in Step 2.1]
    ```
 
-3. **Wait for subagent completion**: The Plan subagent will work in its isolated context and return structured findings.
+3. **Wait for subagent completion**
 
 4. **Acknowledge completion**:
    ```
    ✅ **[Analyze-Problem]** Codebase analysis complete
    ```
 
-**Important**: Do NOT execute the exploration instructions directly. The Plan subagent will handle all codebase exploration using its plan mode capabilities.
+**Important**: Do NOT execute the exploration instructions directly. The Plan subagent will handle all codebase exploration.
 
 ### Step 2.3: Capture and Structure Exploration Results
 
-**Objective**: Extract and organize the Plan subagent's findings for use in Phase 3 (Analysis Generation).
+**Extract key findings from subagent response**:
+- affected_components = [List of components with file:line references and roles]
+- user_flow = [Step-by-step user journey with file:line references]
+- data_flow = [Data movement and transformations with file:line references]
+- dependencies = [Categorized dependency graph: direct, indirect, integration]
+- code_quality_issues = [Technical debt, test gaps, code smells with file:line refs]
+- historical_context = [Recent changes, patterns, stakeholders]
+- issues_identified = [Problems found with evidence and root causes, with file:line refs]
+- code_locations = [Comprehensive list of all file:line references discovered]
 
-**Instructions**:
+**Validate exploration completeness**:
+```
+- [ ] At least 3 affected components identified with specific file:line references
+- [ ] User flow traced from entry point to problem occurrence
+- [ ] Data flow mapped through at least 3 transformation points
+- [ ] Dependencies catalogued (direct, indirect, or integration)
+- [ ] At least 2 code quality issues or technical observations noted
+- [ ] Root causes identified with supporting evidence
+```
 
-1. **Extract key findings from subagent response**:
-   - affected_components = [List of components with file:line references and roles]
-   - user_flow = [Step-by-step user journey with file:line references]
-   - data_flow = [Data movement and transformations with file:line references]
-   - dependencies = [Categorized dependency graph: direct, indirect, integration]
-   - code_quality_issues = [Technical debt, test gaps, code smells with file:line refs]
-   - historical_context = [Recent changes, patterns, stakeholders]
-   - issues_identified = [Problems found with evidence and root causes, with file:line refs]
-   - code_locations = [Comprehensive list of all file:line references discovered]
+**If validation fails**:
+```
+⚠️ **[Analyze-Problem]** Exploration incomplete
 
-2. **Validate exploration completeness**:
+The Plan subagent's analysis is missing:
+- [List missing requirements]
 
-   Check that the subagent provided sufficient detail:
-   - [ ] At least 3 affected components identified with specific file:line references
-   - [ ] User flow traced from entry point to problem occurrence
-   - [ ] Data flow mapped through at least 3 transformation points
-   - [ ] Dependencies catalogued (direct, indirect, or integration)
-   - [ ] At least 2 code quality issues or technical observations noted
-   - [ ] Root causes identified with supporting evidence
+Options:
+1. Re-run exploration with more specific guidance
+2. Supplement with targeted manual searches
+3. Proceed with available information (note gaps in analysis)
+```
 
-3. **If validation fails**:
-   ```
-   ⚠️ **[Analyze-Problem]** Exploration incomplete
+Ask user how to proceed. Do NOT continue to Phase 3 with incomplete data.
 
-   The Plan subagent's analysis is missing:
-   - [List missing requirements]
+**If validation passes**:
+```
+✅ **[Analyze-Problem]** Exploration findings validated and structured for analysis generation
+```
 
-   This usually means:
-   - Problem description was too vague (add more context)
-   - Codebase doesn't have clear entry points (manual investigation needed)
-   - Problem area is unfamiliar (consider broader search)
-
-   Options:
-   1. Re-run exploration with more specific guidance
-   2. Supplement with targeted manual searches
-   3. Proceed with available information (note gaps in analysis)
-   ```
-
-   Ask user how to proceed. Do NOT continue to Phase 3 with incomplete data.
-
-4. **If validation passes**:
-   ```
-   ✅ **[Analyze-Problem]** Exploration findings validated and structured for analysis generation
-   ```
-
-   Store the structured findings for Phase 3 input.
-
-**Next**: Proceed to Phase 3 with the captured exploration results.
+Store the structured findings for Phase 3.
 
 ---
 
 ## PHASE 3: ANALYSIS GENERATION
 
-**CRITICAL**: Use the **Task tool with analysis-generator subagent** for context-isolated analysis generation.
-
-This phase transforms Phase 2 exploration results into structured, polished analysis document without polluting main context.
-
-### Step 3.1: Prepare Subagent Input Context
-
-**Objective**: Construct the input package for analysis-generator subagent using outputs from Phase 2 Step 2.3.
-
-1. Acknowledge analysis generation:
-   ```
-   ⚙️ **[Analyze-Problem]** Generating structured analysis...
-   ⏳ Spawning analysis-generator subagent...
-   ```
-
-2. Prepare input package for subagent using captured exploration results:
-
-**Instructions**: Use the structured outputs from Phase 2 Step 2.3 to populate this template.
-
-```markdown
-## Input Context
-
-### Problem Context
-[From Phase 1: Jira/PR/Issue summary OR text description]
-- Source: [Jira ID, PR URL, Issue URL, or "User description"]
-- Title: [Brief problem title]
-- Type: [bug|feature|investigation|performance|refactor]
-- Severity: [critical|high|medium|low]
-- Description: [Condensed problem description]
-
-### Exploration Results
-
-#### Affected Components
-[Use `affected_components` from Phase 2 Step 2.3]
-[List of components with file:line references and their roles]
-
-Example format:
-- **ComponentName** (`path/to/file.ts:123`) - Current behavior and role
-- **AnotherComponent** (`path/to/another.ts:456`) - Current behavior and role
-
-#### User Flow
-[Use `user_flow` from Phase 2 Step 2.3]
-[Step-by-step user journey with file:line references]
-
-Example format:
-```
-User Action: What user does
-  ↓
-Entry Point (file:line) - What happens
-  ↓
-Processing (file:line) - What happens
-  ↓
-Problem Occurs (file:line) - Where/why it breaks
-```
-
-#### Data Flow
-[Use `data_flow` from Phase 2 Step 2.3]
-[Data movement and transformations with file:line references]
-
-Example format:
-```
-Data Source
-  ↓
-Validation (file:line) - Current validation
-  ↓
-Transformation (file:line) - Current transformation
-  ↓
-Problem Point (file:line) - Where issue occurs
-```
-
-#### Dependencies
-[Use `dependencies` from Phase 2 Step 2.3]
-[Include if complex - direct, indirect, integration dependencies]
-
-Example format:
-- **Direct**: [modules, functions, DB tables]
-- **Indirect**: [shared state, events, background jobs]
-- **Integration**: [external services, webhooks]
-
-#### Code Quality Issues
-[Use `code_quality_issues` from Phase 2 Step 2.3]
-[Technical debt, test gaps, code smells with file:line refs]
-
-Example format:
-- Technical Debt: [TODO comments, duplication] at file:line
-- Test Coverage: [Missing unit tests, integration test gaps]
-- Code Smells: [Long functions, tight coupling] at file:line
-
-#### Historical Context
-[Use `historical_context` from Phase 2 Step 2.3]
-[Recent changes, patterns, stakeholders]
-
-Example format:
-- Recent Changes: [Commits affecting this area]
-- Patterns: [Recurring issues, previous attempts]
-- Stakeholders: [Code owners, domain experts]
-
-#### Issues Identified
-[Use `issues_identified` from Phase 2 Step 2.3]
-[Problems found with evidence and root causes, with file:line references]
-
-Example format:
-1. **Issue Name** (`file:line`):
-   - Problem: [Specific technical issue]
-   - Evidence: [What shows this is a problem]
-   - Root cause: [Why this is happening]
-
-### Code Locations
-[Use `code_locations` from Phase 2 Step 2.3]
-[Comprehensive list of all file:line references discovered during exploration]
-
-### Template Type
-[full|quick based on --quick flag from argument parsing]
-
-### Metadata
-- Jira ID: [From Phase 1 or N/A]
-- PR URL: [From Phase 1 or N/A]
-- Issue URL: [From Phase 1 or N/A]
-- Created by: [User email if available or N/A]
-- Created date: [Current date YYYY-MM-DD]
-- Problem type: [Inferred from Phase 1]
-- Severity: [Assessed from Phase 1 or exploration]
-```
-
-3. Determine template type:
-   - **Full Analysis**: Use unless `--quick` flag was specified
-   - **Quick Analysis**: Use if `--quick` flag present
-
-**Important**: All bracketed placeholders should be replaced with actual data from Phase 2 Step 2.3 captured variables. If any variable is empty or incomplete, note the gap in the input context so the analysis-generator can work with available information.
-
-### Step 3.2: Spawn Analysis-Generator Subagent
-
-Use Task tool with the prepared context:
+Use lib/subagent-invoker.md:
 
 ```
-subagent_type: "schovi:analysis-generator:analysis-generator"
-description: "Generating problem analysis"
-prompt: "Generate structured problem analysis from exploration results.
+Configuration:
+  subagent: "analysis-generator"  # Note: This may not exist yet, use structured generation
+  command_context: "analyze"
+  command_label: "Analyze-Problem"
 
-[PASTE THE FULL INPUT CONTEXT FROM STEP 3.1 HERE]"
+  input_context:
+    problem_summary: [from Phase 1]
+    problem_details: [from Phase 1]
+
+    exploration_results:
+      affected_components: [from Phase 2]
+      user_flow: [from Phase 2]
+      data_flow: [from Phase 2]
+      dependencies: [from Phase 2]
+      code_quality_issues: [from Phase 2]
+      historical_context: [from Phase 2]
+      issues_identified: [from Phase 2]
+      code_locations: [from Phase 2]
+
+    analysis_mode: "full" | "quick"
+      - "full": Comprehensive analysis with 2-3 solution proposals
+      - "quick": Quick analysis with 1 solution option
+
+  template_guidance:
+    - Problem summary with core issue, impact, severity
+    - Current state analysis with affected components
+    - User flow and data flow analysis with file:line references
+    - Issues identified with root causes
+    - Solution proposals (2-3 for full, 1 for quick) with:
+      * Approach description
+      * Required changes with file:line references
+      * Pros and cons
+      * Effort estimate
+      * Risk level
+      * Implementation guidance
+    - Recommended solution marked with ⭐
+    - Testing requirements
+    - Resources & references
+
+  validation_rules:
+    - Must have YAML frontmatter with all required fields
+    - Must have problem summary with core issue, impact, severity
+    - Must have current state analysis with affected components
+    - Must have flow analysis with file:line references
+    - Must have issues identified with root causes
+    - Must have solution proposals (2+ for full, 1 for quick)
+    - Each solution must have approach, changes, pros/cons, effort, risk
+    - Must have implementation guidance with recommended approach
+    - Must have testing requirements listed
+    - All file references must use file:line format
+    - Recommended solution marked with ⭐ (full mode only)
+    - Token count under 4000
+
+  error_handling:
+    - If validation fails: Regenerate with more specific prompt
+    - If subagent not available: Generate analysis directly using template
 ```
 
-**The subagent will**:
-- Process exploration results in isolated context
-- Extract essential findings
-- Generate 2-3 solution proposals (full mode) or single solution (quick mode)
-- Return clean, structured analysis (~2-3k tokens) with visual wrappers:
+**Note**: If analysis-generator subagent doesn't exist yet, generate the analysis directly using the template guidance above and the structured findings from Phase 2.
 
-```
-╭─────────────────────────────────────────────╮
-│ 🔍 ANALYSIS GENERATOR                       │
-╰─────────────────────────────────────────────╯
-
-[YAML frontmatter + all analysis sections]
-
-╭─────────────────────────────────────────────╮
-  ✅ Analysis generated | ~[X] tokens | [Y] lines
-╰─────────────────────────────────────────────╯
-```
-
-### Step 3.3: Receive and Store Analysis
-
-1. After receiving subagent output, check for errors:
-
-   **If subagent response contains error markers** (❌, "failed", "incomplete", "Generation failed"):
-   ```
-   ❌ **[Analyze-Problem]** Analysis generation failed
-
-   Error: [Extract error message from subagent response]
-
-   This usually means:
-   - Exploration results were incomplete or malformed
-   - Analysis template could not be populated
-   - Token budget exceeded
-
-   Options:
-   1. Review Phase 2 exploration results and re-run if incomplete
-   2. Simplify the problem scope and retry
-   3. Use --quick flag for simpler analysis
-   4. Cancel and review input data quality
-
-   How would you like to proceed?
-   ```
-
-   **HALT**: Wait for user response. Do NOT proceed to Phase 3.5 (Exit Plan Mode) without valid analysis.
-
-   **If subagent response is successful** (✅ marker present):
-   ✅ **[Analyze-Problem]** Analysis generated successfully
-
-2. Extract the analysis markdown from subagent response:
-   - Remove the visual header/footer wrappers (╭─────╮ boxes)
-   - Store the clean markdown (YAML frontmatter + content)
-
-3. Store analysis for Phase 4:
-   ```
-   analysis_markdown = [extracted content without wrappers]
-   ```
-
-4. Validate analysis completeness:
-   - [ ] YAML frontmatter present
-   - [ ] Problem summary section exists
-   - [ ] Current state analysis section exists
-   - [ ] Solution proposals exist (2+ for full, 1 for quick)
-   - [ ] Implementation guidance exists
-   - [ ] Resources & references exist
-
-   **If validation fails**:
-   ```
-   ⚠️ **[Analyze-Problem]** Analysis validation failed
-
-   Missing sections:
-   - [List which checklist items failed]
-
-   The analysis-generator returned incomplete output. This suggests:
-   - Input context was insufficient
-   - Template type mismatch (full vs quick)
-   - Subagent encountered internal error
-
-   Options:
-   1. Retry analysis generation with corrected inputs
-   2. Proceed with incomplete analysis (not recommended)
-   3. Cancel and review exploration quality
-
-   How would you like to proceed?
-   ```
-
-   **HALT**: Wait for user response. Do NOT proceed without complete analysis.
+**Store generated analysis for Phase 4.**
 
 ---
 
 ## PHASE 3.5: EXIT PLAN MODE
 
-**CRITICAL**: You have completed all analysis work (Phases 1-3) in plan mode. Before proceeding to output handling (Phase 4-5), you MUST exit plan mode.
+Use lib/exit-plan-mode.md:
 
-### Step 3.5.1: Use ExitPlanMode Tool
-
-**Acknowledge transition:**
 ```
-⚙️ **[Analyze-Problem]** Analysis complete. Transitioning from plan mode to execution mode...
+Configuration:
+  command_type: "analyze"
+  command_label: "Analyze-Problem"
+
+  summary:
+    problem: [problem_summary from Phase 1]
+    analysis_type: "Full" or "Quick" [based on --quick flag]
+    key_findings: [Top 3 findings from Phase 2]
+    solution_options_count: [Number of solutions from Phase 3]
+    recommended_option: [Recommended solution name from Phase 3]
 ```
-
-**Use the ExitPlanMode tool:**
-```
-plan: |
-  ## Analysis Summary
-
-  **Problem**: [One-line problem summary from Phase 1]
-
-  **Analysis Type**: [Full/Quick based on --quick flag]
-
-  **Key Findings**:
-  - [Key finding 1 from exploration]
-  - [Key finding 2 from exploration]
-  - [Key finding 3 from exploration]
-
-  **Solution Options**: [Number of options from Phase 3]
-
-  **Recommended**: [Recommended option name from Phase 3]
-
-  **Next Steps**:
-  1. Save analysis to file (if not --no-file)
-  2. Display to terminal (if not --quiet)
-  3. Post to Jira (if --post-to-jira)
-  4. Present completion summary
-```
-
-**After exiting plan mode:**
-```
-✅ **[Analyze-Problem]** Entered execution mode. Proceeding with output handling...
-```
-
-**Important**: After using ExitPlanMode, you are now in execution mode and can use Write tool, Bash for file operations, and mcp__jira__* tools for posting.
 
 ---
 
 ## PHASE 4: OUTPUT HANDLING
 
-Handle analysis output based on flags from Argument Parsing:
+Use lib/output-handler.md:
 
-### Step 4.1: Terminal Output
+```
+Configuration:
+  content: [Generated analysis from Phase 3]
+  content_type: "analysis"
+  command_label: "Analyze-Problem"
 
-**If `terminal_output == true`** (default, unless `--quiet`):
+  flags:
+    terminal_output: [terminal_output from argument parsing]
+    file_output: [file_output from argument parsing]
+    jira_posting: [jira_posting from argument parsing]
 
-1. Display analysis to terminal:
-   ```
-   [Display the full analysis_markdown with proper formatting]
-   ```
+  file_config:
+    output_path: [output_path from arguments, or null for auto]
+    default_basename: "analysis"
+    work_folder: [work_folder from Phase 1, or null]
+    jira_id: [jira_id from Phase 1, or null]
+    workflow_step: "analyze"
 
-2. Use visual separator before/after for clarity
+  jira_config:
+    jira_id: [jira_id from Phase 1, or null]
+    cloud_id: "productboard.atlassian.net"
+    jira_title: "Problem Analysis"
+    jira_author: "Claude Code"
 
-**If `--quiet` flag present**:
-- Skip terminal display entirely
-
-### Step 4.2: File Output & Metadata Update
-
-**If `output_path != null`** (default, unless `--no-file`):
-
-1. Determine filename:
-   - If `--output PATH` specified: Use provided path
-   - Else if work_folder exists: `$work_folder/02-analysis.md` (work folder)
-   - Else if Jira ID present: `./analysis-[JIRA-ID].md` (current directory - fallback)
-   - Else: `./analysis-[YYYY-MM-DD-HHMMSS].md` (current directory - fallback)
-
-2. Resolve and validate output path:
-
-   **Convert to absolute path**:
-   ```bash
-   # If path starts with ~, expand it
-   if [[ "$output_path" == ~* ]]; then
-     output_path="${output_path/#\~/$HOME}"
-   fi
-
-   # If path is relative, make it absolute from CWD
-   if [[ "$output_path" != /* ]]; then
-     output_path="$(pwd)/$output_path"
-   fi
-   ```
-
-   **Create parent directory if needed**:
-   ```bash
-   # Extract directory from path
-   output_dir="$(dirname "$output_path")"
-
-   # Check if parent directory exists
-   if [ ! -d "$output_dir" ]; then
-     # Try to create it
-     mkdir -p "$output_dir" 2>/dev/null
-
-     if [ $? -ne 0 ]; then
-       # Creation failed
-       echo "⚠️ **[Analyze-Problem]** Cannot create directory: $output_dir"
-       echo ""
-       echo "Options:"
-       echo "1. Use current directory instead: ./$(basename "$output_path")"
-       echo "2. Specify different output path"
-       echo "3. Skip file output (continue with terminal display only)"
-       echo ""
-       echo "How would you like to proceed?"
-
-       # Wait for user decision and adjust output_path accordingly
-       # If user chooses option 1: output_path="./$(basename "$output_path")"
-       # If user chooses option 3: Skip to terminal display only
-     fi
-   fi
-   ```
-
-   **Final path**: `output_path` (now absolute and parent directory exists)
-
-3. Write analysis to file:
-   ```
-   Use Write tool:
-   file_path: [output_path - absolute path]
-   content: [analysis_markdown]
-   ```
-
-   **Handle write errors**:
-   If Write tool fails (permissions, disk full, etc.):
-   ```
-   ⚠️ **[Analyze-Problem]** Failed to write file: [output_path]
-
-   Error: [error message from Write tool]
-
-   The analysis is still available in terminal output above.
-
-   Options:
-   1. Try different output path
-   2. Continue without file (analysis shown in terminal)
-
-   How would you like to proceed?
-   ```
-
-4. Acknowledge file creation:
-   ```
-   📄 **[Analyze-Problem]** Analysis saved to: [output_path]
-   ```
-
-5. Update Metadata (if work folder exists):
-
-   **If work_folder is set** (from Step 1.6):
-
-   Read existing metadata:
-   ```bash
-   cat "$work_folder/.metadata.json"
-   ```
-
-   Update fields:
-   ```json
-   {
-     ...existing,
-     "workflow": {
-       ...existing.workflow,
-       "completed": ["analyze"],
-       "current": "analyze"
-     },
-     "files": {
-       ...existing.files,
-       "analysis": "02-analysis.md"
-     },
-     "timestamps": {
-       ...existing.timestamps.created,
-       "lastModified": "[now from date -u]"
-     }
-   }
-   ```
-
-   Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
-
-   **If no work folder** (fallback mode):
-   - Skip metadata update
-
-**If `--no-file` flag present**:
-- Skip file creation entirely
-- Skip metadata update
-
-### Step 4.3: Jira Posting (Optional)
-
-**If `jira_posting == true`** (from `--post-to-jira` flag):
-
-1. Check if Jira ID exists:
-   - If NO Jira ID: Warn user and skip this step
-     ```
-     ⚠️ **[Analyze-Problem]** Cannot post to Jira: No Jira ID provided
-     ```
-   - If Jira ID exists: Proceed
-
-2. Format analysis for Jira:
-   - Add header with metadata:
-     ```
-     # Problem Analysis - Generated by Claude Code
-
-     **Generated**: [timestamp]
-     **Analyst**: Claude Code
-     **Local File**: [absolute path to output_path if file was created, or "Terminal only"]
-     **Analysis Type**: [Full/Quick]
-
-     ---
-     ```
-   - Wrap analysis in code block for better formatting: \`\`\`markdown ... \`\`\`
-
-3. Post to Jira using mcp__jira__addCommentToJiraIssue:
-   ```
-   cloudId: "productboard.atlassian.net"
-   issueIdOrKey: [Jira ID from Phase 1]
-   commentBody: [formatted analysis]
-   ```
-
-4. Acknowledge posting:
-   ```
-   ✅ **[Analyze-Problem]** Analysis posted to Jira: [JIRA-ID]
-   ```
-
-5. If posting fails:
-   ```
-   ⚠️ **[Analyze-Problem]** Failed to post to Jira: [error message]
-   ```
-   Continue anyway (don't halt workflow)
-
-**If `--post-to-jira` flag NOT present**:
-- Skip this step entirely
+Output (store result for Phase 5):
+  output_result: {
+    terminal_displayed: [true/false],
+    file_created: [true/false],
+    file_path: [path or null],
+    jira_posted: [true/false],
+    metadata_updated: [true/false]
+  }
+```
 
 ---
 
 ## PHASE 5: COMPLETION & NEXT STEPS
 
-### Step 5.1: Summary
-
-Present completion summary:
+Use lib/completion-handler.md:
 
 ```
-╭─────────────────────────────────────────────╮
-│ ✅ ANALYSIS COMPLETE                        │
-╰─────────────────────────────────────────────╯
+Configuration:
+  command_type: "analyze"
+  command_label: "Analyze-Problem"
 
-**Problem**: [One-line summary]
+  summary_data:
+    problem: [problem_summary from Phase 1]
+    output_files: [file_path from output_result if file_created]
+    jira_posted: [jira_posted from output_result]
+    jira_id: [jira_id from Phase 1 or null]
+    work_folder: [work_folder from Phase 1 or null]
+    terminal_only: [true if file_output was false]
 
-**Analysis Type**: [Full|Quick]
+  command_specific_data:
+    analysis_type: "Full" or "Quick" [based on --quick flag]
+    solution_options_count: [Number of solutions from Phase 3]
+    recommended_option: [Recommended solution name from Phase 3]
 
-**Work Folder**: [If work_folder exists: $work_folder]
-
-**Output**:
-[If file created] - 📄 Saved to: [filename]
-[If posted to Jira] - 📋 Posted to Jira: [JIRA-ID]
-[If terminal only] - 🖥️  Terminal display only
-
-**Solution Options**: [Number of options provided]
-**Recommended**: [Recommended option name]
-```
-
-### Step 5.2: Proactive Next Steps
-
-Offer automatic next actions based on context:
-
-**If analysis file was created** (output_path exists):
-```
-✅ **[Analyze-Problem]** Analysis saved to: [output_path]
-[If work_folder exists] 📁 Work folder: $work_folder
-
-**Ready for next step?**
-
-I can automatically generate an implementation specification from this analysis.
-This will create a detailed spec with:
-- Implementation tasks broken down by component
-- Acceptance criteria
-- Testing strategy
-- Risk assessment
-- Timeline estimates
-
-[If work_folder exists]
-Would you like me to run `/schovi:plan` now? [yes/no]
-(Plan will auto-detect from work folder)
-
-[If no work_folder]
-Would you like me to run `/schovi:plan --input [output_path]` now? [yes/no]
-```
-
-**If user says "yes"**:
-- [If work_folder exists] Use SlashCommand tool: `/schovi:plan`
-- [If no work_folder] Use SlashCommand tool: `/schovi:plan --input [output_path]`
-- Proceed directly to plan generation workflow
-- No need to wait for manual command
-
-**If user says "no"** or **if analysis was terminal-only** (--no-file):
-```
-**What would you like to do next?**
-
-1. 📋 **Create specification** - Generate implementation spec
-   [If work_folder]: Run `/schovi:plan` (auto-detects from work folder)
-   [If no work_folder]: Run `/schovi:plan --input [file-path]`
-2. 💬 **Discuss solution** - Review recommended option vs alternatives
-3. 🔍 **Deep dive** - Explore specific technical details further
-4. 🎯 **Update Jira** - Post analysis as comment (if not already posted)
-5. ✅ **Nothing** - You're all set
-
-Choose an option [1-5] or describe what you need:
-```
-
-### Step 5.3: Execute User Choice
-
-Based on user response from Step 5.2:
-
-**If user chose option 1** (Create specification):
-```
-Great! I'll need the analysis file path.
-
-[If file was created]: Use the saved file: `/schovi:plan [output_path]`
-[If terminal only]: Save analysis first, or provide problem input for plan command
-
-Shall I proceed with the saved analysis file? [yes/no]
-```
-
-If yes: Use SlashCommand tool: `/schovi:plan [output_path]`
-
-**If user chose option 2** (Discuss solution):
-```
-Let's review the solution options:
-
-[List recommended option name and key pros/cons]
-
-vs.
-
-[List alternative options with key trade-offs]
-
-Which aspects would you like to discuss?
-- Why [recommended] was chosen over alternatives?
-- Trade-offs between options?
-- Implementation complexity comparison?
-- Something specific?
-```
-
-**If user chose option 3** (Deep dive):
-```
-Which area would you like to explore further?
-- Specific file or component?
-- Data flow or user flow details?
-- Dependency analysis?
-- Code quality concerns?
-- Historical context?
-
-Let me know and I'll dive deeper.
-```
-
-**If user chose option 4** (Update Jira):
-```
-[If Jira ID exists and not already posted]:
-I'll post the analysis as a Jira comment now.
-[Use mcp__jira__addCommentToJiraIssue]
-
-[If no Jira ID]:
-No Jira issue was associated with this analysis.
-
-[If already posted]:
-Analysis was already posted to Jira: [JIRA-ID]
-```
-
-**If user chose option 5** (Nothing):
-```
-Perfect! The analysis is complete and saved. You can reference it anytime.
-
-Available commands:
-- `/schovi:plan [analysis-file]` - Generate implementation spec
-- `/schovi:implement` - Start implementation with spec
-
-Good luck! 🚀
+This will:
+  - Display completion summary box with analysis type and solution count
+  - Offer to automatically run /schovi:plan if file was created
+  - Provide alternative next steps: discuss solution, deep dive, update Jira
+  - Handle user's choice (run plan command, discuss, explore, post to Jira)
 ```
 
 ---
 
-## ✅ QUALITY GATES REFERENCE
+## QUALITY GATES REFERENCE
 
-**Note**: Quality gates are enforced in Phase 3 Step 3.3 (validation). This section documents what is checked.
+**Note**: Quality gates are enforced in Phase 2.3 and Phase 3 validation.
 
-Analysis from analysis-generator subagent must contain:
+Analysis must contain:
 
 - [ ] YAML frontmatter with all required fields
 - [ ] Problem summary with core issue, impact, severity
@@ -1762,11 +556,11 @@ Analysis from analysis-generator subagent must contain:
 - [ ] Resources & references with code locations
 - [ ] All file references use file:line format
 - [ ] Recommended solution marked with ⭐ (full mode)
-- [ ] Token count under 4000 (from subagent footer)
+- [ ] Token count under 4000 (from subagent footer if used)
 
 ---
 
-## 💬 INTERACTION GUIDELINES
+## INTERACTION GUIDELINES
 
 **Communication Style**:
 - Be clear about what's happening at each phase
@@ -1781,12 +575,12 @@ Analysis from analysis-generator subagent must contain:
 
 **Context Management**:
 - Phase 1-2: Accumulate context (exploration)
-- Phase 3: Delegate to subagent (context isolation)
+- Phase 3: Generate or delegate analysis (context isolation if subagent used)
 - Phase 4-5: Handle output (clean main context)
 
 **Token Efficiency**:
-- Subagent processes verbose exploration (~3-5k tokens)
-- Returns clean analysis (~2-3k tokens)
+- If using subagent: Processes verbose exploration (~3-5k tokens), returns clean analysis (~2-3k tokens)
+- If generating directly: Keep analysis under 4000 tokens
 - Main context stays clean for next task
 
 ---
