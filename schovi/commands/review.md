@@ -42,10 +42,10 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 **Fetch context based on input type using appropriate subagent**:
 
 1. **GitHub PR**:
-   - Use Task tool with subagent_type: `schovi:gh-pr-analyzer:gh-pr-analyzer`
-   - Prompt: "Fetch and summarize GitHub PR [input] with mode: full"
-   - Description: "Fetching GitHub PR summary (full mode)"
-   - **Important**: Full mode returns ALL changed files with stats and PR head SHA for code fetching
+   - Use Task tool with subagent_type: `schovi:gh-pr-reviewer:gh-pr-reviewer`
+   - Prompt: "Fetch and summarize GitHub PR [input]"
+   - Description: "Fetching GitHub PR review data"
+   - **Important**: gh-pr-reviewer returns ALL changed files with stats and PR head SHA for code fetching
 
 2. **Jira Issue**:
    - Use Task tool with subagent_type: `schovi:jira-analyzer:jira-analyzer`
@@ -76,8 +76,8 @@ This phase is **CRITICAL** for providing accurate, code-aware reviews. Skip only
 
 **Extract file paths from fetched context**:
 
-1. **For GitHub PRs** (full mode):
-   - gh-pr-analyzer returns **ALL changed files** with individual stats
+1. **For GitHub PRs**:
+   - gh-pr-reviewer returns **ALL changed files** with individual stats
    - Files already include: additions, deletions, total changes, status (added/modified/removed)
    - Files are sorted by changes (descending) for easy prioritization
    - PR head SHA included for fetching
@@ -145,7 +145,7 @@ mcp__jetbrains__get_file_content(file_path: "src/api/controller.ts")
 
 **GitHub API Method**:
 ```bash
-# Use PR head SHA from gh-pr-analyzer full mode output
+# Use PR head SHA from gh-pr-reviewer output
 # Extract owner, repo, and headRefOid from PR summary
 
 # For each file path:

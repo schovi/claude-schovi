@@ -340,6 +340,134 @@ Configuration:
 Displays summary, offers next steps, handles user choices.
 ```
 
+### Advanced Libraries (Phase 3)
+
+#### 5. phase-template.md
+
+**Purpose**: Standard command phase structure for consistency and predictability
+
+**Size**: ~300 lines
+
+**Functionality**:
+- Defines standard phase structure (1, 2, 3, 3.5, 4, 5)
+- Command type templates (Analysis, Action, Review, Generation)
+- Phase-specific guidelines and patterns
+- Usage examples for each command type
+- Deviation guidelines
+
+**Used by**: All commands (as reference template)
+
+**Key Benefits**:
+- Consistent user experience across commands
+- Predictable command flow for developers
+- Easier to add cross-cutting features
+- Reduced development time for new commands
+
+**Example Usage**:
+```markdown
+## PHASE 1: INPUT PROCESSING
+[Standard library references]
+
+## PHASE 2: EXECUTION
+[Command-specific logic]
+
+## PHASE 3: GENERATION (if needed)
+[Standard subagent invocation]
+
+## PHASE 4: OUTPUT HANDLING
+[Standard library references]
+
+## PHASE 5: COMPLETION
+[Standard completion pattern]
+```
+
+---
+
+#### 6. code-fetcher.md
+
+**Purpose**: Unified source code fetching with strategy pattern for local, JetBrains MCP, and GitHub API sources
+
+**Size**: ~80 lines
+
+**Functionality**:
+- Three-strategy fetching: Local filesystem → JetBrains MCP → GitHub API
+- Automatic method detection and fallback
+- File prioritization by importance
+- Graceful error handling with partial results
+- Support for deep (10 files) and quick (3 files) modes
+
+**Used by**: review command (primarily), potentially other commands
+
+**Key Benefits**:
+- Reusable across commands
+- Smart fallback ensures maximum success rate
+- Clear method reporting for transparency
+- Handles remote and local scenarios
+
+**Example Usage**:
+```markdown
+Use lib/code-fetcher.md with configuration:
+
+Files to Fetch (sorted by priority):
+- priority 1: src/api/controller.ts (+68 changes)
+- priority 2: src/services/auth.ts (+47 changes)
+- priority 3: src/utils/helper.ts (+28 changes)
+
+Mode: deep (fetch up to 10 files)
+
+Context (for GitHub API fallback):
+- repository: owner/repo
+- commit_sha: abc123def456
+
+Returns:
+{
+  "files_fetched": [...],
+  "method_used": "local",
+  "fallback_count": 0,
+  "errors": []
+}
+```
+
+---
+
+#### 7. COMMAND-TEMPLATE.md
+
+**Purpose**: Template and guide for rapidly creating new commands using standardized templates and libraries
+
+**Size**: ~200 lines
+
+**Functionality**:
+- Quick start guide (7-step process)
+- Command type templates (Analysis, Action, Review, Generation)
+- Library configuration patterns
+- Testing checklist
+- Development workflow with timeline
+- Common pitfalls and solutions
+
+**Used by**: Developers creating new commands
+
+**Key Benefits**:
+- New commands in under 4 hours
+- Consistent structure from the start
+- Reduces learning curve
+- Prevents common mistakes
+
+**Example Usage**:
+```markdown
+# Quick Start
+1. Copy phase template
+2. Update frontmatter
+3. Define command type
+4. Fill in Phase 2
+5. Configure libraries
+6. Add quality gates
+7. Test thoroughly
+
+See COMMAND-TEMPLATE.md for detailed guide.
+```
+
+---
+
 ## Integration Guide
 
 ### For New Commands
