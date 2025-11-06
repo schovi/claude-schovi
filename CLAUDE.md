@@ -80,11 +80,9 @@ schovi/
 │   └── COMMAND-TEMPLATE.md        # Command template and development guide (~200 lines) [Phase 3]
 ├── templates/                     # Output structure templates (read by agents)
 │   ├── analysis/                  # Analysis templates for analyze command
-│   │   ├── full.md                # Complex problems with comprehensive exploration
-│   │   └── quick.md               # Simple problems with clear solutions
+│   │   └── full.md                # Problem analysis structure (expandable with variants)
 │   └── spec/                      # Specification templates for plan command
-│       ├── full.md                # Detailed specs from analysis with decision rationale
-│       └── minimal.md             # Simple specs for from-scratch mode
+│       └── full.md                # Implementation spec structure (expandable with variants)
 ├── commands/
 │   ├── analyze.md        # Deep problem analysis workflow
 │   ├── debug.md          # Deep debugging workflow with root cause analysis
@@ -653,33 +651,37 @@ Always use `file:line` format for specificity and navigation:
 
 **Architecture**:
 ```
-analyze command → analysis-generator agent → Read templates/analysis/{full|quick}.md
-plan command → spec-generator agent → Read templates/spec/{full|minimal}.md
+analyze command → analysis-generator agent → Read templates/analysis/full.md
+plan command → spec-generator agent → Read templates/spec/full.md
 ```
 
 **Benefits**:
 - ✅ Single source of truth for output structure
 - ✅ Easy to update without changing agent code
-- ✅ Supports multiple template variants per output type
-- ✅ Templates can evolve independently
+- ✅ Clean architecture with separation of structure and logic
+- ✅ Extensible design ready for future template variants
 
 **Available Templates**:
-- `templates/analysis/full.md` - Complex problems with comprehensive exploration (~516 lines)
-- `templates/analysis/quick.md` - Simple problems with clear solutions (~180 lines)
-- `templates/spec/full.md` - Detailed specs from analysis (~150 lines)
-- `templates/spec/minimal.md` - Simple specs for from-scratch mode (~90 lines)
+- `templates/analysis/full.md` - Problem analysis structure (~516 lines)
+- `templates/spec/full.md` - Implementation spec structure (~150 lines)
 
-**Template Selection**:
-- Agents receive `template_type` in input context (e.g., "full" or "quick")
-- Agent reads appropriate template file based on type
-- Template provides structure, examples, and validation checklist
-- Agent populates template with content from input context
+**Current Implementation**:
+- Each agent reads its single template file
+- Template provides complete structure, examples, guidelines, and validation checklist
+- Agent populates template sections with content from input context
+- Straightforward and maintainable
 
-**Adding New Templates**:
-1. Create template file in appropriate directory (e.g., `templates/analysis/investigative.md`)
-2. Define structure with sections, examples, guidelines, validation checklist
-3. Update agent to support new template type (add conditional Read logic)
-4. No other changes needed - templates are self-contained
+**Future Extensibility** (when needed):
+1. Create new template variant (e.g., `templates/analysis/quick.md`, `templates/analysis/investigative.md`)
+2. Add conditional logic to agent to select template based on input
+3. Update command to pass template selection parameter
+4. Templates remain self-contained - no other changes needed
+
+**Example future variants**:
+- `analysis/quick.md` - Lightweight analysis for simple bugs
+- `analysis/investigative.md` - Deep-dive for unclear problems
+- `analysis/performance.md` - Performance-focused analysis
+- `spec/migration.md` - Migration/refactor specifications
 
 **Token Considerations**:
 - Reading template adds ~200-500 tokens to agent context
@@ -804,10 +806,8 @@ Use lib/work-folder.md with: [config]
 - `schovi/lib/subagent-invoker.md`
 
 **Templates**:
-- `schovi/templates/analysis/full.md` - Complex problem analysis structure
-- `schovi/templates/analysis/quick.md` - Simple problem analysis structure
-- `schovi/templates/spec/full.md` - Detailed specification structure
-- `schovi/templates/spec/minimal.md` - Minimal specification structure
+- `schovi/templates/analysis/full.md` - Problem analysis structure
+- `schovi/templates/spec/full.md` - Implementation spec structure
 
 **Subagents**:
 - `schovi/agents/jira-analyzer/AGENT.md`

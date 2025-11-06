@@ -46,9 +46,6 @@ You will receive a structured input package containing:
 ### Code Locations
 [All file:line references discovered]
 
-### Template Type
-[full|quick]
-
 ### Metadata
 - Jira ID: [ID or N/A]
 - PR URL: [URL or N/A]
@@ -67,22 +64,12 @@ Extract each section carefully. Identify:
 - What the root cause is
 - What solution options exist
 
-### Step 2: Determine Template Type and Load Template
+### Step 2: Load Template
 
-**Identify template type** from input:
-- `full` → Complex problems requiring comprehensive exploration
-- `quick` → Simple problems with clear solutions
+**Load the analysis template**:
 
-**Load appropriate template**:
-
-If template_type == "full":
 ```
 Read /home/user/claude-schovi/schovi/templates/analysis/full.md
-```
-
-If template_type == "quick":
-```
-Read /home/user/claude-schovi/schovi/templates/analysis/quick.md
 ```
 
 The template file contains:
@@ -103,14 +90,10 @@ The template file contains:
 2. **Preserve file:line References**: All code references from exploration must use `file:line` format
 3. **Quantify Impact**: Use numbers/percentages when available ("~500 users" not "many users")
 4. **Provide Evidence**: Support all claims with file references, logs, or behavior observations
-5. **Generate Viable Solutions**: Create 2-3 genuinely viable solution options (full analysis) or 1 clear solution (quick analysis)
-6. **Mark Recommended Option**: Use ⭐ to indicate recommended solution (full analysis only)
+5. **Generate Viable Solutions**: Create 2-3 genuinely viable solution options
+6. **Mark Recommended Option**: Use ⭐ to indicate recommended solution
 
-**Template-specific guidance**:
-
-#### For Full Analysis:
-
-Reference the loaded template (`schovi/templates/analysis/full.md`) for complete structure.
+**Template guidance** (reference `schovi/templates/analysis/full.md` for complete structure):
 
 **Problem Summary**:
 - Extract core issue from problem context
@@ -140,37 +123,7 @@ Reference the loaded template (`schovi/templates/analysis/full.md`) for complete
 - Stakeholders (if relevant)
 - Historical context (if valuable)
 
-**See full template for complete structure, examples, and validation checklist.**
-
-#### For Quick Analysis:
-
-Reference the loaded template (`schovi/templates/analysis/quick.md`) for complete structure.
-
-**Problem Summary**:
-- Core issue (1-2 sentences)
-- Impact on users/system
-- Severity with justification
-
-**Current State**:
-- Affected components with file:line
-- Root cause explanation (1-2 sentences)
-
-**Solution** (single option):
-- Approach description
-- Changes needed (checkboxes with file:line)
-- Pros (✅) and Cons (⚠️)
-- Effort and Risk assessment
-
-**Implementation**:
-- Testing checklist
-- Files to update with file:line
-
-**Key References**:
-- Primary code locations
-- Related files
-- Issue links
-
-**See quick template for complete structure, examples, and validation checklist.**
+**See template for complete structure, examples, and validation checklist.**
 
 ### Step 4: Format Output
 
@@ -199,11 +152,11 @@ Return the analysis in this format:
 4. **NEVER** skip solution proposals or implementation guidance
 5. **NEVER** exceed 4000 tokens in your response
 6. **NEVER** omit file:line references from code locations
-7. **NEVER** provide only one solution (full analysis requires 2-3 options)
+7. **NEVER** provide only one solution (requires 2-3 options)
 
 ### ✅ ALWAYS DO THESE:
 1. **ALWAYS** structure analysis following template format
-2. **ALWAYS** provide 2-3 solution options for full analysis
+2. **ALWAYS** provide 2-3 solution options
 3. **ALWAYS** preserve file:line references from exploration
 4. **ALWAYS** mark recommended option with ⭐
 5. **ALWAYS** quantify impact when possible (numbers, percentages)

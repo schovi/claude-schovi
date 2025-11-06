@@ -39,9 +39,6 @@ Option [N]: [Solution Name]
 ### User Notes
 [Any user preferences or comments]
 
-### Template Type
-[full|minimal]
-
 ### Metadata
 - Jira ID: [ID or N/A]
 - Created by: [User email if available]
@@ -55,22 +52,12 @@ Extract each section carefully. Identify:
 - What flows need to change
 - What dependencies exist
 
-### Step 2: Determine Template Type and Load Template
+### Step 2: Load Template
 
-**Identify template type** from input:
-- `full` → Detailed analysis with decision rationale and comprehensive technical details
-- `minimal` → Simple tasks created from scratch with basic structure
+**Load the specification template**:
 
-**Load appropriate template**:
-
-If template_type == "full":
 ```
 Read /home/user/claude-schovi/schovi/templates/spec/full.md
-```
-
-If template_type == "minimal":
-```
-Read /home/user/claude-schovi/schovi/templates/spec/minimal.md
 ```
 
 The template file contains:
@@ -90,15 +77,10 @@ The template file contains:
 1. **Extract from Input Context**: Use analysis content from Step 1 to populate template sections
 2. **Preserve file:line References**: All code references must use `file:line` format
 3. **Be Specific and Actionable**: Every task should be implementable; avoid vague descriptions
-4. **Break Down Work**: Organize into phases (full template) or simple checklist (minimal template)
+4. **Break Down Work**: Organize into logical phases
 5. **Make Testable**: Acceptance criteria must be verifiable and specific
 
-**Template-specific guidance**:
-
-
-#### For Full Template:
-
-Reference the loaded template (`schovi/templates/spec/full.md`) for complete structure.
+**Template guidance** (reference `schovi/templates/spec/full.md` for complete structure):
 
 **Decision & Rationale**:
 - Approach selected with name
@@ -140,29 +122,7 @@ Reference the loaded template (`schovi/templates/spec/full.md`) for complete str
 - Analysis file
 - Related PRs
 
-**See full template for complete structure, examples, and validation checklist.**
-
-#### For Minimal Template:
-
-Reference the loaded template (`schovi/templates/spec/minimal.md`) for complete structure.
-
-**Goal**:
-- 2-3 sentences describing what needs to be done and why
-
-**Requirements**:
-- 3-7 key requirements as bullets
-
-**Implementation Tasks**:
-- Checkbox list of actionable tasks
-
-**Acceptance Criteria**:
-- Testable checkboxes
-- Standard criteria (tests pass, review)
-
-**Testing**:
-- Brief manual test steps with expected result
-
-**See minimal template for complete structure, examples, and validation checklist.**
+**See template for complete structure, examples, and validation checklist.**
 
 ### Step 4: Format Output
 
@@ -245,8 +205,7 @@ When explaining "why this approach":
 - [Critical info needed]
 
 **Suggest**:
-- Provide more detailed analysis, OR
-- Use minimal template for simple spec
+- Provide more detailed analysis to generate a complete spec
 
 ╭─────────────────────────────────────────────╮
   ❌ Generation failed - incomplete input
@@ -269,7 +228,7 @@ Still generate spec but note ambiguity:
 Before returning your spec, verify:
 - [ ] YAML frontmatter present and valid
 - [ ] Title and status included
-- [ ] Decision rationale present (full) OR goal statement (minimal)
+- [ ] Decision rationale present with approach selected
 - [ ] Implementation tasks are checkboxes
 - [ ] Tasks are specific and actionable (not "fix bug" - instead "update validation in Validator.ts:45")
 - [ ] Acceptance criteria are testable checkboxes
@@ -300,9 +259,6 @@ Modify validation logic to explicitly reject boolean field types during mapping.
 
 ### User Notes
 Need migration for 3 existing boolean mappings in production.
-
-### Template Type
-full
 
 ### Metadata
 - Jira ID: IS-8046
@@ -431,81 +387,6 @@ Standard deployment process applies. Migration script will run as part of deploy
 
 ╭─────────────────────────────────────────────╮
   ✅ Spec generated | ~1850 tokens | 142 lines
-╰─────────────────────────────────────────────╯
-```
-
-### Example Input (Minimal Template):
-
-```markdown
-## Input Context
-
-### Problem Summary
-Add loading spinner to dashboard while data loads
-
-### Template Type
-minimal
-
-### Metadata
-- Created date: 2025-04-11
-```
-
-### Example Output (Minimal Template):
-
-```markdown
-╭─────────────────────────────────────────────╮
-│ 📋 SPEC GENERATOR                           │
-╰─────────────────────────────────────────────╯
-
----
-title: "Add loading spinner to dashboard"
-status: "DRAFT"
-created_date: 2025-04-11
----
-
-# SPEC: Add Loading Spinner to Dashboard
-
-## Goal
-
-Add a visual loading indicator to the dashboard to improve user experience while data is being fetched from the API. Currently users see a blank screen during load, which can be confusing.
-
-## Requirements
-
-- Display spinner when dashboard data is loading
-- Hide spinner when data is ready
-- Spinner should be centered and visible
-- Use existing spinner component from design system
-- Don't block user interaction with other UI elements
-
-## Implementation Tasks
-
-- [ ] Import spinner component
-- [ ] Add loading state to dashboard component
-- [ ] Show spinner when loading state is true
-- [ ] Set loading state during API fetch
-- [ ] Hide spinner when data arrives
-- [ ] Handle error case (hide spinner, show error)
-
-## Acceptance Criteria
-
-- [ ] Spinner displays during dashboard load
-- [ ] Spinner disappears when data loaded
-- [ ] Spinner doesn't block other UI interactions
-- [ ] Error state handles spinner correctly
-- [ ] Tests pass
-- [ ] Code reviewed
-
-## Testing
-
-**Manual test**:
-1. Open dashboard
-2. Observe spinner appears immediately
-3. Wait for data load
-4. Confirm spinner disappears when data displays
-
-**Expected result**: User sees loading feedback, smooth transition to content
-
-╭─────────────────────────────────────────────╮
-  ✅ Spec generated | ~580 tokens | 52 lines
 ╰─────────────────────────────────────────────╯
 ```
 
