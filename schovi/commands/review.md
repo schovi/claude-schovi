@@ -331,6 +331,50 @@ gh pr diff <PR_NUMBER>
 
 [2-3 sentence overview of what's being reviewed and overall assessment]
 
+## 🎯 Risk Assessment
+
+**Risk Level:** [Low / Low-Medium / Medium / Medium-High / High]
+
+[2-4 bullet points explaining risk factors]:
+- [Technical risk factors: complexity, scope, affected systems]
+- [Test coverage status: comprehensive/partial/missing]
+- [Data/schema changes: yes/no and impact]
+- [Dependencies: new dependencies, breaking changes, version updates]
+- [Deployment risk: can be deployed independently / requires coordination]
+
+## 🔒 Security Review
+
+[Security assessment - always include even if no concerns]:
+
+**If concerns found**:
+⚠️ Security concerns identified:
+- [Specific security issue with file:line reference]
+- [Classification: SQL injection, XSS, auth bypass, data leak, etc.]
+- [Impact assessment and recommendation]
+
+**If no concerns**:
+✅ No security concerns identified
+- [Verified: appropriate auth/validation patterns]
+- [Data handling: proper sanitization/escaping]
+- [Access control: correct permissions/authorization]
+
+## ⚡ Performance Impact
+
+[Performance assessment - always include]:
+
+**If concerns found**:
+⚠️ Performance concerns identified:
+- [Specific performance issue with file:line reference]
+- [Classification: N+1 queries, memory leak, inefficient algorithm, etc.]
+- [Expected impact and recommendation]
+
+**If no concerns**:
+✅ No performance concerns
+- [Database queries: optimized / no new queries / properly indexed]
+- [Memory handling: appropriate / no leaks detected]
+- [Algorithm efficiency: acceptable complexity / optimized]
+- [Processing: in-memory / batch processing / streaming where appropriate]
+
 ## 🔍 Key Changes/Information
 
 [Bullet list where each item has a 2-5 word title and sub-bullets with details]
@@ -345,42 +389,63 @@ gh pr diff <PR_NUMBER>
   - Detail
   - Detail
 
-## ⚠️ Potential Issues
+## ⚠️ Issues Found
 
-[Identified problems, bugs, security concerns - organized by severity]
+[Identified problems, bugs, concerns - organized by priority and severity]
 
-### 🚨 Critical
-- Issue with file:line reference and explanation
-- ...
+### 🚨 Must Fix
+[Critical issues that MUST be addressed before merge]
 
-### ⚠️ Medium
-- Issue with file:line reference and explanation
-- ...
+1. **Issue title** (file:line)
+   - Description of the issue with code evidence
+   - Why it's critical (impact, risk, blockers)
+   - **Action:** Specific fix recommendation
 
-### 💭 Minor
-- Issue with file:line reference and explanation
-- ...
+### ⚠️ Should Fix
+[Important issues that SHOULD be addressed, may block merge depending on severity]
+
+2. **Issue title** (file:line)
+   - Description of the issue
+   - Why it's important (technical debt, maintainability, bugs)
+   - **Action:** Specific fix recommendation
+
+### 💭 Consider
+[Minor issues or suggestions that can be addressed later]
+
+3. **Issue title** (file:line)
+   - Description of the concern
+   - Optional improvement or nice-to-have
+   - **Action:** Suggestion for improvement
 
 [If no issues found: "✅ No significant issues identified"]
 
-## 💡 Improvement Suggestions
+## 💡 Recommendations
 
-[2-5 actionable suggestions for improvement]
+[2-5 actionable suggestions for improvement, can include code examples]
 
-1. **Suggestion title** (file:line if applicable)
+1. **Recommendation title** (file:line if applicable)
    - Explanation of improvement
    - Expected benefit
+   - [Optional: Code example showing before/after]
 
-2. **Suggestion title**
+2. **Recommendation title**
    - Explanation
    - Benefit
 
-[Continue for 2-5 suggestions]
+[Continue for 2-5 recommendations]
 
-## 🎯 Overall Assessment
+## 🎯 Verdict
 
-[Final verdict: Approve with minor changes / Needs work / Blocked by issues]
-[1-2 sentences with overall recommendation]
+**[⚠️ Approve with changes / ✅ Approve / 🚫 Needs work / ❌ Blocked]**
+
+[1-2 sentences explaining verdict reasoning]
+
+**Merge Criteria:**
+- [ ] [Specific requirement from Must Fix items]
+- [ ] [Specific requirement from Should Fix items]
+- [ ] [Optional: Additional verification or testing needed]
+
+**Estimated Fix Time:** [X minutes/hours for addressing Must Fix + Should Fix items]
 ```
 
 ## Quality Gates
@@ -391,22 +456,30 @@ gh pr diff <PR_NUMBER>
 - ✅ Source code fetched (deep review) or diff retrieved (quick review)
 - ✅ Fetching method reported to user (local/JetBrains/GitHub)
 - ✅ Analysis completed on actual source code (deep or quick as requested)
+- ✅ Summary section with 2-3 sentence overview
+- ✅ Risk Assessment section with risk level and 2-4 factors
+- ✅ Security Review section present (concerns found OR explicit "no concerns")
+- ✅ Performance Impact section present (concerns found OR explicit "no concerns")
 - ✅ At least 3 key changes/info points identified with specific code references
-- ✅ Issues section populated with code-level findings (or explicitly marked as none found)
-- ✅ Security analysis performed on fetched code
-- ✅ 2-5 improvement suggestions provided with specific file:line references
+- ✅ Issues section organized by priority (Must Fix / Should Fix / Consider)
+- ✅ Each issue includes file:line reference and Action recommendation
+- ✅ 2-5 recommendations provided with benefits and optional code examples
 - ✅ File references use `file:line` format for all code mentions
-- ✅ Overall assessment with clear recommendation
+- ✅ Verdict section with approval status (Approve/Approve with changes/Needs work/Blocked)
+- ✅ Merge Criteria checklist with specific requirements from Must Fix and Should Fix
+- ✅ Estimated Fix Time provided
 
 ## Important Rules
 
 1. **No File Output**: This command outputs to terminal ONLY, no file creation
 2. **No Work Folder Integration**: Does not use work folder system (unlike implement/debug)
 3. **Context Isolation**: Always use subagents for external data fetching
-4. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
-5. **Actionable Feedback**: All suggestions must be specific and actionable
-6. **Severity Classification**: Issues must be categorized by severity (Critical/Medium/Minor)
-7. **File References**: Use `file:line` format for all code references
+4. **Holistic Assessment**: Always include Risk, Security, and Performance sections (even if no concerns)
+5. **Priority-Based Issues**: Organize issues by priority (Must Fix / Should Fix / Consider), not just severity
+6. **Actionable Feedback**: All issues and recommendations must include specific Action items
+7. **Clear Verdict**: Provide explicit merge decision with criteria checklist and estimated fix time
+8. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
+9. **File References**: Use `file:line` format for all code references
 
 ## Example Usage
 
@@ -445,12 +518,22 @@ gh pr diff <PR_NUMBER>
 5. Analyze **actual fetched source code**, not just context summaries
 6. For deep review: Fetch dependencies and use Explore for additional context
 7. For quick review: Fetch minimal files (top 3) or use diff only
-8. Always perform security analysis on fetched code
-9. Provide specific file:line references from actual code
-10. Categorize issues by severity with code evidence
-11. Give 2-5 actionable improvements with code-specific examples
-12. Check all quality gates before output
-13. Output to terminal ONLY (no files)
+8. **Generate all required sections**:
+   - Summary (2-3 sentences)
+   - Risk Assessment (risk level + 2-4 factors)
+   - Security Review (concerns OR explicit "no concerns")
+   - Performance Impact (concerns OR explicit "no concerns")
+   - Key Changes (3+ items with file:line)
+   - Issues Found (organized as Must Fix / Should Fix / Consider)
+   - Recommendations (2-5 actionable items)
+   - Verdict (approval status + merge criteria + fix time estimate)
+9. Always perform security analysis on fetched code
+10. Provide specific file:line references from actual code
+11. Prioritize issues by urgency (Must/Should/Consider) with Action items
+12. Give 2-5 actionable recommendations with benefits and optional code examples
+13. Provide clear verdict with merge criteria checklist and estimated fix time
+14. Check all quality gates before output
+15. Output to terminal ONLY (no files)
 
 **YOU MUST NOT**:
 
@@ -459,11 +542,13 @@ gh pr diff <PR_NUMBER>
 3. Skip source code fetching phase (Phase 2.5) without valid reason
 4. Proceed without waiting for subagent completion
 5. Review without fetching actual source code (except quick mode fallback)
-6. Give vague suggestions without specific file:line references from fetched code
-7. Miss security vulnerability analysis on actual code
-8. Provide generic feedback without code-level specifics
-9. Skip severity classification for issues
-10. Base review solely on PR descriptions without examining code
+6. Skip Risk Assessment, Security Review, or Performance Impact sections
+7. Give vague suggestions without specific file:line references from fetched code
+8. Miss security vulnerability analysis on actual code
+9. Provide generic feedback without code-level specifics
+10. Skip priority classification for issues (Must Fix / Should Fix / Consider)
+11. Omit Action items from issues or merge criteria from verdict
+12. Base review solely on PR descriptions without examining code
 
 ## Error Handling
 
