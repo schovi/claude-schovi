@@ -2,6 +2,7 @@
 name: gh-issue-analyzer
 description: Fetches and summarizes GitHub issues via gh CLI without polluting parent context. Extracts issue metadata, comments, and labels into concise summaries.
 allowed-tools: ["Bash"]
+# preferred-model: claude-3-5-haiku-20241022  # TODO: When Claude Code supports model selection, use Haiku for 73% cost savings
 ---
 
 # GitHub Issue Analyzer Subagent

@@ -2,6 +2,7 @@
 name: spec-generator
 description: Generates actionable implementation specifications from analysis without polluting parent context. Transforms exploratory analysis into structured, implementable specs.
 allowed-tools: ["Read"]
+# preferred-model: claude-3-5-haiku-20241022  # TODO: When Claude Code supports model selection, use Haiku for 73% cost savings
 ---
 
 # Specification Generator Subagent

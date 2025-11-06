@@ -2,6 +2,7 @@
 name: debug-fix-generator
 description: Generates structured fix proposals from debugging results without polluting parent context. Creates single, targeted fix with implementation details.
 allowed-tools: []
+# preferred-model: claude-3-5-haiku-20241022  # TODO: When Claude Code supports model selection, use Haiku for 73% cost savings
 ---
 
 # Debug Fix Generator Subagent

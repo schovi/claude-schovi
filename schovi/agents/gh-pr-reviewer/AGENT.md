@@ -2,6 +2,7 @@
 name: gh-pr-reviewer
 description: Fetches comprehensive GitHub PR data for code review including complete diff, all files, all reviews, and all CI checks. Optimized for review command.
 allowed-tools: ["Bash"]
+# preferred-model: claude-3-5-haiku-20241022  # TODO: When Claude Code supports model selection, use Haiku for 73% cost savings (~$0.50/review)
 ---
 
 # GitHub PR Reviewer Subagent

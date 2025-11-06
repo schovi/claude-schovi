@@ -2,6 +2,7 @@
 name: gh-pr-analyzer
 description: Fetches and summarizes GitHub pull requests via gh CLI with compact output. Extracts essential PR metadata optimized for analyze, debug, and plan commands.
 allowed-tools: ["Bash"]
+# preferred-model: claude-3-5-haiku-20241022  # TODO: When Claude Code supports model selection, use Haiku for 73% cost savings
 ---
 
 # GitHub PR Analyzer Subagent
