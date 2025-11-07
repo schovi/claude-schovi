@@ -95,7 +95,7 @@ Store user response as option_number
 
 ```
 Task tool configuration:
-  subagent_type: "schovi:research-executor"
+  subagent_type: "schovi:research-executor:research-executor"
   model: "sonnet"
   description: "Execute research workflow"
   prompt: |

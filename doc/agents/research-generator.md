@@ -62,7 +62,7 @@ Invoked via Task tool with fully qualified name:
 
 ```
 Task tool:
-  subagent_type: "schovi:research-generator"
+  subagent_type: "schovi:research-executor:research-executor"
   prompt: "Generate deep technical analysis for [chosen approach]"
   description: "Generating research analysis"
 ```

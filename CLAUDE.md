@@ -763,7 +763,7 @@ allowed-tools: ["Tool1", "Tool2"]
 
 ### Spawning Subagents
 
-**From commands or skills**, use Task tool with fully qualified name:
+**From commands or skills**, use Task tool with fully qualified three-part name:
 
 ```
 Task tool:
@@ -772,7 +772,20 @@ Task tool:
   description: "Fetching Jira issue summary"
 ```
 
-**Important**: Use fully qualified format `plugin:skill:agent` (e.g., `schovi:jira-auto-detector:jira-analyzer`), NOT just `jira-analyzer`.
+**Critical Naming Convention**: All subagent types MUST use three-part format:
+
+1. **Skill-based agents** (under `skills/` directory): `plugin:skill:agent`
+   - Example: `schovi:jira-auto-detector:jira-analyzer`
+   - Example: `schovi:gh-pr-auto-detector:gh-pr-analyzer`
+
+2. **Standalone agents** (under `agents/` directory): `plugin:agent:agent` (repeat agent name)
+   - Example: `schovi:brainstorm-executor:brainstorm-executor`
+   - Example: `schovi:research-executor:research-executor`
+   - Example: `schovi:debug-executor:debug-executor`
+   - Example: `schovi:spec-generator:spec-generator`
+
+**Wrong** (two-part format): `schovi:brainstorm-executor` ❌
+**Correct** (three-part format): `schovi:brainstorm-executor:brainstorm-executor` ✅
 
 ## Key Patterns and Conventions
 

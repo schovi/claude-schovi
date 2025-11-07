@@ -86,7 +86,7 @@ Configuration:
 
 ```
 Task tool configuration:
-  subagent_type: "schovi:debug-executor"
+  subagent_type: "schovi:debug-executor:debug-executor"
   model: "sonnet"
   description: "Execute debug workflow"
   prompt: |

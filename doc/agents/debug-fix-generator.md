@@ -55,7 +55,7 @@ Invoked via Task tool with fully qualified name:
 
 ```
 Task tool:
-  subagent_type: "schovi:debug-fix-generator"
+  subagent_type: "schovi:debug-executor:debug-executor"
   prompt: "Generate fix proposal from debugging: [debugging results]"
   description: "Generating fix proposal"
 ```
