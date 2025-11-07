@@ -849,11 +849,19 @@ Use lib/work-folder.md with: [config]
 
 ## Important File Paths
 
-**Core Plugin**:
-- Metadata: `schovi/.claude-plugin/plugin.json`
-- README: `schovi/README.md`
+**Documentation** (user-facing):
+- Main README: `README.md` - Guidepost with hierarchical listing of all components
+- Architecture: `doc/architecture.md` - Three-tier pattern, context isolation, shared libraries
+- Commands: `doc/commands/*.md` - Detailed documentation for each command
+- Agents: `doc/agents/*.md` - Detailed documentation for each agent
+- Skills: `doc/skills/*.md` - Detailed documentation for each skill
+- Libraries: `doc/libraries/*.md` - Detailed documentation for each library
 
-**Commands**:
+**Core Plugin** (implementation):
+- Metadata: `schovi/.claude-plugin/plugin.json`
+- Project instructions: `CLAUDE.md` (this file)
+
+**Commands** (implementation):
 - `schovi/commands/brainstorm.md`
 - `schovi/commands/research.md`
 - `schovi/commands/debug.md`
@@ -863,27 +871,32 @@ Use lib/work-folder.md with: [config]
 - `schovi/commands/publish.md`
 - `schovi/commands/review.md`
 
-**Skills**:
+**Skills** (implementation):
 - `schovi/skills/jira-auto-detector/SKILL.md`
 - `schovi/skills/gh-pr-auto-detector/SKILL.md`
+- `schovi/skills/datadog-auto-detector/SKILL.md`
 
-**Shared Libraries**:
+**Shared Libraries** (implementation):
 - `schovi/lib/README.md`
 - `schovi/lib/argument-parser.md`
 - `schovi/lib/input-processing.md`
 - `schovi/lib/work-folder.md`
 - `schovi/lib/subagent-invoker.md`
+- `schovi/lib/code-fetcher.md`
+- `schovi/lib/phase-template.md`
+- `schovi/lib/COMMAND-TEMPLATE.md`
 
-**Templates**:
+**Templates** (implementation):
 - `schovi/templates/brainstorm/full.md` - Solution options structure
 - `schovi/templates/research/full.md` - Deep technical analysis structure
 - `schovi/templates/spec/full.md` - Implementation spec structure
 
-**Subagents**:
+**Subagents** (implementation):
 - `schovi/agents/jira-analyzer/AGENT.md`
 - `schovi/agents/gh-pr-analyzer/AGENT.md`
 - `schovi/agents/gh-pr-reviewer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
+- `schovi/agents/datadog-analyzer/AGENT.md`
 - `schovi/agents/brainstorm-generator/AGENT.md`
 - `schovi/agents/research-generator/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
@@ -891,3 +904,5 @@ Use lib/work-folder.md with: [config]
 
 **Marketplace**:
 - `.claude-plugin/marketplace.json`
+
+**Note**: For detailed information about any component, refer to the corresponding documentation in `doc/` directory or use the hierarchical listing in `README.md`.
