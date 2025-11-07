@@ -28,8 +28,12 @@ Extract the issue key and cloud ID (default to "productboard.atlassian.net" if n
 Use `mcp__jira__getJiraIssue` to fetch the issue:
 - CloudId: Extract from URL or use default
 - IssueIdOrKey: The issue key
+- Fields (optional): Try limiting fields if tool supports it (e.g., "summary,description,status,priority,key,issuetype,comment")
+- Expand (optional): Control what additional data is included (minimize to avoid token limits)
 
 **Important**: This will return a LARGE payload. Your job is to process it here and NOT pass it to the parent.
+
+**Note on Token Limits**: If the response exceeds 25000 tokens, the MCP tool will fail. In that case, follow the error handling guidance below (see "If MCP Token Limit Exceeded").
 
 ### Step 3: Extract Essential Information ONLY
 
@@ -190,6 +194,44 @@ If the issue has 50+ comments or extremely long description:
 
 ╭─────────────────────────────────────╮
   ⚠️ Complex issue - summary provided
+╰─────────────────────────────────────╯
+```
+
+### If MCP Token Limit Exceeded:
+If you encounter an error like "MCP tool response exceeds maximum allowed tokens (25000)", the Jira issue has too much data (comments, attachments, history, etc.). Try these fallback strategies in order:
+
+**Strategy 1: Try with expand parameter (if available)**
+- Some MCP Jira tools support `expand` or `fields` parameters to limit what's returned
+- Try passing parameters to fetch only: summary, description, status, priority, key
+- Example: `fields: "summary,description,status,priority,key,issuetype"`
+
+**Strategy 2: Graceful failure with guidance**
+If no filtering options available, return:
+```markdown
+╭─────────────────────────────────────╮
+│ 🔍 JIRA ANALYZER                    │
+╰─────────────────────────────────────╯
+
+# Jira Issue Too Large: [KEY]
+
+❌ Error: The Jira issue response exceeds the token limit (30k+ tokens returned, 25k limit).
+
+This usually means the issue has:
+- Very long description or many comments
+- Large attachments or extensive history
+- Complex linked issues
+
+**Recommended Actions**:
+1. Open the issue directly in Jira: https://productboard.atlassian.net/browse/[KEY]
+2. Manually review the key information
+3. Provide a summary to continue with analysis
+
+**What we know**:
+- Issue Key: [KEY]
+- Link: https://productboard.atlassian.net/browse/[KEY]
+
+╭─────────────────────────────────────╮
+  ❌ Token limit exceeded - manual review needed
 ╰─────────────────────────────────────╯
 ```
 

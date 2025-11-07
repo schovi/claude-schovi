@@ -19,7 +19,7 @@ Commands invoke subagents through this library:
 
 Configuration:
   subagent:
-    type: "schovi:jira-analyzer:jira-analyzer"
+    type: "schovi:jira-auto-detector:jira-analyzer"
     description: "Fetching Jira issue summary"
     prompt: "Fetch and summarize Jira issue EC-1234"
 
@@ -81,7 +81,7 @@ Use Task tool:
 **Example**:
 ```
 Task tool:
-  subagent_type: "schovi:jira-analyzer:jira-analyzer"
+  subagent_type: "schovi:jira-auto-detector:jira-analyzer"
   description: "Fetching Jira issue summary"
   prompt: "Fetch and summarize Jira issue EC-1234"
 ```
@@ -227,7 +227,7 @@ How would you like to proceed?
 
 ```yaml
 subagent:
-  type: "schovi:jira-analyzer:jira-analyzer"
+  type: "schovi:jira-auto-detector:jira-analyzer"
   description: "Fetching Jira issue summary"
   prompt_template: "Fetch and summarize Jira issue {input}"
 
@@ -257,7 +257,7 @@ error_handling:
 
 ```yaml
 subagent:
-  type: "schovi:gh-pr-analyzer:gh-pr-analyzer"
+  type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
   description: "Fetching GitHub PR summary"
   prompt_template: "Fetch and summarize GitHub PR {input} with mode: {mode}"
 

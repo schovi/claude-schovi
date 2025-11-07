@@ -224,7 +224,7 @@ Tool: Task
 Parameters:
   prompt: "Fetch and summarize GitHub PR: [owner/repo#number or URL]
            Options: include_reviews=[true/false], include_ci=[true/false]"
-  subagent_type: "schovi:gh-pr-analyzer:gh-pr-analyzer"
+  subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
   description: "Fetching GitHub PR context"
 ```
 

@@ -401,8 +401,8 @@ Use lib/input-processing.md with configuration:
   - github_issue: true (Issue URL or owner/repo#123)
   - text: true (Free-form description)
 - Subagents:
-  - jira: schovi:jira-analyzer:jira-analyzer
-  - github_pr: schovi:gh-pr-analyzer:gh-pr-analyzer
+  - jira: schovi:jira-auto-detector:jira-analyzer
+  - github_pr: schovi:gh-pr-auto-detector:gh-pr-analyzer
   - github_issue: schovi:gh-issue-analyzer:gh-issue-analyzer
 
 Use lib/work-folder.md with configuration:

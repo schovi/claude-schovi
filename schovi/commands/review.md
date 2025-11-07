@@ -48,7 +48,7 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
    - **Important**: gh-pr-reviewer returns ALL changed files with stats and PR head SHA for code fetching
 
 2. **Jira Issue**:
-   - Use Task tool with subagent_type: `schovi:jira-analyzer:jira-analyzer`
+   - Use Task tool with subagent_type: `schovi:jira-auto-detector:jira-analyzer`
    - Prompt: "Fetch and summarize Jira issue [input]"
    - Description: "Fetching Jira issue summary"
 

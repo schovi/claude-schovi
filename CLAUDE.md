@@ -626,12 +626,12 @@ allowed-tools: ["Tool1", "Tool2"]
 
 ```
 Task tool:
-  subagent_type: "schovi:jira-analyzer:jira-analyzer"
+  subagent_type: "schovi:jira-auto-detector:jira-analyzer"
   prompt: "Fetch and summarize Jira issue EC-1234"
   description: "Fetching Jira issue summary"
 ```
 
-**Important**: Use fully qualified format `plugin:skill:agent` (e.g., `schovi:jira-analyzer:jira-analyzer`), NOT just `jira-analyzer`.
+**Important**: Use fully qualified format `plugin:skill:agent` (e.g., `schovi:jira-auto-detector:jira-analyzer`), NOT just `jira-analyzer`.
 
 ## Key Patterns and Conventions
 

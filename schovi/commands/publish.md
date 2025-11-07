@@ -592,7 +592,7 @@ Use Read tool to load spec file.
 Use Task tool to invoke jira-analyzer subagent:
 ```
 prompt: "Fetch and summarize Jira issue EC-1234"
-subagent_type: "schovi:jira-analyzer:jira-analyzer"
+subagent_type: "schovi:jira-auto-detector:jira-analyzer"
 description: "Fetching Jira issue summary"
 ```
 
