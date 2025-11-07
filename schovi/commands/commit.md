@@ -420,7 +420,7 @@ ELSE:
 Use Task tool:
 ```
 prompt: "Fetch and summarize Jira issue [JIRA-KEY]"
-subagent_type: "schovi:jira-analyzer:jira-analyzer"
+subagent_type: "schovi:jira-auto-detector:jira-analyzer"
 description: "Fetching Jira issue summary"
 ```
 
@@ -448,7 +448,7 @@ description: "Fetching GitHub issue summary"
 Use Task tool:
 ```
 prompt: "Fetch and summarize GitHub pull request [URL or owner/repo#123]"
-subagent_type: "schovi:gh-pr-analyzer:gh-pr-analyzer"
+subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
 description: "Fetching GitHub PR summary"
 ```
 

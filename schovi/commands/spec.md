@@ -230,7 +230,7 @@ If Jira ID detected in Step 1.1:
 **Use jira-analyzer subagent**:
 ```
 Task tool:
-  subagent_type: "schovi:jira-analyzer:jira-analyzer"
+  subagent_type: "schovi:jira-auto-detector:jira-analyzer"
   prompt: "Fetch and summarize Jira issue [jira-id]"
   description: "Fetching Jira context"
 ```

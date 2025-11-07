@@ -175,7 +175,7 @@ Invoke subagent using subagent-invoker library:
 
 Configuration:
   subagent:
-    type: "schovi:jira-analyzer:jira-analyzer"
+    type: "schovi:jira-auto-detector:jira-analyzer"
     description: "Fetching Jira issue summary"
     prompt: "Fetch and summarize Jira issue EC-1234"
 

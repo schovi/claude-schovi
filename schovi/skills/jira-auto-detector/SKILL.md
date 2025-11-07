@@ -131,7 +131,7 @@ When you determine context IS needed:
 Tool: Task
 Parameters:
   prompt: "Fetch and summarize https://productboard.atlassian.net/browse/[ISSUE-KEY]"
-  subagent_type: "schovi:jira-analyzer:jira-analyzer"
+  subagent_type: "schovi:jira-auto-detector:jira-analyzer"
   description: "Fetching Jira issue context"
 ```
 
