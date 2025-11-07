@@ -69,94 +69,158 @@ Configuration:
 
 **Input classification:**
 
-1. **Analysis File** (✅ VALID - --input flag)
-   - Pattern: `--input ./analysis.md`
-   - Has technical analysis with file:line references
-   - Action: Read and extract analysis
+1. **Research File** (✅ VALID - --input flag)
+   - Pattern: `--input ./research-*.md`
+   - Has deep technical analysis with file:line references
+   - Action: Read and extract research analysis
 
-2. **From Scratch** (✅ VALID - --from-scratch flag)
+2. **Analysis File (Legacy)** (✅ VALID - --input flag)
+   - Pattern: `--input ./analysis-*.md`
+   - Has technical analysis with file:line references (from old analyze command)
+   - Action: Read and extract analysis
+   - Note: Legacy support, use research command for new workflows
+
+3. **From Scratch** (✅ VALID - --from-scratch flag)
    - Pattern: `--from-scratch "description"`
-   - Bypass analysis requirement
+   - Bypass research requirement
    - Action: Interactive minimal spec creation
 
-3. **Conversation Analysis** (✅ VALID - no args, analysis in conversation)
+4. **Conversation Analysis** (✅ VALID - no args, research/analysis in conversation)
    - Pattern: No arguments
-   - Recent `/schovi:analyze` output in conversation
+   - Recent `/schovi:research` or `/schovi:analyze` output in conversation
    - Action: Extract from conversation history
 
-4. **Raw Input** (❌ INVALID - Jira ID, GitHub URL, text description)
+5. **Brainstorm File** (❌ INVALID - requires research first)
+   - Pattern: `--input ./brainstorm-*.md`
+   - Has multiple solution options, lacks deep technical analysis
+   - Action: STOP with guidance to run research first
+
+6. **Raw Input** (❌ INVALID - Jira ID, GitHub URL, text description)
    - Patterns: `EC-1234`, `#123`, `owner/repo#123`, free text without --from-scratch
-   - Requires analysis first
+   - Requires research first
    - Action: STOP with guidance message
 
-**If input type is INVALID (Raw inputs without analysis):**
+**If input type is INVALID (Raw inputs or brainstorm without research):**
 
-Display error message:
+Determine specific error type and display appropriate message:
+
+#### Error Type A: Raw Input (Jira, GitHub, text without flags)
+
 ```markdown
 ╭─────────────────────────────────────────────────────────────────╮
-│ ❌ ANALYSIS REQUIRED BEFORE SPECIFICATION GENERATION            │
+│ ❌ RESEARCH REQUIRED BEFORE SPECIFICATION GENERATION            │
 ╰─────────────────────────────────────────────────────────────────╯
 
-**Problem**: Cannot generate actionable specification without technical analysis.
+**Problem**: Cannot generate actionable specification without deep technical research.
 
-**Input Detected**: [Describe what was provided - Jira ID, GitHub URL, description, or empty]
+**Input Detected**: [Describe what was provided - Jira ID, GitHub URL, description]
 
-**Why Analysis is Required**:
+**Why Research is Required**:
 Specifications need specific file locations, affected components, and technical context
-to generate actionable implementation tasks. Without analysis:
+to generate actionable implementation tasks. Without research:
 
   ❌ Tasks will be vague: "Fix the bug" instead of "Update validation in Validator.ts:67"
   ❌ No clear entry points: Which files to change?
   ❌ Missing context: How do components interact?
   ❌ Unclear scope: What else might be affected?
 
-**Required Actions** - Choose ONE:
+**Required Workflow**:
 
-  1️⃣ **Run analysis first, then create spec**:
+  🧠 **Step 1: Brainstorm Options** (optional, recommended)
+     Explore 2-3 solution approaches:
+     /schovi:brainstorm [your-input]
 
-     # Analyze the problem (explores codebase, identifies components)
-     /schovi:analyze [your-input]
+  🔬 **Step 2: Deep Research** (required)
+     Analyze ONE specific approach:
+     /schovi:research --input brainstorm-[id].md --option [N]
+     OR directly: /schovi:research --input [your-input]
 
-     # Then create spec from analysis
-     /schovi:plan --input ./analysis-[id].md
+  📋 **Step 3: Create Spec** (this command)
+     Generate implementation plan:
+     /schovi:plan --input research-[id].md
 
-     OR just:
-     /schovi:plan    (auto-detects analysis in conversation)
+**Quick Path** (skip brainstorm):
 
-  2️⃣ **Provide existing analysis file**:
+  # Direct deep research
+  /schovi:research --input [jira-id|github-url|file]
+  /schovi:plan --input research-[id].md
 
-     /schovi:plan --input ./path/to/analysis-file.md
+**Simple Tasks** (skip research):
 
-  3️⃣ **Create simple spec without analysis** (for straightforward tasks):
-
-     /schovi:plan --from-scratch "Task description"
-     # You'll be prompted for requirements interactively
+  # Create minimal spec without research
+  /schovi:plan --from-scratch "Task description"
 
 **Examples**:
 
-  # Wrong: Raw Jira ID
+  # Wrong: Raw input
   /schovi:plan EC-1234  ❌
 
-  # Right: Analyze first, then plan
-  /schovi:analyze EC-1234
-  /schovi:plan --input ./analysis-EC-1234.md  ✅
+  # Right: Research first
+  /schovi:research --input EC-1234
+  /schovi:plan --input research-EC-1234.md  ✅
 
-  # Or use conversation output
-  /schovi:analyze EC-1234
-  /schovi:plan  ✅ (auto-detects from conversation)
+  # Or full workflow
+  /schovi:brainstorm EC-1234
+  /schovi:research --input brainstorm-EC-1234.md --option 2
+  /schovi:plan --input research-EC-1234-option2.md  ✅
+```
 
-  # Or from scratch for simple tasks
-  /schovi:plan --from-scratch "Add loading spinner"  ✅
+#### Error Type B: Brainstorm File (--input brainstorm-*.md)
+
+```markdown
+╭─────────────────────────────────────────────────────────────────╮
+│ ❌ BRAINSTORM CANNOT BE USED DIRECTLY FOR SPECIFICATION        │
+╰─────────────────────────────────────────────────────────────────╯
+
+**Problem**: Brainstorm files contain multiple solution options without deep technical analysis.
+
+**Input Detected**: [brainstorm file path]
+
+**Why Research is Required**:
+Brainstorm provides 2-3 high-level solution options with broad feasibility analysis.
+To create actionable implementation tasks, you must:
+
+  1. Choose ONE option from brainstorm
+  2. Perform deep technical research on that option
+  3. Then create specification from research
+
+Brainstorm → Research → Plan
+   (2-3 opts)  (1 deep)   (spec)
+
+**Required Actions**:
+
+  🔬 **Run research on chosen option**:
+
+     # Research option 2 from brainstorm
+     /schovi:research --input [brainstorm-file] --option 2
+
+     # Then create spec from research
+     /schovi:plan --input research-[id]-option2.md
+
+**Available Options** (from your brainstorm):
+[List options from brainstorm file if readable]
+
+**Example**:
+
+  # Wrong: Use brainstorm directly
+  /schovi:plan --input brainstorm-EC-1234.md  ❌
+
+  # Right: Research first, then plan
+  /schovi:research --input brainstorm-EC-1234.md --option 2
+  /schovi:plan --input research-EC-1234-option2.md  ✅
+```
 
 **Workflow**:
-┌─────────────┐      ┌──────────────┐      ┌─────────────┐
-│   Problem   │  →   │   Analyze    │  →   │    Plan     │
-│ (Jira, GH)  │      │  (Explores)  │      │  (Spec Gen) │
-└─────────────┘      └──────────────┘      └─────────────┘
+┌─────────────┐      ┌──────────────┐      ┌──────────────┐      ┌─────────────┐
+│   Problem   │  →   │  Brainstorm  │  →   │   Research   │  →   │    Plan     │
+│ (Jira, GH)  │      │  (2-3 opts)  │      │  (1 deep)    │      │  (Spec Gen) │
+└─────────────┘      └──────────────┘      └──────────────┘      └─────────────┘
+                            ↓ optional                ↑ required
+                            └─────────────────────────┘
 
-╭─────────────────────────────────────────────────────────────────╮
-│ 💡 TIP: Run /schovi:analyze [input] first to explore codebase  │
-╰─────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────────────────╮
+│ 💡 TIP: Run /schovi:research --input [input] to perform deep analysis first │
+╰─────────────────────────────────────────────────────────────────────────────╯
 ```
 
 **HALT EXECUTION** - Do not proceed.
@@ -167,11 +231,11 @@ to generate actionable implementation tasks. Without analysis:
 
 **Based on validated input type:**
 
-#### Option A: Analysis File (--input flag provided)
+#### Option A: Research/Analysis File (--input flag provided)
 
 ```
 1. Acknowledge file read:
-   📄 **[Create-Spec]** Reading analysis from file: [PATH]
+   📄 **[Create-Spec]** Reading research from file: [PATH]
 
 2. Use Read tool to load file contents:
    file_path: [PATH from --input flag]
@@ -185,17 +249,29 @@ to generate actionable implementation tasks. Without analysis:
 4. If file loads successfully:
    ✅ **[Create-Spec]** File loaded ([X] lines)
 
-5. Extract key analysis content:
+5. Extract key content based on file type:
+
+   **For Research Files (research-*.md)**:
+   - Problem/topic summary (from 📋 Problem/Topic Summary section)
+   - Research focus and specific approach
+   - Current state analysis with file:line references
+   - Architecture overview with components
+   - Technical deep dive (data flow, dependencies, code quality)
+   - Implementation considerations (complexity, testing, risks)
+   - Performance and security implications
+
+   **For Analysis Files (analysis-*.md - legacy)**:
    - Problem summary (core issue, impact, severity)
    - Affected components with file:line references
    - User flow and data flow (if present)
    - Solution proposals with pros/cons
    - Technical details and dependencies
 
-6. Verify analysis quality:
+6. Verify content quality:
    - Check: Has file:line references? (Critical for actionable spec)
    - Check: Has affected components identified?
    - Check: Has problem description?
+   - Check: Has technical context (architecture, dependencies)?
 
    If missing critical elements → Flag for enrichment in Step 1.3
 ```
@@ -204,29 +280,31 @@ to generate actionable implementation tasks. Without analysis:
 
 ```
 1. Acknowledge search:
-   🔍 **[Create-Spec]** Searching conversation for analysis output...
+   🔍 **[Create-Spec]** Searching conversation for research output...
 
 2. Search conversation history (last 100 messages) for:
-   - Messages containing "/schovi:analyze" command
+   - Messages containing "/schovi:research" command (priority)
+   - Messages containing "/schovi:analyze" command (legacy)
+   - Messages with research sections ("## 🔬 Research:", "## 📋 Problem/Topic Summary", etc.)
    - Messages with analysis sections ("## 🎯 1. PROBLEM SUMMARY", etc.)
    - File:line references in recent messages
 
-3. If analysis found:
-   ✅ **[Create-Spec]** Found analysis from [N messages ago]
+3. If research/analysis found:
+   ✅ **[Create-Spec]** Found research from [N messages ago]
 
-   Extract same content as Option A
+   Extract same content as Option A (research or analysis format)
 
 4. If NOT found:
-   ⚠️ **[Create-Spec]** No analysis found in recent conversation
+   ⚠️ **[Create-Spec]** No research found in recent conversation
 
    Ask user to:
-   1. Run: /schovi:analyze [input] first
-   2. Provide analysis file: /schovi:plan --input ./analysis.md
+   1. Run: /schovi:research --input [input] first
+   2. Provide research file: /schovi:plan --input ./research-[id].md
    3. Create simple spec: /schovi:plan --from-scratch "description"
 
    HALT EXECUTION
 
-5. Verify analysis quality (same checks as Option A)
+5. Verify content quality (same checks as Option A)
 ```
 
 #### Option C: From Scratch (--from-scratch flag provided)

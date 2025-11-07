@@ -15,7 +15,7 @@ This is a **Claude Code plugin** providing workflow automation for software engi
 The plugin uses a three-tier architecture for external integrations:
 
 1. **Skills** (Auto-detection, `/schovi/skills/`): Automatically detect mentions and intelligently decide when to fetch context
-2. **Commands** (Explicit, `/schovi/commands/`): User-invoked workflows like `/schovi:analyze`
+2. **Commands** (Explicit, `/schovi/commands/`): User-invoked workflows like `/schovi:brainstorm`, `/schovi:research`, `/schovi:plan`
 3. **Subagents** (Execution, `/schovi/agents/`): Execute in isolated context windows to fetch and summarize external data
 
 ### Context Isolation Architecture
@@ -36,13 +36,13 @@ Main Context → Spawn Subagent (Task tool) → Isolated Context (fetch 10-50k p
 
 **The Solution**: Shared library system providing reusable abstractions:
 ```
-Command (analyze.md) → References → Library (argument-parser.md)
-                                  ↓
-                            Claude reads library
-                                  ↓
-                            Executes logic
-                                  ↓
-                            Returns to command
+Command (brainstorm.md) → References → Library (argument-parser.md)
+                                     ↓
+                               Claude reads library
+                                     ↓
+                               Executes logic
+                                     ↓
+                               Returns to command
 ```
 
 **Result**: 77% code reduction (1,980 duplicate lines → 450 library lines), faster development, consistent behavior.
@@ -79,26 +79,30 @@ schovi/
 │   ├── code-fetcher.md            # Source code fetching with fallback (~80 lines) [Phase 3]
 │   └── COMMAND-TEMPLATE.md        # Command template and development guide (~200 lines) [Phase 3]
 ├── templates/                     # Output structure templates (read by agents)
-│   ├── analysis/                  # Analysis templates for analyze command
-│   │   └── full.md                # Problem analysis structure (expandable with variants)
+│   ├── brainstorm/                # Brainstorm templates for brainstorm command
+│   │   └── full.md                # Solution options structure (expandable with variants)
+│   ├── research/                  # Research templates for research command
+│   │   └── full.md                # Deep technical analysis structure (expandable with variants)
 │   └── spec/                      # Specification templates for plan command
 │       └── full.md                # Implementation spec structure (expandable with variants)
 ├── commands/
-│   ├── analyze.md        # Deep problem analysis workflow
+│   ├── brainstorm.md     # Explore 2-3 solution options with broad analysis
+│   ├── research.md       # Deep technical analysis of ONE specific approach
 │   ├── debug.md          # Deep debugging workflow with root cause analysis
-│   ├── plan.md            # Specification generation workflow
-│   ├── implement.md              # Implementation execution workflow
-│   ├── commit.md                 # Structured git commit creation
-│   ├── publish.md              # GitHub pull request creation
-│   └── review.md                 # Comprehensive code review with issue detection
+│   ├── plan.md           # Specification generation workflow
+│   ├── implement.md      # Implementation execution workflow
+│   ├── commit.md         # Structured git commit creation
+│   ├── publish.md        # GitHub pull request creation
+│   └── review.md         # Comprehensive code review with issue detection
 ├── agents/                        # Context-isolated execution
 │   ├── TEMPLATE.md                # Standard subagent template [Phase 3]
 │   ├── jira-analyzer/AGENT.md    # Fetch & summarize Jira (max 1000 tokens)
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR compact mode (max 1200 tokens) [Phase 3]
 │   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 15000 tokens) [Phase 3]
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
+│   ├── brainstorm-generator/AGENT.md # Generate 2-3 solution options (max 3500 tokens)
+│   ├── research-generator/AGENT.md # Generate deep technical analysis (max 6500 tokens)
 │   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
-│   ├── analysis-generator/AGENT.md # Generate problem analyses (max 4000 tokens)
 │   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
 └── skills/                        # Auto-detection intelligence
     ├── jira-auto-detector/SKILL.md   # Detects EC-1234, IS-8046, etc.
@@ -107,83 +111,142 @@ schovi/
 
 ## Key Components
 
-### Command: `/schovi:analyze`
+### Command: `/schovi:brainstorm`
 
-**Location**: `schovi/commands/analyze.md`
+**Location**: `schovi/commands/brainstorm.md`
 
-**Purpose**: Comprehensive problem analysis with codebase exploration
+**Purpose**: Explore 2-3 distinct solution options with broad feasibility analysis
 
 **Workflow**:
 1. **Phase 1: Input Processing** - Parse Jira ID, GitHub issue, GitHub PR, or description; fetch details via appropriate subagent
-2. **Phase 2: Deep Codebase Analysis** - Use Task tool with Plan subagent to map user flows, data flows, dependencies, code quality
-3. **Phase 3: Structured Output** - Problem summary, current state, 2-3 solution proposals with pros/cons, implementation guidance
+2. **Phase 2: Light Codebase Exploration** - Use Task tool with Plan subagent (medium thoroughness) for broad understanding
+3. **Phase 3: Generate Solution Options** - Use `brainstorm-generator` subagent to create 2-3 distinct approaches with pros/cons
+4. **Phase 4: Output Handling** - Save to work folder, display summary, guide to research command
 
 **Input Sources**:
 - Jira issues (via `jira-analyzer` subagent)
 - GitHub issues (via `gh-issue-analyzer` subagent)
 - GitHub PRs (via `gh-pr-analyzer` subagent)
-- Free-form descriptions
+- Files or free-form descriptions
+
+**Output** (~2000-3000 tokens):
+- Problem summary and constraints
+- 2-3 distinct solution options (not variations)
+- Comparison matrix (effort, risk, complexity, etc.)
+- Recommendation with reasoning
+- Next steps: Guide to research command
 
 **Quality Gates** (all must be met):
-- All affected files with `file:line` references
-- Complete user and data flow diagrams
-- Full dependency mapping (direct, indirect, integrations)
-- At least 2 solution options with comprehensive pros/cons analysis
-- Actionable implementation plan with testing and rollout strategies
+- Light exploration completed (2-4 minutes, medium mode)
+- 2-3 distinct options generated (different approaches, not variations)
+- Each option has benefits, challenges, feasibility, effort, risk
+- Comparison matrix with consistent criteria
+- One option recommended with clear reasoning
+- Output saved to work folder as `brainstorm-[id].md`
+
+### Command: `/schovi:research`
+
+**Location**: `schovi/commands/research.md`
+
+**Purpose**: Deep technical analysis of ONE specific approach with detailed file:line references
+
+**Workflow**:
+1. **Phase 1: Input Classification** - Parse `--input` (brainstorm file, Jira ID, GitHub URL, file, text) and extract research target
+2. **Phase 1 (cont): Option Selection** - If brainstorm file, extract option via `--option N` flag or ask user interactively
+3. **Phase 2: Deep Codebase Exploration** - Use Task tool with Plan subagent (thorough mode) for comprehensive analysis
+4. **Phase 3: Generate Deep Research** - Use `research-generator` subagent to create detailed technical analysis
+5. **Phase 4: Output Handling** - Save to work folder, display summary, guide to plan command
+
+**Input Sources**:
+- Brainstorm files with `--option N` flag (e.g., `--input brainstorm-EC-1234.md --option 2`)
+- Jira issues (via `jira-analyzer` subagent)
+- GitHub issues/PRs (via respective subagents)
+- Files or direct descriptions
+
+**Output** (~4000-6000 tokens):
+- Problem/topic summary with research focus
+- Current state analysis with file:line references
+- Architecture overview and component interactions
+- Technical deep dive (data flow, dependencies, code quality)
+- Implementation considerations (complexity, testing, risks)
+- Performance and security implications
+- Next steps: Guide to plan command
+
+**Quality Gates** (all must be met):
+- Deep exploration completed (4-6 minutes, thorough mode)
+- Architecture mapped with file:line references
+- Dependencies identified (direct and indirect)
+- Data flow traced with file:line references
+- Code quality assessed with specific examples
+- Implementation considerations provided (complexity, risks, testing)
+- Performance and security analyzed
+- Output saved to work folder as `research-[id].md` or `research-[id]-option[N].md`
 
 ### Command: `/schovi:plan`
 
 **Location**: `schovi/commands/plan.md`
 
-**Purpose**: Generate implementation specifications from problem analysis. **Does NOT perform analysis** - transforms existing analysis into actionable specs.
+**Purpose**: Generate implementation specifications from research analysis. **Does NOT perform research** - transforms existing research into actionable specs.
 
-**⚠️ CRITICAL**: **Analysis-first requirement** - Plan command enforces strict workflow:
-- Accepts ONLY analyzed inputs (analysis files, conversation analysis, or from-scratch)
-- REJECTS raw inputs (Jira IDs, GitHub URLs) with clear guidance to run `/schovi:analyze` first
+**⚠️ CRITICAL**: **Research-first requirement** - Plan command enforces strict workflow:
+- Accepts ONLY research files, conversation research, or from-scratch mode
+- REJECTS brainstorm files with guidance to run research first
+- REJECTS raw inputs (Jira IDs, GitHub URLs) with guidance to run brainstorm → research first
 - This ensures specs have specific file:line references and technical context
 
 **Workflow**:
-1. **Phase 1: Input Validation** - Classify input type; STOP if raw input detected, direct user to analyze first
-2. **Phase 1 (cont): Extract Analysis** - Read from file or conversation; validate has file:line refs
+1. **Phase 1: Input Validation** - Classify input type; STOP if brainstorm/raw input detected, direct user to research first
+2. **Phase 1 (cont): Extract Research** - Read from file or conversation; validate has file:line refs
 3. **Phase 1.5: Optional Enrichment** - Ask user if they want to enrich vague component references via Explore subagent
-4. **Phase 2: Spec Generation** - Use `spec-generator` subagent to transform analysis into structured spec
+4. **Phase 2: Spec Generation** - Use `spec-generator` subagent to transform research into structured spec
 5. **Phase 3: Output Handling** - Terminal, file, optional Jira posting
 
 **Valid Input Sources**:
-- Analysis file via `--input ./analysis-EC-1234.md`
-- Conversation output from recent `/schovi:analyze` command
-- From-scratch via `--from-scratch "description"` (bypasses analysis, creates minimal spec)
+- Research file via `--input ./research-EC-1234.md`
+- Analysis file via `--input ./analysis-EC-1234.md` (legacy, backward compatibility)
+- Conversation output from recent `/schovi:research` command
+- From-scratch via `--from-scratch "description"` (bypasses research, creates minimal spec)
 
 **Invalid Input Sources** (will STOP with guidance):
-- Jira IDs (EC-1234) - **Must run** `/schovi:analyze EC-1234` **first**
-- GitHub issue/PR URLs - **Must analyze first**
+- Brainstorm files (brainstorm-*.md) - **Must run** `/schovi:research --input brainstorm-*.md --option N` **first**
+- Jira IDs (EC-1234) - **Must run** `/schovi:research --input EC-1234` **first** (or brainstorm first)
+- GitHub issue/PR URLs - **Must research first**
 - Free-form descriptions without `--from-scratch` flag
-- Empty/no arguments without recent analysis in conversation
+- Empty/no arguments without recent research in conversation
 
 **Key Features**:
-- **Strict validation**: Enforces analyze → plan workflow for quality
-- **Optional enrichment**: Can fill gaps in analysis using Explore subagent (with user permission)
+- **Strict validation**: Enforces brainstorm → research → plan workflow for quality
+- **Optional enrichment**: Can fill gaps in research using Explore subagent (with user permission)
 - **Context isolation**: Uses spec-generator subagent to prevent token pollution
 - **Multiple outputs**: Terminal, file (default: `./spec-[id].md`), optional Jira comment
-- **Template flexibility**: Full template (with analysis) or minimal (from-scratch mode)
+- **Template flexibility**: Full template (with research) or minimal (from-scratch mode)
+- **Brainstorm rejection**: Clear error message guiding user to research command
 
-**Enrichment Phase** (new in Phase 1.5):
-- Detects if analysis lacks specific file:line references
+**Enrichment Phase** (optional):
+- Detects if research lacks specific file:line references
 - Asks user permission before enriching via Explore subagent
 - Quick targeted search (20-40s) to find missing file locations
 - User can approve, skip, or provide locations manually
 
 **Example Usage**:
 ```bash
+# Wrong: Brainstorm file (will STOP with guidance)
+/schovi:plan --input brainstorm-EC-1234.md  ❌
+
 # Wrong: Raw Jira ID (will STOP with guidance)
 /schovi:plan EC-1234  ❌
 
-# Right: Analyze first, then plan
-/schovi:analyze EC-1234
-/schovi:plan --input ./analysis-EC-1234.md  ✅
+# Right: Full workflow
+/schovi:brainstorm EC-1234
+/schovi:research --input brainstorm-EC-1234.md --option 2
+/schovi:plan --input research-EC-1234-option2.md  ✅
+
+# Or skip brainstorm, go direct to research
+/schovi:research --input EC-1234
+/schovi:plan --input research-EC-1234.md  ✅
 
 # Or use conversation
-/schovi:analyze EC-1234
+/schovi:research --input EC-1234
 /schovi:plan  ✅ (auto-detects from conversation)
 
 # Or from-scratch for simple tasks
@@ -191,9 +254,9 @@ schovi/
 ```
 
 **Quality Gates** (all must be met):
-- Input validated as analyzed (not raw)
-- Analysis content successfully extracted
-- Chosen approach identified (if multiple options)
+- Input validated as research (not brainstorm or raw)
+- Research content successfully extracted
+- Chosen approach identified (if multiple options in research)
 - Spec generated via spec-generator subagent
 - Implementation tasks are specific and actionable
 - Acceptance criteria are testable
@@ -218,11 +281,11 @@ schovi/
 - Error messages, stack traces, logs (parsed directly)
 - Free-form problem descriptions
 
-**Key Differences from Analyze**:
-- **Focus**: Debugging and root cause identification (vs. solution exploration)
-- **Output**: Single targeted fix proposal (vs. 2-3 solution options)
-- **Approach**: Execution flow tracing and error point analysis (vs. comprehensive problem analysis)
-- **Result**: Actionable fix with code changes (vs. high-level solution proposals)
+**Key Differences from Brainstorm/Research**:
+- **Focus**: Debugging and root cause identification (vs. solution exploration or technical analysis)
+- **Output**: Single targeted fix proposal (vs. 2-3 solution options or deep research)
+- **Approach**: Execution flow tracing and error point analysis (vs. broad exploration or deep architecture analysis)
+- **Result**: Actionable fix with code changes (vs. high-level solution proposals or technical implementation considerations)
 
 **Quality Gates** (all must be met):
 - Error point analyzed with immediate cause
@@ -504,7 +567,7 @@ gh pr ready <number>
 - Mode: **Compact only** (simplified in Phase 3)
 - Output: ~800-1000 tokens (top 20 files, max 3 reviews, failed CI only)
 - Token budget: Max 1200 tokens
-- Used by: analyze, debug, plan commands
+- Used by: brainstorm, research, debug, plan commands
 - Purpose: Provide concise PR context for general analysis
 
 **gh-pr-reviewer** (`schovi/agents/gh-pr-reviewer/AGENT.md`):
@@ -579,9 +642,10 @@ git push
 
 ### Testing
 
-- Manual testing via `/schovi:analyze [input]`
+- Manual testing via `/schovi:brainstorm [input]` and `/schovi:research --input [input]`
 - Test with real Jira issues: `EC-1234` format
 - Test with GitHub PRs: `owner/repo#123` or `#123`
+- Test brainstorm → research → plan workflow
 - Verify token reduction by checking context usage
 
 ## Plugin System Specifics
@@ -647,11 +711,12 @@ Always use `file:line` format for specificity and navigation:
 
 ### Template System
 
-**Purpose**: Output structure templates that agents read dynamically to generate consistent, well-structured analyses and specifications.
+**Purpose**: Output structure templates that agents read dynamically to generate consistent, well-structured brainstorms, research, and specifications.
 
 **Architecture**:
 ```
-analyze command → analysis-generator agent → Read templates/analysis/full.md
+brainstorm command → brainstorm-generator agent → Read templates/brainstorm/full.md
+research command → research-generator agent → Read templates/research/full.md
 plan command → spec-generator agent → Read templates/spec/full.md
 ```
 
@@ -662,7 +727,8 @@ plan command → spec-generator agent → Read templates/spec/full.md
 - ✅ Extensible design ready for future template variants
 
 **Available Templates**:
-- `templates/analysis/full.md` - Problem analysis structure (~516 lines)
+- `templates/brainstorm/full.md` - Solution options structure with 2-3 approaches
+- `templates/research/full.md` - Deep technical analysis structure with file:line references
 - `templates/spec/full.md` - Implementation spec structure (~150 lines)
 
 **Current Implementation**:
@@ -672,15 +738,17 @@ plan command → spec-generator agent → Read templates/spec/full.md
 - Straightforward and maintainable
 
 **Future Extensibility** (when needed):
-1. Create new template variant (e.g., `templates/analysis/quick.md`, `templates/analysis/investigative.md`)
+1. Create new template variant (e.g., `templates/brainstorm/quick.md`, `templates/research/performance.md`)
 2. Add conditional logic to agent to select template based on input
 3. Update command to pass template selection parameter
 4. Templates remain self-contained - no other changes needed
 
 **Example future variants**:
-- `analysis/quick.md` - Lightweight analysis for simple bugs
-- `analysis/investigative.md` - Deep-dive for unclear problems
-- `analysis/performance.md` - Performance-focused analysis
+- `brainstorm/quick.md` - Lightweight brainstorm with 2 options
+- `brainstorm/comprehensive.md` - Extended brainstorm with 4-5 options
+- `research/quick.md` - Lighter research for simple features
+- `research/investigative.md` - Extra-deep research for complex systems
+- `research/performance.md` - Performance-focused research
 - `spec/migration.md` - Migration/refactor specifications
 
 **Token Considerations**:
@@ -786,7 +854,8 @@ Use lib/work-folder.md with: [config]
 - README: `schovi/README.md`
 
 **Commands**:
-- `schovi/commands/analyze.md`
+- `schovi/commands/brainstorm.md`
+- `schovi/commands/research.md`
 - `schovi/commands/debug.md`
 - `schovi/commands/plan.md`
 - `schovi/commands/implement.md`
@@ -806,15 +875,18 @@ Use lib/work-folder.md with: [config]
 - `schovi/lib/subagent-invoker.md`
 
 **Templates**:
-- `schovi/templates/analysis/full.md` - Problem analysis structure
+- `schovi/templates/brainstorm/full.md` - Solution options structure
+- `schovi/templates/research/full.md` - Deep technical analysis structure
 - `schovi/templates/spec/full.md` - Implementation spec structure
 
 **Subagents**:
 - `schovi/agents/jira-analyzer/AGENT.md`
 - `schovi/agents/gh-pr-analyzer/AGENT.md`
+- `schovi/agents/gh-pr-reviewer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
+- `schovi/agents/brainstorm-generator/AGENT.md`
+- `schovi/agents/research-generator/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
-- `schovi/agents/analysis-generator/AGENT.md`
 - `schovi/agents/debug-fix-generator/AGENT.md`
 
 **Marketplace**:
