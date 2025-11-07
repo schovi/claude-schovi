@@ -60,7 +60,7 @@ Invoked via Task tool with fully qualified name:
 
 ```
 Task tool:
-  subagent_type: "schovi:brainstorm-generator"
+  subagent_type: "schovi:brainstorm-executor:brainstorm-executor"
   prompt: "Generate 2-3 solution options for [problem context]"
   description: "Generating solution options"
 ```

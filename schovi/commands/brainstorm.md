@@ -96,7 +96,7 @@ Configuration:
 
 ```
 Task tool configuration:
-  subagent_type: "schovi:brainstorm-executor"
+  subagent_type: "schovi:brainstorm-executor:brainstorm-executor"
   model: "sonnet"
   description: "Execute brainstorm workflow"
   prompt: |

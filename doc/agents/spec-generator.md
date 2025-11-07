@@ -60,7 +60,7 @@ Invoked via Task tool with fully qualified name:
 
 ```
 Task tool:
-  subagent_type: "schovi:spec-generator"
+  subagent_type: "schovi:spec-generator:spec-generator"
   prompt: "Generate implementation spec from research: [research content]"
   description: "Generating implementation spec"
 ```
