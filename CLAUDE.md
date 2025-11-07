@@ -30,6 +30,75 @@ Main Context → Spawn Subagent (Task tool) → Isolated Context (fetch 10-50k p
 
 **Result**: 75-80% token savings, keeping main context clean for codebase analysis.
 
+### Executor Subagent Pattern
+
+**The Problem**: Workflow commands (brainstorm, research, debug) need to perform 3 operations: (1) fetch external context, (2) explore codebase deeply, (3) generate formatted output. If operations run in main context, codebase exploration adds 40-85k tokens, polluting the context window.
+
+**The Solution**: Use **executor subagents** that perform ALL operations in isolated context:
+
+```
+Main Context (CLEAN):
+  ↓
+Spawn executor subagent with problem reference only
+  ↓
+Isolated Context (executor subagent):
+  ├─ Phase 1: Fetch external context (spawn jira-analyzer/gh-pr-analyzer)
+  ├─ Phase 2: Explore codebase (spawn Plan/Explore subagent)
+  ├─ Phase 3: Generate formatted output (read template, format)
+  └─ Return clean result (2-6k tokens)
+  ↓
+Main Context receives clean output only
+```
+
+**Executor vs. Analyzer Subagents**:
+
+| Type | Purpose | Input Size | Processing | Output Size | Examples |
+|------|---------|-----------|------------|-------------|----------|
+| **Analyzer** | Fetch & condense external data | URL/ID | API/CLI fetch → condense | ~800-1200 tokens | jira-analyzer, gh-pr-analyzer |
+| **Executor** | Complete workflow in isolation | Problem reference | Spawn analyzers → explore → format | ~2000-6500 tokens | brainstorm-executor, research-executor, debug-executor |
+
+**Executor Pattern Rules**:
+
+1. **Commands are thin wrappers**: Parse arguments → spawn executor → handle output
+2. **Executors do ALL the work**: External fetching + exploration + generation
+3. **Nested subagent spawning**: Executors spawn analyzers and Plan/Explore subagents within their isolated context
+4. **Token isolation**: Main context only sees final formatted output, not intermediate exploration
+5. **Consistent naming**: Use `-executor` suffix for workflow executors, `-analyzer` for data fetchers
+
+**Result**: 93-96% token reduction in main context (from 40-85k to 2-6k tokens).
+
+**Example: Research Workflow**
+
+❌ **Wrong (old pattern)** - Main context pollution:
+```markdown
+# research command
+Phase 1: Parse arguments
+Phase 2: Fetch Jira/GitHub (via analyzer subagent) ← isolated ✅
+Phase 3: Deep codebase exploration (spawn Plan subagent) ← 83k tokens in main! ❌
+Phase 4: Format output (via generator subagent) ← isolated ✅
+```
+Main context sees: arguments + Jira summary + 83k exploration + final output = **85k tokens** ❌
+
+✅ **Correct (executor pattern)** - Full isolation:
+```markdown
+# research command
+Phase 1: Parse arguments
+Phase 2: Spawn research-executor with problem reference
+  → Executor (in isolated context):
+      - Fetch Jira/GitHub (spawn jira-analyzer)
+      - Deep exploration (spawn Plan subagent)
+      - Generate formatted output (read template)
+      - Return 6k token result
+Phase 3: Handle output (save to work folder)
+```
+Main context sees: arguments + 6k output = **6k tokens** ✅ (93% reduction)
+
+**Implementation Notes**:
+- Executors use `Task` tool to spawn nested subagents (analyzers, Plan, Explore)
+- All three workflow commands use this pattern: brainstorm-executor, research-executor, debug-executor
+- Plan command uses spec-generator (not executor) because it doesn't do exploration, just transforms research
+- Review command doesn't use executor because it needs flexibility for direct code analysis
+
 ### Shared Libraries Architecture
 
 **The Problem**: Commands had 60-70% code duplication, with common operations (argument parsing, input fetching, work folder management) copy-pasted across 4-7 commands.
@@ -100,10 +169,10 @@ schovi/
 │   ├── gh-pr-analyzer/AGENT.md   # Fetch & summarize GitHub PR compact mode (max 1200 tokens) [Phase 3]
 │   ├── gh-pr-reviewer/AGENT.md   # Fetch comprehensive PR data for review (max 15000 tokens) [Phase 3]
 │   ├── gh-issue-analyzer/AGENT.md # Fetch & summarize GitHub issues (max 1000 tokens)
-│   ├── brainstorm-generator/AGENT.md # Generate 2-3 solution options (max 3500 tokens)
-│   ├── research-generator/AGENT.md # Generate deep technical analysis (max 6500 tokens)
-│   ├── spec-generator/AGENT.md   # Generate implementation specs (max 3000 tokens)
-│   └── debug-fix-generator/AGENT.md # Generate fix proposals from debugging (max 2500 tokens)
+│   ├── brainstorm-executor/AGENT.md # Execute brainstorm: fetch + explore + generate (max 3500 tokens)
+│   ├── research-executor/AGENT.md # Execute research: fetch + explore + generate (max 6500 tokens)
+│   ├── spec-generator/AGENT.md   # Transform research into implementation specs (max 3000 tokens)
+│   └── debug-executor/AGENT.md   # Execute debug: fetch + explore + generate fix (max 2500 tokens)
 └── skills/                        # Auto-detection intelligence
     ├── jira-auto-detector/SKILL.md   # Detects EC-1234, IS-8046, etc.
     └── gh-pr-auto-detector/SKILL.md  # Detects PR URLs, owner/repo#123, #123
@@ -118,10 +187,12 @@ schovi/
 **Purpose**: Explore 2-3 distinct solution options with broad feasibility analysis
 
 **Workflow**:
-1. **Phase 1: Input Processing** - Parse Jira ID, GitHub issue, GitHub PR, or description; fetch details via appropriate subagent
-2. **Phase 2: Light Codebase Exploration** - Use Task tool with Plan subagent (medium thoroughness) for broad understanding
-3. **Phase 3: Generate Solution Options** - Use `brainstorm-generator` subagent to create 2-3 distinct approaches with pros/cons
-4. **Phase 4: Output Handling** - Save to work folder, display summary, guide to research command
+1. **Phase 1: Argument Parsing** - Parse and validate input arguments (Jira ID, GitHub URL, description, flags)
+2. **Phase 2: Execute Brainstorm** - Spawn `brainstorm-executor` subagent which performs all work in isolated context:
+   - Fetch external context (Jira/GitHub via nested analyzer subagents)
+   - Light codebase exploration (spawn Plan subagent in medium mode)
+   - Generate 2-3 solution options (read template, format output)
+3. **Phase 3: Output Handling** - Save to work folder, display summary, guide to research command
 
 **Input Sources**:
 - Jira issues (via `jira-analyzer` subagent)
@@ -151,11 +222,14 @@ schovi/
 **Purpose**: Deep technical analysis of ONE specific approach with detailed file:line references
 
 **Workflow**:
-1. **Phase 1: Input Classification** - Parse `--input` (brainstorm file, Jira ID, GitHub URL, file, text) and extract research target
-2. **Phase 1 (cont): Option Selection** - If brainstorm file, extract option via `--option N` flag or ask user interactively
-3. **Phase 2: Deep Codebase Exploration** - Use Task tool with Plan subagent (thorough mode) for comprehensive analysis
-4. **Phase 3: Generate Deep Research** - Use `research-generator` subagent to create detailed technical analysis
-5. **Phase 4: Output Handling** - Save to work folder, display summary, guide to plan command
+1. **Phase 1: Argument Parsing & Target Extraction** - Parse `--input` and extract research target:
+   - If brainstorm file: Extract option via `--option N` flag or ask user interactively
+   - Otherwise: Determine research scope from input
+2. **Phase 2: Execute Research** - Spawn `research-executor` subagent which performs all work in isolated context:
+   - Fetch external context (Jira/GitHub via nested analyzer subagents if needed)
+   - Deep codebase exploration (spawn Plan subagent in thorough mode)
+   - Generate detailed technical analysis (read template, format output with file:line refs)
+3. **Phase 3: Output Handling** - Save to work folder, display summary, guide to plan command
 
 **Input Sources**:
 - Brainstorm files with `--option N` flag (e.g., `--input brainstorm-EC-1234.md --option 2`)
@@ -269,9 +343,12 @@ schovi/
 **Purpose**: Deep debugging workflow with root cause analysis and single fix proposal
 
 **Workflow**:
-1. **Phase 1: Input Processing & Context Gathering** - Parse Jira ID, GitHub issue, GitHub PR, Datadog trace, or error description; fetch details via appropriate subagent
-2. **Phase 2: Deep Debugging & Root Cause Analysis** - Use Task tool with Explore subagent to trace execution flow, identify error point, and determine root cause
-3. **Phase 3: Fix Proposal Generation** - Use debug-fix-generator subagent to create structured fix with code changes, testing, and rollout plan
+1. **Phase 1: Argument Parsing & Error Extraction** - Parse input and extract error context (stack trace, error message, reproduction steps)
+2. **Phase 2: Execute Debug** - Spawn `debug-executor` subagent which performs all work in isolated context:
+   - Fetch external context (Jira/GitHub via nested analyzer subagents if needed)
+   - Deep debugging & root cause analysis (spawn Explore subagent to trace execution flow)
+   - Generate fix proposal (read template, format with code changes, testing, rollout plan)
+3. **Phase 3: Output Handling** - Save to work folder, display summary, offer to implement fix
 
 **Input Sources**:
 - Jira issues (via `jira-analyzer` subagent)
@@ -593,12 +670,12 @@ gh pr ready <number>
 - Output: ~1500-2500 token spec (structured markdown with tasks, criteria, testing, risks)
 - Token budget: Max 3000 tokens
 
-**debug-fix-generator** (`schovi/agents/debug-fix-generator/AGENT.md`):
-- Input: Debugging results (error point, execution flow, root cause, impact, fix location)
-- Uses: None (pure transformation)
-- Output: ~1500-2000 token fix proposal (problem summary, root cause, code changes, testing, rollout)
+**debug-executor** (`schovi/agents/debug-executor/AGENT.md`):
+- Input: Problem reference (Jira ID, GitHub URL, error description, stack trace)
+- Uses: Task tool (to spawn jira-analyzer, gh-issue-analyzer, Explore subagent), Read tool
+- Output: ~1500-2500 token fix proposal (problem summary, root cause, execution flow with file:line, code changes, testing, rollout)
 - Token budget: Max 2500 tokens
-- Purpose: Transform debugging results into single, actionable fix proposal with before/after code
+- Purpose: Execute complete debugging workflow in isolated context: fetch context → debug → generate fix proposal
 
 ### Skills
 
@@ -715,8 +792,8 @@ Always use `file:line` format for specificity and navigation:
 
 **Architecture**:
 ```
-brainstorm command → brainstorm-generator agent → Read templates/brainstorm/full.md
-research command → research-generator agent → Read templates/research/full.md
+brainstorm command → brainstorm-executor agent → [fetch + explore + Read templates/brainstorm/full.md]
+research command → research-executor agent → [fetch + explore + Read templates/research/full.md]
 plan command → spec-generator agent → Read templates/spec/full.md
 ```
 
@@ -897,10 +974,10 @@ Use lib/work-folder.md with: [config]
 - `schovi/agents/gh-pr-reviewer/AGENT.md`
 - `schovi/agents/gh-issue-analyzer/AGENT.md`
 - `schovi/agents/datadog-analyzer/AGENT.md`
-- `schovi/agents/brainstorm-generator/AGENT.md`
-- `schovi/agents/research-generator/AGENT.md`
+- `schovi/agents/brainstorm-executor/AGENT.md`
+- `schovi/agents/research-executor/AGENT.md`
 - `schovi/agents/spec-generator/AGENT.md`
-- `schovi/agents/debug-fix-generator/AGENT.md`
+- `schovi/agents/debug-executor/AGENT.md`
 
 **Marketplace**:
 - `.claude-plugin/marketplace.json`
