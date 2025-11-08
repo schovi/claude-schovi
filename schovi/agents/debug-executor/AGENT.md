@@ -1,5 +1,6 @@
 ---
 name: debug-executor
+color: red
 allowed-tools: ["Read", "Task", "Grep", "Glob"]
 ---
 

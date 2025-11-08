@@ -2,6 +2,7 @@
 name: jira-analyzer
 description: Fetches and summarizes Jira issues without polluting parent context. Extracts only essential information for problem analysis.
 allowed-tools: ["mcp__jira__*"]
+color: blue
 ---
 
 # Jira Issue Analyzer Subagent

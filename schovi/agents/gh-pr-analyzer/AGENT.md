@@ -2,6 +2,7 @@
 name: gh-pr-analyzer
 description: Fetches and summarizes GitHub pull requests via gh CLI with compact output. Extracts essential PR metadata optimized for analyze, debug, and plan commands.
 allowed-tools: ["Bash"]
+color: purple
 ---
 
 # GitHub PR Analyzer Subagent

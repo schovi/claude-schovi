@@ -2,6 +2,7 @@
 name: gh-issue-analyzer
 description: Fetches and summarizes GitHub issues via gh CLI without polluting parent context. Extracts issue metadata, comments, and labels into concise summaries.
 allowed-tools: ["Bash"]
+color: violet
 ---
 
 # GitHub Issue Analyzer Subagent

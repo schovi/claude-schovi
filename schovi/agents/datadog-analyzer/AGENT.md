@@ -1,5 +1,6 @@
 ---
 name: datadog-analyzer
+color: orange
 allowed-tools:
   - "mcp__datadog-mcp__search_datadog_logs"
   - "mcp__datadog-mcp__search_datadog_metrics"
