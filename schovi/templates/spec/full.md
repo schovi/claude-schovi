@@ -134,6 +134,61 @@ Each criterion should map to risks from the Research phase or Risks & Mitigation
 - [ ] [Edge case 1 to test]
 - [ ] [Edge case 2 to test]
 
+## Smoke Tests
+
+Minimal end-to-end scenarios that prove the intended behavior. These will be executed during implementation to generate verification evidence.
+
+### Scenario 1: [Description of what we're proving]
+**Purpose**: Prove that [specific behavior] actually works in practice
+
+**Pre-conditions**:
+- [ ] [Prerequisite 1 - e.g., "Database has test data loaded"]
+- [ ] [Prerequisite 2 - e.g., "Service is running on port 8080"]
+- [ ] [Prerequisite 3 - e.g., "Environment variable X is set"]
+
+**Test Steps**:
+1. Execute: `[Command to run - e.g., curl -X POST http://localhost:8080/api/feature -d '{"type":"boolean"}']`
+2. Observe: [What to observe - e.g., "Response status code"]
+3. Observe: [Another observation - e.g., "Response body contains error message"]
+
+**Expected Observations**:
+- [Observation 1]: [Expected value - e.g., "Status code: 400"]
+- [Observation 2]: [Expected value - e.g., "Response body: {\"error\": \"Boolean field types are not supported\"}"]
+- [Observation 3]: [Expected value - e.g., "Database query: SELECT COUNT(*) FROM mappings WHERE type='boolean' returns 0"]
+
+**Evidence to collect**:
+- [Evidence 1 - e.g., "HTTP response (full)"]
+- [Evidence 2 - e.g., "Database query result"]
+- [Evidence 3 - e.g., "Server logs for the request"]
+
+**Rollback** (if test creates side effects):
+```bash
+# Commands to clean up any test data or artifacts
+# Example: psql -c "DELETE FROM mappings WHERE id IN (SELECT id FROM mappings WHERE created_at > '2025-04-11 14:30:00')"
+```
+
+### Scenario 2: [Another critical behavior to prove]
+**Purpose**: Prove that [different aspect of behavior] works correctly
+
+**Pre-conditions**:
+- [ ] [Prerequisite 1]
+- [ ] [Prerequisite 2]
+
+**Test Steps**:
+1. Execute: `[Command]`
+2. Observe: [What to check]
+
+**Expected Observations**:
+- [Observation]: [Expected value]
+
+**Evidence to collect**:
+- [Evidence item]
+
+**Rollback**:
+```bash
+# Cleanup commands
+```
+
 ## Risks & Mitigations
 
 - **Risk**: [Description of potential risk]
@@ -215,6 +270,33 @@ Show traceability between what you're testing and what risk it mitigates.
 - Makes testing strategy more focused and purposeful
 - Helps reviewers understand why each criterion matters
 
+### Write Executable Smoke Tests
+Smoke tests should be concrete commands that can be executed during implementation.
+
+❌ "Test that the API returns an error"
+✅ Complete smoke test with:
+- **Purpose**: "Prove that boolean field types are rejected with clear error message"
+- **Test Step**: `curl -X POST http://localhost:8080/api/feature -d '{"type":"boolean"}'`
+- **Expected Observation**: "Status code: 400"
+- **Evidence**: "Full HTTP response"
+
+**Smoke Test Principles**:
+- Keep it minimal (1-3 scenarios that prove critical behavior)
+- Make it executable (actual commands, not descriptions)
+- Make it observable (specific expectations with measurable outcomes)
+- Make it evidential (specify what to capture as proof)
+- Make it reversible (include rollback if test has side effects)
+
+**Good Smoke Test Candidates**:
+- Happy path for main feature (proves it works end-to-end)
+- Critical error handling (proves validation/safety works)
+- Integration point (proves external service communication works)
+
+**Bad Smoke Test Candidates**:
+- Edge cases better suited for unit tests
+- Performance/load testing (use dedicated perf tests)
+- Comprehensive coverage (that's what test suites are for)
+
 ---
 
 ## Validation Checklist
@@ -230,7 +312,8 @@ Before returning spec, ensure:
 - [ ] Acceptance Criteria has 3+ testable criteria plus standard criteria (tests, linting, review)
 - [ ] Each acceptance criterion links to a risk it mitigates (traceability)
 - [ ] Testing Strategy has unit tests, integration tests, and manual testing with specific scenarios
+- [ ] Smoke Tests has 1-3 end-to-end scenarios with purpose, pre-conditions, test steps, expected observations, evidence to collect, and rollback commands
 - [ ] Risks & Mitigations has at least 2 risks with mitigation strategies
 - [ ] References section has Jira issue and analysis source
 - [ ] All file references use `file:line` format
-- [ ] Token count under 3000
+- [ ] Token count under 3500 (increased to accommodate smoke tests section)

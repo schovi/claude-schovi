@@ -91,6 +91,22 @@ flags:
     type: "boolean"
     description: "Skip linting and test validation"
 
+  - name: "--skip-smoke-tests"
+    type: "boolean"
+    description: "Skip smoke test execution (faster, less thorough)"
+
+  - name: "--smoke-only"
+    type: "boolean"
+    description: "Run only smoke tests (assume implementation complete)"
+
+  - name: "--interactive-smoke"
+    type: "boolean"
+    description: "Prompt for confirmation after each smoke test scenario"
+
+  - name: "--generate-smoke"
+    type: "boolean"
+    description: "Auto-generate smoke tests from acceptance criteria"
+
   # Commit flags
   - name: "--verbose"
     type: "boolean"
@@ -101,6 +117,14 @@ conflicts:
   - flags: ["--output", "--no-file"]
     error: "Cannot use --output and --no-file together"
     resolution: "Choose either custom log path (--output) or no log file (--no-file)"
+
+  - flags: ["--smoke-only", "--skip-validation"]
+    error: "Cannot use --smoke-only with --skip-validation"
+    resolution: "Smoke tests require validation to be enabled"
+
+  - flags: ["--smoke-only", "--skip-smoke-tests"]
+    error: "Cannot use --smoke-only with --skip-smoke-tests"
+    resolution: "These flags are contradictory"
 
 warnings:
   - flags: ["--quiet", "--no-file"]
@@ -131,6 +155,10 @@ Parsed arguments:
   interactive_mode = [boolean]
   auto_commit = [true unless --no-commit]
   skip_validation = [boolean]
+  skip_smoke_tests = [boolean]
+  smoke_only = [boolean]
+  interactive_smoke = [boolean]
+  generate_smoke = [boolean]
   verbose_commits = [boolean]
 ```
 
@@ -1256,7 +1284,926 @@ Document failures and mark validation as `incomplete`.
 
 ---
 
-### Step 3.5: Verify Acceptance Criteria
+### Step 3.5: Run Smoke Tests & Generate Verification (NEW)
+
+**Purpose**: Execute end-to-end smoke tests to prove intended behavior and generate verification artifacts.
+
+**Skip conditions**:
+- If `--skip-validation` flag present
+- If `--skip-smoke-tests` flag present
+- If `smoke_only == false` AND spec has no "## Smoke Tests" section AND user declines interactive/generate options
+
+**If smoke_only == true**:
+```
+🔬 **[Smoke Tests]** Running in smoke-only mode
+
+Skipping implementation and validation phases
+Proceeding directly to smoke test execution
+```
+
+Skip to this step, execute smoke tests, then jump to Phase 4 completion.
+
+**Acknowledge start**:
+```
+╭─────────────────────────────────────────────╮
+│ 🔬 SMOKE TESTING & VERIFICATION             │
+╰─────────────────────────────────────────────╯
+
+**Purpose**: Verify end-to-end behavior with evidence collection
+
+**Scenarios**: [N] from spec (or to be generated)
+**Evidence output**: 05-verification.md
+**Rollback script**: rollback.sh
+```
+
+---
+
+#### Step 3.5.1: Parse Smoke Test Scenarios
+
+Read "## Smoke Tests" section from spec:
+- Extract scenarios (numbered or bulleted)
+- Parse for each scenario:
+  - Purpose (what are we proving?)
+  - Pre-conditions (setup required)
+  - Test Steps (commands to execute)
+  - Expected Observations (what should we see?)
+  - Evidence to collect (what to record)
+  - Rollback (cleanup commands)
+
+**If section missing**:
+```
+⚠️  **[Smoke Tests]** No smoke tests defined in spec
+
+**Searched for**:
+- ## Smoke Tests
+- # Smoke Tests
+- ## End-to-End Tests
+- # E2E Tests
+
+**Impact**: Cannot verify end-to-end behavior automatically
+
+**Options**:
+1. Skip smoke tests (fastest, no E2E verification)
+2. Interactive mode (I'll help create smoke tests now)
+3. Auto-generate from acceptance criteria (experimental)
+
+Choose: [1/2/3]
+```
+
+**If user chooses "1" (Skip)**:
+```
+⏭️  **[Smoke Tests]** Skipped (user choice)
+
+Proceeding to acceptance criteria verification...
+```
+Skip to Step 3.6.
+
+**If user chooses "2" (Interactive)**:
+```
+Let's create a smoke test together.
+
+**Acceptance Criteria from spec**:
+[List numbered acceptance criteria from spec]
+
+**I recommend testing the first criterion end-to-end.**
+
+**Criterion 1**: [Description]
+
+What command would verify this behavior?
+Example: curl -X POST http://localhost:8080/api/feature -d '{"type":"boolean"}'
+
+Your command:
+```
+
+Wait for user input, then:
+```
+Great! What should we observe after running this command?
+
+Example observations:
+- HTTP status code: 400
+- Response body contains: "not supported"
+- Database query: SELECT COUNT(*) FROM mappings WHERE type='boolean' returns 0
+
+Your expectations (one per line, or 'done' to finish):
+```
+
+Collect expectations, then:
+```
+✅ **[Smoke Tests]** Scenario created
+
+**Scenario 1**: Test [criterion description]
+**Command**: [user's command]
+**Expectations**:
+- [user's expectation 1]
+- [user's expectation 2]
+
+Create another scenario? [yes/no]
+```
+
+Build scenario list interactively, then proceed to Step 3.5.2.
+
+**If user chooses "3" (Auto-generate)**:
+```
+🤖 **[Smoke Tests]** Generating smoke tests from acceptance criteria...
+
+Analyzing acceptance criteria...
+
+✅ **[Smoke Tests]** Generated [N] scenario(s):
+
+**Scenario 1**: Test "[criterion 1 description]"
+  Command: [inferred from spec context and implementation]
+  Expectations: [inferred from criterion]
+
+**Scenario 2**: Test "[criterion 2 description]"
+  Command: [inferred from spec context]
+  Expectations: [inferred from criterion]
+
+[For each scenario, use implementation context to infer:
+ - API endpoints touched (from file:line references)
+ - Database tables affected (from migrations/models)
+ - Expected behavior (from acceptance criteria wording)]
+
+Review scenarios? [yes to proceed / edit to modify / cancel to skip]
+```
+
+If user says "edit":
+```
+Which scenario to edit? [1-N / all done]
+```
+
+Allow editing, then proceed to Step 3.5.2.
+
+**If scenarios successfully parsed or generated**:
+```
+✅ **[Smoke Tests]** Parsed [N] scenario(s)
+
+Scenarios:
+1. [Purpose 1]
+2. [Purpose 2]
+...
+
+Proceeding with execution...
+```
+
+---
+
+#### Step 3.5.2: Initialize Verification Report
+
+Create or open `05-verification.md` in work folder (or current directory if standalone mode):
+
+```markdown
+# Implementation Verification Report
+
+**Work Folder**: [work folder path or "Standalone mode"]
+**Spec**: [spec identifier]
+**Implementation Date**: [from metadata or git log]
+**Verification Date**: [current timestamp]
+
+---
+
+## Executive Summary
+
+**Status**: 🚧 In Progress
+
+**Smoke Tests**: 0/[N] completed
+**Evidence Artifacts**: Collecting...
+**Rollback Script**: Generating...
+
+**Conclusion**: Verification in progress...
+
+---
+
+## Verification Matrix
+
+| Scenario | Purpose | Status | Evidence | Timestamp |
+|----------|---------|--------|----------|-----------|
+[For each scenario, initially empty rows]
+
+---
+
+[Scenarios will be appended as they execute]
+
+---
+
+## Metadata
+
+**Generated by**: Claude Code Implementation Executor V3
+**Verification framework**: Smoke Test Harness v1.0
+**Evidence format version**: 1.0
+**Report started**: [timestamp]
+```
+
+**Acknowledge**:
+```
+📄 **[Smoke Tests]** Verification report initialized
+
+Location: [path]/05-verification.md
+Format: Markdown with timestamped evidence
+```
+
+---
+
+#### Step 3.5.3: Execute Each Smoke Test Scenario
+
+**For each scenario** (1 to N):
+
+**Display scenario header**:
+```
+╭─────────────────────────────────────────────╮
+│ 🔬 SCENARIO [N]/[TOTAL]                     │
+╰─────────────────────────────────────────────╯
+
+**Purpose**: [Purpose from scenario]
+
+**Pre-conditions**: [count] to verify
+**Test Steps**: [count] to execute
+**Expected Observations**: [count] to verify
+```
+
+**If interactive_smoke == true**:
+```
+⏸️  Interactive smoke testing enabled
+
+Review scenario before execution:
+[Display full scenario details]
+
+Proceed with this scenario? [yes/no/skip]
+```
+
+**Step 3.5.3a: Verify Pre-conditions**
+
+For each pre-condition in scenario:
+```
+🔍 Pre-condition [M]/[TOTAL]: [Description]
+
+Checking: [command or verification method]
+```
+
+Execute verification command using Bash tool.
+
+**If pre-condition passes**:
+```
+✅ Pre-condition met: [Result summary]
+   Details: [Specific verification result]
+```
+
+**If pre-condition fails**:
+```
+❌ Pre-condition failed: [Description]
+
+**Check**: [What was checked]
+**Expected**: [What should exist/be true]
+**Observed**: [What was actually found]
+
+**Options**:
+1. Set up pre-condition now (I'll help you)
+2. Skip this pre-condition (risky, may cause test to fail)
+3. Skip entire scenario
+4. Stop smoke testing
+
+Choose: [1-4]
+```
+
+**If user chooses "1" (Set up)**:
+```
+How can we set up this pre-condition?
+
+Example for "Database has test data":
+  psql -c "INSERT INTO test_data (id, name) VALUES (1, 'test')"
+
+Example for "Service running on port 8080":
+  npm run dev
+
+Your command:
+```
+
+Execute user's command, then re-verify pre-condition.
+
+**If all pre-conditions met**:
+```
+✅ All pre-conditions verified ([count]/[count])
+
+Proceeding to test execution...
+```
+
+**Step 3.5.3b: Execute Test Steps with Evidence Collection**
+
+For each test step in scenario:
+```
+📋 Step [M]/[TOTAL]: [Step description]
+
+**Command**: [command from scenario]
+
+Executing... [timestamp: HH:MM:SS.mmm]
+```
+
+Execute command using Bash tool with full output capture.
+
+**Capture execution details**:
+- Exit code
+- Duration (milliseconds)
+- stdout (full output)
+- stderr (if any)
+- Timestamp (ISO 8601 format)
+
+**Display result**:
+```
+📊 **Result**:
+  - Exit code: [code]
+  - Duration: [ms]ms
+  - Output: [truncated to 200 chars if long, with "... (see report)"]
+
+✅ Step executed successfully
+```
+
+**If command fails** (non-zero exit code):
+```
+⚠️  **Command failed**:
+  - Exit code: [code]
+  - Error: [stderr output]
+
+**This may be expected** (if scenario tests error handling)
+
+Continue with observation verification? [yes/no]
+```
+
+**Collect additional evidence** (if specified in scenario):
+
+For each evidence item to collect (e.g., "Database query result", "Server logs"):
+```
+📸 Collecting evidence: [Evidence description]
+
+Running: [command to collect evidence]
+```
+
+Execute evidence collection command.
+
+**Step 3.5.3c: Compare Observations vs Expectations**
+
+For each expected observation in scenario:
+```
+🎯 **Verification [Expectation M/TOTAL]**:
+
+Expected: [Expectation description]
+Observed: [Actual result from execution]
+```
+
+**Comparison logic**:
+- For exact matches: Check string equality
+- For "contains" expectations: Check substring
+- For numeric comparisons: Parse and compare numbers
+- For regex patterns: Match against pattern
+
+**Display comparison**:
+```
+Match: [✅ Yes / ❌ No / ⚠️ Partial]
+```
+
+**After all observations checked**:
+
+**If all match**:
+```
+✅ **Scenario [N] PASSED**
+
+All expectations met:
+- [Expectation 1]: ✅
+- [Expectation 2]: ✅
+- [Expectation 3]: ✅
+
+Evidence collected and saved.
+```
+
+**If any mismatch**:
+```
+❌ **Scenario [N] FAILED**
+
+Mismatches detected:
+- [Expectation 1]: ✅ Match
+- [Expectation 2]: ❌ Expected [X], got [Y]
+- [Expectation 3]: ✅ Match
+
+**Analysis**:
+The implementation behavior differs from specification.
+
+**Possible causes**:
+- Implementation logic incorrect
+- Test expectation needs adjustment
+- Environment/setup issue
+
+**Evidence captured** (see 05-verification.md for details):
+- Full command output
+- [Other evidence items]
+
+**Options**:
+1. Debug now (pause, investigate code)
+2. Mark as known issue (continue, document)
+3. Rollback implementation (revert commits)
+4. Skip remaining scenarios
+
+Choose: [1-4]
+```
+
+**If user chooses "1" (Debug)**:
+```
+⏸️  **[Smoke Tests]** Paused for debugging
+
+**Current scenario**: [N] - [Purpose]
+**Failed expectation**: [Description]
+
+**Evidence available**:
+- Verification report: 05-verification.md
+- Execution output: [details]
+
+**To investigate**:
+1. Review evidence in 05-verification.md
+2. Check implementation files: [affected files from spec]
+3. Re-run command manually: [command]
+
+When ready, you can:
+- Fix code and re-run: /schovi:implement --smoke-only
+- Continue with remaining scenarios: [I'll resume]
+- Cancel smoke testing: [I'll exit]
+
+Waiting for your decision...
+```
+
+Pause execution, wait for user to fix code or decide.
+
+**If user chooses "2" (Mark as known issue)**:
+```
+⚠️  **[Smoke Tests]** Scenario [N] marked as known issue
+
+**Status**: Failed (documented)
+**Evidence**: Saved to 05-verification.md
+
+Continuing with remaining scenarios...
+```
+
+Mark in report, continue to next scenario.
+
+**If user chooses "3" (Rollback)**:
+```
+🔄 **[Smoke Tests]** Initiating rollback
+
+**Commits to revert**: [list from metadata]
+**Cleanup commands**: [from scenario rollback sections]
+
+Proceed with rollback? [yes/no]
+```
+
+If yes, execute rollback (see Step 3.5.6), then exit.
+
+**Step 3.5.3d: Append Evidence to Report**
+
+After scenario completes (pass or fail), append to `05-verification.md`:
+
+```markdown
+## Scenario [N]: [Purpose]
+
+### Purpose
+[Purpose description]
+
+### Pre-conditions [✅ Verified / ⚠️ Partial / ❌ Failed]
+[List each pre-condition with status]
+
+### Execution Trace
+
+#### Step [M]: [Step description]
+**Command**:
+\`\`\`bash
+[Full command]
+\`\`\`
+
+**Executed at**: [ISO timestamp]
+**Duration**: [ms]ms
+**Exit code**: [code]
+
+**Full Output**:
+\`\`\`
+[Complete stdout]
+\`\`\`
+
+[If stderr]:
+**Errors**:
+\`\`\`
+[Complete stderr]
+\`\`\`
+
+#### Evidence: [Evidence item name]
+**Command**:
+\`\`\`bash
+[Evidence collection command]
+\`\`\`
+
+**Result**:
+\`\`\`
+[Full evidence output]
+\`\`\`
+
+### Expectations vs Observations
+
+| Expected | Observed | Match | Notes |
+|----------|----------|-------|-------|
+| [Expectation 1] | [Observation 1] | [✅/❌] | [Notes] |
+| [Expectation 2] | [Observation 2] | [✅/❌] | [Notes] |
+
+### Verdict
+**[✅ PASS / ❌ FAIL]** - [Summary of results]
+
+### Evidence Hash
+\`\`\`
+SHA256: [hash of scenario evidence for integrity]
+\`\`\`
+
+### Rollback
+[Rollback commands from scenario, or "No cleanup needed"]
+
+---
+```
+
+**Update verification matrix** in report:
+```markdown
+| Scenario | Purpose | Status | Evidence | Timestamp |
+|----------|---------|--------|----------|-----------|
+| [N] | [Purpose] | [✅/❌] | [Link](#scenario-n) | [HH:MM:SS] |
+```
+
+**Acknowledge**:
+```
+📄 **[Smoke Tests]** Scenario [N] evidence appended
+
+Report updated: 05-verification.md
+Status: [PASS/FAIL]
+```
+
+**Continue to next scenario** or proceed to Step 3.5.4 if all scenarios complete.
+
+---
+
+#### Step 3.5.4: Generate Rollback Script
+
+After all scenarios complete, generate `rollback.sh`:
+
+```bash
+#!/bin/bash
+# Rollback script for [spec identifier]
+# Generated: [ISO timestamp]
+# Purpose: Revert implementation changes and cleanup test artifacts
+
+set -e  # Exit on any error
+
+echo "╭─────────────────────────────────────────────╮"
+echo "│ 🔄 ROLLBACK: [spec identifier]              │"
+echo "╰─────────────────────────────────────────────╯"
+echo ""
+
+# Safety check
+read -p "This will revert implementation changes. Continue? [yes/NO] " confirm
+if [ "$confirm" != "yes" ]; then
+  echo "Rollback cancelled."
+  exit 0
+fi
+
+echo "Starting rollback..."
+echo ""
+
+# Step 1: Revert git commits
+echo "📝 Step 1/3: Reverting git commits"
+echo "Commits to revert: [count]"
+[For each commit hash from metadata, in reverse order]:
+  git revert --no-commit [commit-hash] || echo "Warning: Could not revert [commit-hash]"
+echo "Commits reverted (staged, not yet committed)"
+echo ""
+
+# Step 2: Clean up test artifacts
+echo "🧹 Step 2/3: Cleaning up test artifacts"
+[For each scenario rollback command, if any]:
+  echo "Running: [command description]"
+  [command] || echo "Warning: Cleanup command failed (may be okay)"
+echo "Test artifacts cleaned"
+echo ""
+
+# Step 3: Verify clean state
+echo "🔍 Step 3/3: Verifying clean state"
+
+# Git status
+echo "Checking git status..."
+git status --short
+
+# Database verification (if applicable)
+[If database used in smoke tests]:
+  echo "Checking database..."
+  [verification query, e.g., SELECT COUNT(*) FROM test_data]
+
+# Service health (if applicable)
+[If service used in smoke tests]:
+  echo "Checking service health..."
+  curl -sf http://localhost:8080/health && echo "Service healthy" || echo "Service not running"
+
+echo ""
+echo "╭─────────────────────────────────────────────╮"
+echo "│ ✅ Rollback complete                        │"
+echo "╰─────────────────────────────────────────────╯"
+echo ""
+echo "Next steps:"
+echo "1. Review staged changes: git status"
+echo "2. Commit rollback if satisfied: git commit -m 'Rollback [spec identifier]'"
+echo "3. Or reset if needed: git reset --hard HEAD"
+echo ""
+echo "Post-cleanup verification checklist:"
+echo "  [ ] Git: Commits reverted (verify: git log --oneline -5)"
+echo "  [ ] Database: Test records removed (verify: [query])"
+echo "  [ ] Service: Running and healthy (verify: curl /health)"
+echo "  [ ] Files: No temp files (verify: find . -name '*.tmp')"
+```
+
+**Write to work folder** (or current directory if standalone):
+```
+Writing rollback script...
+```
+
+Use Write tool to create `rollback.sh` with generated content.
+
+**Make executable**:
+```bash
+chmod +x rollback.sh
+```
+
+Use Bash tool to set executable permission.
+
+**Test rollback script** (dry-run):
+```
+🧪 **[Smoke Tests]** Testing rollback script (dry-run)
+
+Running: bash -n rollback.sh (syntax check)
+```
+
+Execute syntax check. If passes:
+```
+✅ Rollback script syntax valid
+
+Note: Actual rollback not executed (dry-run only)
+To execute rollback: ./rollback.sh
+```
+
+**Acknowledge**:
+```
+📝 **[Smoke Tests]** Rollback script created
+
+Location: [path]/rollback.sh
+Executable: ✅ Yes
+Syntax: ✅ Valid
+Dry-run: ✅ Passed
+```
+
+---
+
+#### Step 3.5.5: System State Discovery
+
+Discover and document current system state for rollback safety:
+
+```
+🔍 **[Smoke Tests]** Discovering system state...
+```
+
+**Git state**:
+```bash
+# Current branch
+git branch --show-current
+
+# Commits added (compare to main/base branch)
+git log --oneline main..HEAD
+
+# Modified files
+git diff --name-status main..HEAD
+
+# Uncommitted changes
+git status --short
+```
+
+**Database state** (if database used):
+```bash
+# Connection info
+psql -c "SELECT current_database(), current_user, version()"
+
+# Tables affected (from smoke test scenarios)
+[For each table mentioned in smoke tests]:
+  psql -c "SELECT COUNT(*) FROM [table]"
+
+# Recent records (that might be test data)
+psql -c "SELECT COUNT(*) FROM [table] WHERE created_at > '[smoke test start time]'"
+```
+
+**Filesystem state**:
+```bash
+# Work folder
+ls -la [work folder]
+
+# Temp files
+find . -name '*.tmp' -o -name '*.temp' 2>/dev/null
+
+# Log files
+find /var/log -name '*[project-name]*' -type f 2>/dev/null
+```
+
+**Services state** (if services used):
+```bash
+# Running processes
+ps aux | grep [service-name]
+
+# Port listeners
+lsof -i :[port] 2>/dev/null || netstat -tuln | grep [port]
+```
+
+**Network state**:
+```bash
+# Open connections
+netstat -an | grep ESTABLISHED | grep [port]
+```
+
+**Compile system state summary**:
+```
+📊 **[Smoke Tests]** System state discovered
+
+**Git**:
+  - Branch: [branch name]
+  - Commits added: [count]
+  - Files modified: [count]
+  - Uncommitted: [count] files
+
+**Database** [if applicable]:
+  - Connection: [user]@[host]:[port]/[database]
+  - Tables affected: [list]
+  - Test records: [count] (may need cleanup)
+
+**Filesystem**:
+  - Work folder: [path]
+  - Temp files: [count]
+  - Log files: [list]
+
+**Services** [if applicable]:
+  - [service name]: [Running/Stopped] (PID: [pid])
+
+**Ports**:
+  - [port]: [service] ([protocol])
+
+**Network**:
+  - External connections: [None / count]
+
+**Safety Assessment**: [✅ Safe to rollback / ⚠️ Review needed / ❌ Unsafe]
+  - [Reason 1]
+  - [Reason 2]
+```
+
+**Append to 05-verification.md**:
+```markdown
+## System State Discovery
+
+Captured before completing smoke tests:
+
+**Git**:
+- Current branch: [branch]
+- Commits added: [count] ([list hashes])
+- Files modified: [count]
+
+**Database**:
+[Database state details]
+
+**Filesystem**:
+[Filesystem state details]
+
+**Services**:
+[Services state details]
+
+**Ports**:
+[Ports state details]
+
+**Network**:
+[Network state details]
+
+**Safety Assessment**: [✅/⚠️/❌]
+[Assessment details]
+```
+
+---
+
+#### Step 3.5.6: Smoke Test Summary
+
+**Update 05-verification.md Executive Summary**:
+```markdown
+## Executive Summary
+
+**Status**: [✅ Verified / ⚠️ Partial / ❌ Failed]
+
+**Smoke Tests**: [passed]/[total] passed
+**Evidence Artifacts**: [count] scenarios documented
+**Rollback Script**: ✅ Generated and tested
+
+**Conclusion**: [Summary based on results]
+  - [Result 1]
+  - [Result 2]
+
+**Confidence Level**: [🟢 High / 🟡 Medium / 🔴 Low]
+  - Unit tests: [status]
+  - Smoke tests: [status]
+  - Evidence chain: [complete/incomplete]
+  - Rollback plan: [available/unavailable]
+```
+
+**Calculate evidence hash** (for report integrity):
+```bash
+sha256sum 05-verification.md | awk '{print $1}'
+```
+
+**Append to report**:
+```markdown
+---
+
+**Digital Signature** (for integrity):
+\`\`\`
+SHA256 of this report: [hash]
+\`\`\`
+```
+
+**Display summary**:
+
+**If all scenarios passed**:
+```
+╭─────────────────────────────────────────────╮
+│ ✅ SMOKE TESTS COMPLETE                     │
+╰─────────────────────────────────────────────╯
+
+**Scenarios**: [N]/[N] passed
+**Evidence**: Collected and verified
+**Artifacts**:
+  - 📋 05-verification.md (report with evidence)
+  - 🔄 rollback.sh (tested rollback script)
+
+**Verification chain**:
+  Spec → Implementation → Unit Tests → Smoke Tests ✅ → Evidence
+
+**Confidence**: 🟢 High - End-to-end behavior verified
+**Evidence hash**: [first 16 chars]... (integrity: ✅)
+```
+
+**If some scenarios failed**:
+```
+╭─────────────────────────────────────────────╮
+│ ⚠️  SMOKE TESTS INCOMPLETE                  │
+╰─────────────────────────────────────────────╯
+
+**Scenarios**: [passed]/[total] passed, [failed]/[total] failed
+
+**Failures**:
+  - Scenario [N]: [Purpose] (FAILED)
+    Expected: [expectation]
+    Observed: [observation]
+    Evidence: See 05-verification.md#scenario-[N]
+
+**Recommendation**:
+1. Review evidence in 05-verification.md
+2. Debug failed scenario(s)
+3. Fix implementation
+4. Re-run smoke tests: /schovi:implement --smoke-only
+
+**Artifacts available**:
+  - 📋 05-verification.md (partial evidence)
+  - 🔄 rollback.sh (available if needed)
+
+**Confidence**: 🟡 Medium - Some scenarios failed
+```
+
+**If all scenarios failed**:
+```
+╭─────────────────────────────────────────────╮
+│ ❌ SMOKE TESTS FAILED                       │
+╰─────────────────────────────────────────────╯
+
+**Scenarios**: 0/[total] passed, [total]/[total] failed
+
+**Critical failures detected**:
+  - All end-to-end scenarios failed
+  - Implementation may not be working correctly
+
+**Recommendation**:
+1. ⚠️  Review implementation before proceeding
+2. Check 05-verification.md for evidence
+3. Consider rollback: ./rollback.sh
+4. Fix issues and re-run: /schovi:implement --smoke-only
+
+**Rollback available**: 🔄 rollback.sh
+
+**Confidence**: 🔴 Low - Implementation needs review
+```
+
+Mark validation status:
+- All passed: `smoke_tests_status = "complete"`
+- Some failed: `smoke_tests_status = "incomplete"`
+- All failed: `smoke_tests_status = "failed"`
+
+---
+
+### Step 3.6: Verify Acceptance Criteria
 
 Review acceptance criteria from spec:
 
@@ -1286,7 +2233,7 @@ From spec:
 
 ---
 
-### Step 3.6: Validation Summary
+### Step 3.7: Validation Summary (Updated to include smoke tests)
 
 **Success Scenario**:
 ```
@@ -1297,10 +2244,20 @@ From spec:
 **Linting**: ✅ Passed (Attempt 1/2)
 **Type Check**: ✅ Passed
 **Tests**: ✅ Passed (Attempt 1/2, [count]/[count] tests)
+**Smoke Tests**: ✅ Passed ([N]/[N] scenarios verified) ← NEW
 **Acceptance Criteria**: ✅ [auto]/[total] verified ([manual] pending)
+
+**Evidence**: 📋 05-verification.md ← NEW
+**Rollback**: 🔄 rollback.sh ← NEW
 
 **Commits Created**: [impl] implementation + [fix] fixes
 **Total Changes**: +[add] -[del] lines across [files] files
+
+**Confidence Level**: 🟢 High ← NEW
+  - Unit tests confirm isolated behavior
+  - Smoke tests prove end-to-end behavior
+  - Evidence chain complete
+  - Rollback plan available
 
 Ready for code review and PR creation.
 ```
@@ -1314,7 +2271,11 @@ Ready for code review and PR creation.
 **Linting**: ✅ Passed (Attempt 2/2, auto-fix applied)
 **Type Check**: ✅ Passed
 **Tests**: ✅ Passed (Attempt 2/2, fixed [count] issues)
+**Smoke Tests**: ✅ Passed ([N]/[N] scenarios verified) ← NEW
 **Acceptance Criteria**: ✅ [auto]/[total] verified
+
+**Evidence**: 📋 05-verification.md ← NEW
+**Rollback**: 🔄 rollback.sh ← NEW
 
 **Commits Created**: [impl] implementation + [fix] fixes
 **Total Changes**: +[add] -[del] lines across [files] files
@@ -1322,6 +2283,11 @@ Ready for code review and PR creation.
 **Fix Details**:
 - Linting: Auto-fix resolved [count] issues
 - Tests: Fixed [brief description]
+
+**Confidence Level**: 🟢 High ← NEW
+  - All validations passed (with fixes)
+  - End-to-end behavior verified
+  - Evidence collected
 
 Ready for code review and PR creation.
 ```
@@ -1335,7 +2301,11 @@ Ready for code review and PR creation.
 **Linting**: ⚠️  Incomplete (2/2 attempts, [count] issues remain)
 **Type Check**: ❌ Failed ([count] errors)
 **Tests**: ❌ Failed (2/2 attempts, [count] failures remain)
+**Smoke Tests**: [✅ Passed / ⚠️ Partial / ❌ Failed / ⏭️ Skipped] ← NEW
 **Acceptance Criteria**: ⚠️  [auto]/[total] verified
+
+**Evidence**: [📋 05-verification.md if smoke tests ran] ← NEW
+**Rollback**: [🔄 rollback.sh if available] ← NEW
 
 **Issues**:
 - Linting ([count] remaining):
@@ -1344,13 +2314,20 @@ Ready for code review and PR creation.
   [List errors]
 - Tests ([count] failures):
   [List failures]
+- Smoke Tests ([if failed]):
+  [List failed scenarios with evidence links]
 
 **Commits Created**: [impl] implementation + [partial] partial fixes
 **Total Changes**: +[add] -[del] lines across [files] files
 
+**Confidence Level**: [🟡 Medium / 🔴 Low] ← NEW
+  - Some validations failed
+  - [Smoke test status message]
+
 **Recommendation**:
 - Fix remaining issues manually
 - Re-run validation: [commands]
+- Review smoke test evidence: 05-verification.md (if available)
 - Then proceed to PR creation
 ```
 
@@ -1358,7 +2335,7 @@ Ready for code review and PR creation.
 
 ## PHASE 4: COMPLETION & NEXT STEPS
 
-### Step 4.1: Display Final Summary
+### Step 4.1: Display Final Summary (Enhanced with verification artifacts)
 
 ```
 ╭═════════════════════════════════════════════╮
@@ -1373,6 +2350,13 @@ Ready for code review and PR creation.
 - ✅ Tasks completed: [T]/[T]
 - ✅ Commits created: [C] ([impl] + [fix])
 - [✅|⚠️|❌] Validation: [status]
+- [✅|⚠️|❌|⏭️] Smoke tests: [N]/[N] scenarios verified ← NEW
+- [✅|⚠️] Evidence collected: [Timestamped & hashed / Partial / None] ← NEW
+
+**Artifacts** ← NEW:
+- 📋 05-verification.md (verification report) [if smoke tests ran]
+- 🔄 rollback.sh (tested rollback script) [if smoke tests ran]
+- 📊 Evidence hash: [first 16 chars]... (integrity verification) [if smoke tests ran]
 
 **Git Commits**:
 [For each commit]:
@@ -1382,7 +2366,14 @@ Ready for code review and PR creation.
 - [✅|⚠️|❌] Linting: [status]
 - [✅|⚠️|❌] Type check: [status]
 - [✅|⚠️|❌] Tests: [status]
+- [✅|⚠️|❌|⏭️] Smoke tests: [N]/[N] verified ← NEW
 - [✅|⚠️] Acceptance criteria: [auto]/[total] verified
+
+**Confidence Level**: [🟢 High / 🟡 Medium / 🔴 Low] ← NEW
+  - Unit tests confirm isolated behavior
+  - [If smoke tests passed]: Smoke tests prove end-to-end behavior ← NEW
+  - [If evidence collected]: Evidence chain complete ← NEW
+  - [If rollback available]: Rollback plan available ← NEW
 
 **Files Changed**:
 [List 5-10 key files modified]
@@ -1497,21 +2488,35 @@ Use mcp__jira__addCommentToJiraIssue:
 
 ---
 
-### Step 4.3: Suggest Next Steps
+### Step 4.3: Suggest Next Steps (Enhanced with verification guidance)
 
 **If validation complete (all passed)**:
 ```
 **Next Steps**:
 
-1. 📝 Review changes:
-   git diff origin/main
-   git log --oneline
+1. 📝 Review implementation:
+   - Code changes: git diff origin/main
+   - Commit history: git log --oneline
+   - Verification report: cat [path]/05-verification.md ← NEW
+   - Evidence review: Check timestamped observations ← NEW
 
-2. 🧪 Manual testing (from spec):
+2. 🔍 Code review preparation:
+   - Attach 05-verification.md to PR description ← NEW
+   - Reference evidence hashes for integrity ← NEW
+   - Mention smoke test coverage in PR ← NEW
+
+3. 🧪 Manual testing (from spec):
    [List manual testing steps from Testing Strategy section]
+   - Note: Smoke tests already verified end-to-end behavior ← NEW
 
-3. 🚀 Create PR:
+4. 🚀 Create PR:
    /schovi:publish
+
+   PR will include: ← NEW
+   - Spec (03-plan.md)
+   - Implementation commits ([count])
+   - Verification report (05-verification.md) ← NEW
+   - Rollback script (rollback.sh) ← NEW
 
    Options:
    - Auto-detect from branch: /schovi:publish
@@ -1524,9 +2529,18 @@ Use mcp__jira__addCommentToJiraIssue:
    - Generates description from spec → Jira → commits
    - Updates existing PR if run again
 
-4. 👥 Request code review
+5. 📊 Staging deployment: ← NEW
+   - Re-run smoke tests in staging environment
+   - Compare evidence hashes (should match)
+   - Verify rollback script works in staging
 
-5. ✅ Address feedback & merge
+6. 👥 Request code review
+
+7. ✅ Address feedback & merge
+
+8. 📊 Production deployment: ← NEW
+   - Rollback plan ready if needed: ./rollback.sh
+   - Smoke tests can verify production behavior
 ```
 
 **If validation incomplete (failures)**:
@@ -1537,20 +2551,31 @@ Use mcp__jira__addCommentToJiraIssue:
    [For each failing validation]:
    - [Type]: [Brief description of issue]
    - Command: [command to re-run]
+   - [If smoke tests failed]: Review 05-verification.md for evidence ← NEW
 
-2. 📝 Review failed tests/linting:
-   [List specific files/tests]
+2. 📝 Review failures:
+   - Failed tests/linting: [List specific files/tests]
+   - Failed smoke scenarios: See 05-verification.md#scenario-[N] ← NEW
+   - Evidence collected: [path]/05-verification.md ← NEW
 
 3. 🔧 Apply fixes:
    [Suggestions for fixing issues]
+   - For smoke test failures: Check expectations vs observations in report ← NEW
 
 4. ♻️  Re-run validation:
    [lint command]
    [test command]
+   - For smoke tests only: /schovi:implement --smoke-only ← NEW
 
 5. 💾 Commit fixes when ready
 
 6. 🚀 Then create PR: /schovi:publish
+
+**Emergency Rollback** (if needed): ← NEW
+If implementation is causing issues:
+  cd [work folder]
+  ./rollback.sh
+  # Verify clean state with post-cleanup checklist
 ```
 
 ---
