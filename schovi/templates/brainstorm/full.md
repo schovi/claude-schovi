@@ -1,16 +1,17 @@
 # Brainstorm Output Template
 
-This template defines the structure for brainstorm command output. The brainstorm-generator subagent reads this template to generate consistent, well-structured solution exploration with 2-3 distinct options.
+This template defines the structure for brainstorm command output. The brainstorm-executor subagent reads this template to generate consistent, well-structured solution exploration with 3-5 distinct options.
 
 ## Purpose
 
-Brainstorm provides **broad exploration** of 2-3 distinct solution approaches with:
-- High-level feasibility assessment
-- Benefits and challenges per option
-- Light codebase context (no deep file:line drilling)
+Brainstorm provides **broad exploration** of 3-5 distinct solution approaches with:
+- Problem framing and constraints
+- High-level option space (conceptual approaches, not implementation details)
+- Relative sizing (S/M/L) for effort, risk, complexity
+- Explicit assumptions and open questions
 - Recommendation for which option to research further
 
-**NOT included**: Deep technical analysis, detailed implementation steps, exhaustive dependency mapping. Use research command for depth.
+**NOT included**: Implementation details (file paths, scripts, specific time estimates), deep technical analysis, exhaustive dependency mapping. Use research command for depth.
 
 ---
 
@@ -54,16 +55,30 @@ Brainstorm provides **broad exploration** of 2-3 distinct solution approaches wi
 
 ---
 
+## 🔍 Assumptions & Unknowns
+
+**Assumptions** *(explicitly labeled)*:
+- [Assumption 1 - e.g., Database migration tools are available]
+- [Assumption 2 - e.g., Frontend can adapt to API changes within 1 sprint]
+- [Assumption 3 - e.g., Current auth middleware is compatible with new approach]
+
+**Unknowns** *(need investigation)*:
+- [Unknown 1 - e.g., Exact performance impact of caching strategy]
+- [Unknown 2 - e.g., Third-party API rate limits for this use case]
+- [Unknown 3 - e.g., Compatibility with legacy client versions]
+
+---
+
 ## 💡 Solution Options
 
 ### Option 1: [Approach Name - e.g., "Incremental Refactor with Feature Flags"]
 
-**Overview**: [2-4 sentences describing the high-level approach]
+**Overview**: [2-4 sentences describing the high-level conceptual approach, NOT implementation details]
 
-**Key Components**:
-- Component/area 1 that needs changes (high-level file/folder reference)
-- Component/area 2 that needs changes
-- Component/area 3 that needs changes
+**Key Areas of Change** *(conceptual, not file paths)*:
+- [Area 1 - e.g., Authentication layer]
+- [Area 2 - e.g., Data validation logic]
+- [Area 3 - e.g., API contract definitions]
 
 **Benefits**:
 - ✅ [Benefit 1 - e.g., Low risk, can roll back easily]
@@ -72,23 +87,24 @@ Brainstorm provides **broad exploration** of 2-3 distinct solution approaches wi
 
 **Challenges**:
 - ⚠️ [Challenge 1 - e.g., Increases code complexity temporarily]
-- ⚠️ [Challenge 2 - e.g., Requires 2-3 sprint timeline]
-- ⚠️ [Challenge 3 - e.g., Need to maintain dual paths during migration]
+- ⚠️ [Challenge 2 - e.g., Need to maintain dual paths during migration]
+- ⚠️ [Challenge 3 - e.g., Coordination required across multiple teams]
 
-**Feasibility**: [High/Medium/Low]
-**Estimated Effort**: [e.g., 3-5 days, 2-3 sprints]
-**Risk Level**: [Low/Medium/High]
+**Sizing**:
+- **Effort**: S/M/L
+- **Risk**: Low/Medium/High
+- **Complexity**: Low/Medium/High
 
 ---
 
 ### Option 2: [Approach Name - e.g., "Big Bang Replacement"]
 
-**Overview**: [2-4 sentences describing the high-level approach]
+**Overview**: [2-4 sentences describing the high-level conceptual approach, NOT implementation details]
 
-**Key Components**:
-- Component/area 1 that needs changes
-- Component/area 2 that needs changes
-- Component/area 3 that needs changes
+**Key Areas of Change** *(conceptual, not file paths)*:
+- [Area 1 - e.g., Core business logic]
+- [Area 2 - e.g., External integrations]
+- [Area 3 - e.g., Database schema]
 
 **Benefits**:
 - ✅ [Benefit 1]
@@ -100,20 +116,21 @@ Brainstorm provides **broad exploration** of 2-3 distinct solution approaches wi
 - ⚠️ [Challenge 2]
 - ⚠️ [Challenge 3]
 
-**Feasibility**: [High/Medium/Low]
-**Estimated Effort**: [e.g., 1-2 weeks]
-**Risk Level**: [Low/Medium/High]
+**Sizing**:
+- **Effort**: S/M/L
+- **Risk**: Low/Medium/High
+- **Complexity**: Low/Medium/High
 
 ---
 
-### Option 3: [Approach Name - e.g., "Hybrid Approach with Adapter Pattern"] *(if applicable)*
+### Option 3: [Approach Name - e.g., "Hybrid Approach with Adapter Pattern"]
 
-**Overview**: [2-4 sentences describing the high-level approach]
+**Overview**: [2-4 sentences describing the high-level conceptual approach, NOT implementation details]
 
-**Key Components**:
-- Component/area 1 that needs changes
-- Component/area 2 that needs changes
-- Component/area 3 that needs changes
+**Key Areas of Change** *(conceptual, not file paths)*:
+- [Area 1]
+- [Area 2]
+- [Area 3]
 
 **Benefits**:
 - ✅ [Benefit 1]
@@ -125,22 +142,76 @@ Brainstorm provides **broad exploration** of 2-3 distinct solution approaches wi
 - ⚠️ [Challenge 2]
 - ⚠️ [Challenge 3]
 
-**Feasibility**: [High/Medium/Low]
-**Estimated Effort**: [e.g., 5-7 days]
-**Risk Level**: [Low/Medium/High]
+**Sizing**:
+- **Effort**: S/M/L
+- **Risk**: Low/Medium/High
+- **Complexity**: Low/Medium/High
+
+---
+
+### Option 4: [Approach Name] *(if applicable)*
+
+**Overview**: [2-4 sentences describing the high-level conceptual approach, NOT implementation details]
+
+**Key Areas of Change** *(conceptual, not file paths)*:
+- [Area 1]
+- [Area 2]
+- [Area 3]
+
+**Benefits**:
+- ✅ [Benefit 1]
+- ✅ [Benefit 2]
+- ✅ [Benefit 3]
+
+**Challenges**:
+- ⚠️ [Challenge 1]
+- ⚠️ [Challenge 2]
+- ⚠️ [Challenge 3]
+
+**Sizing**:
+- **Effort**: S/M/L
+- **Risk**: Low/Medium/High
+- **Complexity**: Low/Medium/High
+
+---
+
+### Option 5: [Approach Name] *(if applicable)*
+
+**Overview**: [2-4 sentences describing the high-level conceptual approach, NOT implementation details]
+
+**Key Areas of Change** *(conceptual, not file paths)*:
+- [Area 1]
+- [Area 2]
+- [Area 3]
+
+**Benefits**:
+- ✅ [Benefit 1]
+- ✅ [Benefit 2]
+- ✅ [Benefit 3]
+
+**Challenges**:
+- ⚠️ [Challenge 1]
+- ⚠️ [Challenge 2]
+- ⚠️ [Challenge 3]
+
+**Sizing**:
+- **Effort**: S/M/L
+- **Risk**: Low/Medium/High
+- **Complexity**: Low/Medium/High
 
 ---
 
 ## 📊 Comparison Matrix
 
-| Criteria | Option 1 | Option 2 | Option 3 |
-|----------|----------|----------|----------|
-| **Effort** | [e.g., Medium] | [e.g., Low] | [e.g., High] |
-| **Risk** | [e.g., Low] | [e.g., High] | [e.g., Medium] |
-| **Timeline** | [e.g., 3-5 days] | [e.g., 1-2 days] | [e.g., 1-2 weeks] |
-| **Complexity** | [e.g., Medium] | [e.g., Low] | [e.g., High] |
-| **Maintainability** | [e.g., High] | [e.g., Medium] | [e.g., High] |
-| **Rollback Ease** | [e.g., Easy] | [e.g., Hard] | [e.g., Medium] |
+| Criteria | Option 1 | Option 2 | Option 3 | Option 4* | Option 5* |
+|----------|----------|----------|----------|----------|----------|
+| **Effort** | S/M/L | S/M/L | S/M/L | S/M/L | S/M/L |
+| **Risk** | Low/Med/High | Low/Med/High | Low/Med/High | Low/Med/High | Low/Med/High |
+| **Complexity** | Low/Med/High | Low/Med/High | Low/Med/High | Low/Med/High | Low/Med/High |
+| **Maintainability** | Low/Med/High | Low/Med/High | Low/Med/High | Low/Med/High | Low/Med/High |
+| **Rollback Ease** | Easy/Med/Hard | Easy/Med/Hard | Easy/Med/Hard | Easy/Med/Hard | Easy/Med/Hard |
+
+*Include Options 4 and 5 columns only if those options are generated
 
 ---
 
@@ -162,24 +233,30 @@ Brainstorm provides **broad exploration** of 2-3 distinct solution approaches wi
 
 ---
 
+## ❓ Questions for Research
+
+**Critical Questions** *(must answer before implementation)*:
+- [Question 1 - e.g., Can we use existing cache invalidation, or need new approach?]
+- [Question 2 - e.g., What's the exact performance impact of each option?]
+- [Question 3 - e.g., Are there hidden dependencies we need to account for?]
+
+**Nice to Know** *(investigate during research if time permits)*:
+- [Question 4 - e.g., Could we reuse patterns from similar past projects?]
+- [Question 5 - e.g., What monitoring/observability should we add?]
+
+---
+
 ## 📚 Exploration Notes
 
-**Codebase Areas Examined**:
-- [Area 1 - e.g., `src/api/controllers/`]
-- [Area 2 - e.g., `src/services/auth/`]
-- [Area 3 - e.g., `tests/integration/`]
+**Codebase Areas Examined** *(conceptual, not file paths)*:
+- [Area 1 - e.g., API layer and controllers]
+- [Area 2 - e.g., Authentication services]
+- [Area 3 - e.g., Integration test suite]
 
 **Key Patterns Identified**:
 - [Pattern 1 - e.g., All controllers use middleware chain pattern]
 - [Pattern 2 - e.g., Auth service has singleton lifecycle]
-
-**Assumptions Made**:
-- [Assumption 1 - e.g., Database migration tools are available]
-- [Assumption 2 - e.g., Frontend can adapt to API changes within 1 sprint]
-
-**Open Questions** *(to investigate during research phase)*:
-- [Question 1 - e.g., Can we use existing cache invalidation, or need new approach?]
-- [Question 2 - e.g., What's the exact performance impact of Option 2?]
+- [Pattern 3 - e.g., Feature flags control gradual rollouts]
 ```
 
 ---
@@ -200,17 +277,32 @@ Brainstorm provides **broad exploration** of 2-3 distinct solution approaches wi
 - Dependencies: Prerequisites, team coordination, external factors
 - Be specific, not generic (e.g., "Must support 10k users" not "Must scale")
 
+**Assumptions & Unknowns**:
+- EXPLICITLY label all assumptions (e.g., "We assume X is available")
+- List unknowns that need investigation (e.g., "Unknown: exact performance impact")
+- Be honest about what you don't know yet
+- Separate assumptions (educated guesses) from unknowns (need data)
+
 **Solution Options**:
-- Generate 2-3 DISTINCT approaches (not variations of same idea)
-- Each option should have clear trade-offs
+- Generate 3-5 DISTINCT approaches (not variations of same idea)
+- Each option should explore DIFFERENT conceptual approaches
+- Keep descriptions at CONCEPTUAL level - NO file paths, NO scripts, NO specific time estimates
+- Use "Key Areas of Change" with conceptual areas (e.g., "Authentication layer", not "src/auth/middleware.ts")
+- Use S/M/L sizing for effort, risk, complexity (NOT "3-5 days" or "2 weeks")
 - Avoid bias - present pros/cons objectively
-- Keep component descriptions high-level (folder/area, not specific file:line)
-- Estimate effort realistically based on codebase complexity
+
+**Questions for Research**:
+- Identify critical questions that MUST be answered before implementation
+- Identify nice-to-know questions for research phase
+- Make questions specific and actionable
+- Focus on unknowns that will inform option selection
 
 **Comparison Matrix**:
 - Use consistent criteria across all options
+- Use S/M/L for Effort, Low/Med/High for Risk and Complexity
+- Use Easy/Med/Hard for Rollback Ease
+- NO specific timelines or numeric estimates
 - Be honest about trade-offs
-- Consider: Effort, Risk, Timeline, Complexity, Maintainability, Rollback
 
 **Recommendation**:
 - Pick ONE option as recommended (can be "depends on...")
@@ -224,31 +316,39 @@ Before returning output, verify:
 
 - [ ] Problem summary is clear and complete (2-4 paragraphs)
 - [ ] Constraints are specific, not generic
-- [ ] 2-3 distinct options provided (not variations)
-- [ ] Each option has overview + components + benefits + challenges
-- [ ] Feasibility, effort, and risk assessed for each option
-- [ ] Comparison matrix completed with consistent criteria
+- [ ] Assumptions & Unknowns section present with explicit labeling
+- [ ] 3-5 distinct options provided (not variations)
+- [ ] Each option stays at CONCEPTUAL level (no file paths, scripts, or specific time estimates)
+- [ ] Each option has overview + key areas + benefits + challenges
+- [ ] Sizing uses S/M/L for effort, Low/Med/High for risk/complexity (NO numeric estimates)
+- [ ] Comparison matrix completed with consistent S/M/L sizing
+- [ ] Questions for Research section present (critical + nice-to-know)
 - [ ] One option recommended with clear reasoning
-- [ ] Exploration notes document what was examined
-- [ ] Open questions identified for research phase
+- [ ] Exploration notes document conceptual areas examined (not specific file paths)
 - [ ] Output adheres to markdown structure exactly
-- [ ] Total output is ~2000-3000 tokens (broad, not deep)
+- [ ] Total output is ~2000-4000 tokens (broad, not deep)
 
 ### Token Budget
 
-**Maximum**: 3500 tokens for entire output
+**Maximum**: 4500 tokens for entire output
 
 **Target Distribution**:
 - Problem Summary: ~300 tokens
 - Constraints: ~200 tokens
-- Option 1: ~400 tokens
-- Option 2: ~400 tokens
-- Option 3: ~400 tokens (if applicable)
-- Comparison Matrix: ~150 tokens
+- Assumptions & Unknowns: ~150 tokens
+- Option 1: ~300 tokens
+- Option 2: ~300 tokens
+- Option 3: ~300 tokens
+- Option 4: ~300 tokens (if applicable)
+- Option 5: ~300 tokens (if applicable)
+- Comparison Matrix: ~200 tokens
 - Recommendation: ~300 tokens
-- Exploration Notes: ~200 tokens
+- Questions for Research: ~200 tokens
+- Exploration Notes: ~150 tokens
 
-**If over budget**: Trim exploration notes first, then compress option descriptions while keeping structure.
+**If over budget**: Trim exploration notes first, reduce number of options to 3, then compress option descriptions while keeping structure.
+
+**Quality over Quantity**: If problem is simple, 3 well-analyzed options are better than 5 superficial ones.
 
 ---
 
@@ -258,6 +358,7 @@ See `schovi/templates/brainstorm/example.md` for a full example (to be created i
 
 ---
 
-**Version**: 1.0
-**Last Updated**: 2025-11-07
+**Version**: 2.0
+**Last Updated**: 2025-11-08
 **Related Templates**: `templates/research/full.md`, `templates/spec/full.md`
+**Changelog**: v2.0 - Added Assumptions & Unknowns section, Questions for Research section, changed to 3-5 options, S/M/L relative sizing, removed implementation details

@@ -184,14 +184,16 @@ schovi/
 
 **Location**: `schovi/commands/brainstorm.md`
 
-**Purpose**: Explore 2-3 distinct solution options with broad feasibility analysis
+**Purpose**: Explore 3-5 distinct solution options with broad feasibility analysis at CONCEPTUAL level
+
+**Abstraction Level**: Stays at conceptual level - NO file paths, NO scripts, NO specific time estimates. Uses S/M/L relative sizing.
 
 **Workflow**:
 1. **Phase 1: Argument Parsing** - Parse and validate input arguments (Jira ID, GitHub URL, description, flags)
 2. **Phase 2: Execute Brainstorm** - Spawn `brainstorm-executor` subagent which performs all work in isolated context:
    - Fetch external context (Jira/GitHub via nested analyzer subagents)
    - Light codebase exploration (spawn Plan subagent in medium mode)
-   - Generate 2-3 solution options (read template, format output)
+   - Generate 3-5 solution options at conceptual level (read template, format output)
 3. **Phase 3: Output Handling** - Save to work folder, display summary, guide to research command
 
 **Input Sources**:
@@ -200,18 +202,23 @@ schovi/
 - GitHub PRs (via `gh-pr-analyzer` subagent)
 - Files or free-form descriptions
 
-**Output** (~2000-3000 tokens):
+**Output** (~2000-4000 tokens):
 - Problem summary and constraints
-- 2-3 distinct solution options (not variations)
-- Comparison matrix (effort, risk, complexity, etc.)
+- Explicit assumptions & unknowns (clearly labeled)
+- 3-5 distinct solution options (not variations) at conceptual level
+- Comparison matrix with S/M/L sizing (NOT numeric estimates)
 - Recommendation with reasoning
+- Questions for research (critical + nice-to-know)
 - Next steps: Guide to research command
 
 **Quality Gates** (all must be met):
 - Light exploration completed (2-4 minutes, medium mode)
-- 2-3 distinct options generated (different approaches, not variations)
-- Each option has benefits, challenges, feasibility, effort, risk
-- Comparison matrix with consistent criteria
+- 3-5 distinct options generated at CONCEPTUAL level (different approaches, not variations)
+- NO implementation details (file paths, scripts, specific time estimates)
+- Each option has benefits, challenges, and S/M/L sizing
+- Assumptions & unknowns explicitly labeled
+- Questions for research identified (critical + nice-to-know)
+- Comparison matrix with S/M/L sizing (NOT "3-5 days" or "2 weeks")
 - One option recommended with clear reasoning
 - Output saved to work folder as `brainstorm-[id].md`
 
