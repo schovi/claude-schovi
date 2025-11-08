@@ -476,44 +476,120 @@ Output (store for later phases):
 
 ## PHASE 2: SPEC GENERATION
 
-Use lib/subagent-invoker.md:
+### Step 2.1: Prepare Input Context for Spec Generator
 
-```
-Configuration:
-  subagent: "spec-generator"
-  command_context: "plan"
-  command_label: "Create-Spec"
+Build structured input context from analysis extraction:
 
-  input_context:
-    problem_summary: [from analysis extraction]
-    chosen_approach: [from Step 1.4 or single approach]
-    technical_details: [from analysis - files, flows, dependencies]
-    user_notes: [from user preferences or comments]
+```markdown
+## Input Context
 
-    template_type: "full" | "minimal"
-      - "full": When detailed analysis exists (file:line refs, flows, options)
-      - "minimal": When from-scratch or simple tasks
+### Problem Summary
+[Problem description from analysis - 2-4 sentences]
 
-    metadata:
-      jira_id: [ID or null]
-      created_date: [today's date]
-      created_by: "Claude Code"
+### Chosen Approach
+[If multiple options existed: "Option [N]: [Name]"]
+[Detailed approach description from analysis]
 
-  validation_rules:
-    - Must have title and metadata
-    - Must have decision rationale (full) or goal statement (minimal)
-    - Must have implementation tasks (checkboxes, actionable)
-    - Must have acceptance criteria (testable)
-    - Must have testing strategy
-    - Must document risks (if applicable for full template)
-    - File references must use file:line format (where applicable)
+### Technical Details
+- Affected files: [List with file:line references from analysis]
+- User flow: [Flow description if present]
+- Data flow: [Flow description if present]
+- Dependencies: [List of dependencies if identified]
 
-  error_handling:
-    - If validation fails: Regenerate with more specific prompt
-    - If subagent fails: Report error, don't attempt fallback
+### User Notes
+[Any user preferences, comments, or special requirements]
+
+### Metadata
+- Jira ID: [ID or N/A]
+- Created date: [Today's date in YYYY-MM-DD format]
+- Created by: Claude Code
+- Template type: [full or minimal]
 ```
 
-**Store generated spec for Phase 3 output handling.**
+**Template type selection:**
+- **"full"**: When detailed analysis exists (file:line refs, flows, multiple options considered)
+- **"minimal"**: When from-scratch mode or simple tasks without deep analysis
+
+### Step 2.2: Spawn Spec Generator Subagent
+
+```
+⏳ **[Create-Spec]** Generating implementation specification...
+```
+
+Use Task tool to spawn spec-generator subagent:
+
+```
+Task tool parameters:
+  subagent_type: "schovi:spec-generator:spec-generator"
+  description: "Generate implementation spec"
+  prompt: """
+[Full input context from Step 2.1, formatted as markdown with all sections]
+"""
+```
+
+**Important**: Use three-part naming format `schovi:spec-generator:spec-generator` for proper subagent resolution.
+
+### Step 2.3: Receive and Validate Spec
+
+The subagent will return spec with visual header/footer:
+
+```markdown
+╭─────────────────────────────────────────────╮
+│ 📋 SPEC GENERATOR                           │
+╰─────────────────────────────────────────────╯
+
+[FULL SPEC CONTENT - YAML frontmatter + all sections]
+
+╭─────────────────────────────────────────────╮
+  ✅ Spec generated | ~[X] tokens | [Y] lines
+╰─────────────────────────────────────────────╯
+```
+
+**Validation checks:**
+- [ ] Spec has YAML frontmatter with title, status, jira_id
+- [ ] Decision rationale present (full) or goal statement (minimal)
+- [ ] Implementation tasks are specific and actionable with checkboxes
+- [ ] Acceptance criteria are testable with checkboxes
+- [ ] Testing strategy included
+- [ ] File references use `file:line` format where applicable
+- [ ] Total spec is under 3000 tokens
+- [ ] Markdown formatting is valid
+
+**If validation fails:**
+
+```
+⚠️ **[Create-Spec]** Spec validation failed: [Issue description]
+
+Regenerating with more specific guidance...
+```
+
+Re-invoke Task tool with additional clarification in prompt.
+
+**If subagent fails completely:**
+
+```
+❌ **[Create-Spec]** Spec generation failed: [Error message]
+
+Cannot proceed without specification. Please check:
+- Analysis content is complete
+- Technical details are present
+- File references are available
+
+Would you like to:
+1. Try from-scratch mode: /schovi:plan --from-scratch "description"
+2. Provide more analysis detail
+3. Create spec manually
+```
+
+HALT EXECUTION - Do not attempt fallback generation in main context.
+
+**If successful:**
+
+```
+✅ **[Create-Spec]** Specification generated ([X] lines, [Y] tasks, [Z] criteria)
+```
+
+Extract spec content (strip visual header/footer) and store for Phase 3 output handling.
 
 ---
 
