@@ -468,6 +468,102 @@ Output (store for later phases):
 
 ---
 
+## PHASE 1.5: LOAD FRAGMENT CONTEXT (if fragments exist)
+
+**Objective**: Load existing fragment registry and details to pass to spec-generator for acceptance criteria traceability.
+
+**Use lib/fragment-loader.md**:
+
+### Step 1.5.1: Check if fragments exist (Operation 1)
+
+```
+work_folder: [work_folder from Phase 1]
+```
+
+**If fragments don't exist**:
+- Skip this phase, proceed to Phase 2
+- Spec generation works without fragment context
+
+**If fragments exist**:
+- Continue to next steps
+
+### Step 1.5.2: Load fragment registry (Operation 2)
+
+```
+work_folder: [work_folder path]
+```
+
+**Parse registry for**:
+- Count of assumptions (A-#)
+- Count of risks (R-#)
+- Count of metrics (M-#)
+
+**Store**:
+- `fragments_exist`: true
+- `assumption_count`: N
+- `risk_count`: N
+- `metric_count`: N
+
+### Step 1.5.3: Load all assumptions (Operation 4)
+
+```
+work_folder: [work_folder]
+fragment_type: "A"
+```
+
+**For each assumption**:
+- Extract ID (A-1, A-2, ...)
+- Extract statement
+- Extract current status (pending, validated, failed)
+
+**Store**:
+- `assumptions_list`: [
+    {id: "A-1", statement: "...", status: "validated"},
+    {id: "A-2", statement: "...", status: "pending"}
+  ]
+
+### Step 1.5.4: Load all risks (Operation 4)
+
+```
+work_folder: [work_folder]
+fragment_type: "R"
+```
+
+**For each risk**:
+- Extract ID (R-1, R-2, ...)
+- Extract description
+- Extract impact/probability
+
+**Store**:
+- `risks_list`: [
+    {id: "R-1", description: "...", impact: "High", probability: "Medium"},
+    {id: "R-2", description: "...", impact: "Medium", probability: "Low"}
+  ]
+
+### Step 1.5.5: Load all metrics (Operation 4)
+
+```
+work_folder: [work_folder]
+fragment_type: "M"
+```
+
+**For each metric**:
+- Extract ID (M-1, M-2, ...)
+- Extract description
+- Extract target
+
+**Store**:
+- `metrics_list`: [
+    {id: "M-1", description: "...", target: "p95 < 200ms"},
+    {id: "M-2", description: "...", target: "< 0.1% error rate"}
+  ]
+
+**After Phase 1.5**:
+- Fragment context loaded (if exists)
+- Ready to pass summaries to spec-generator
+
+---
+
 ## PHASE 2: SPEC GENERATION
 
 ### Step 2.1: Prepare Input Context for Spec Generator
@@ -490,6 +586,42 @@ Build structured input context from analysis extraction:
 - Data flow: [Flow description if present]
 - Dependencies: [List of dependencies if identified]
 
+### Fragment Context (if fragments_exist == true)
+
+**Validated Assumptions** (from research):
+[For each in assumptions_list:]
+- [id]: [statement] - Status: [status]
+
+Example:
+- A-1: Database supports transactions - Status: ✅ Validated
+- A-2: Frontend handles async responses - Status: ✅ Validated
+- A-3: External API supports webhooks - Status: ⏳ Pending
+
+**Identified Risks** (from research):
+[For each in risks_list:]
+- [id]: [description] - Impact: [impact], Probability: [probability]
+
+Example:
+- R-1: Database migration may cause downtime - Impact: High, Probability: Medium
+- R-2: Caching layer consistency issues - Impact: Medium, Probability: Low
+
+**Defined Metrics** (from research):
+[For each in metrics_list:]
+- [id]: [description] - Target: [target]
+
+Example:
+- M-1: API response time - Target: p95 < 200ms
+- M-2: Error rate during rollout - Target: < 0.1%
+
+**Traceability Guidance**:
+Create acceptance criteria that:
+1. Validate pending assumptions (link with "validates: A-#")
+2. Mitigate identified risks (link with "mitigates: R-#")
+3. Verify metrics are met (link with "verifies: M-#")
+
+[If fragments_exist == false:]
+No fragment context available. Spec generator will create acceptance criteria without fragment linkage.
+
 ### User Notes
 [Any user preferences, comments, or special requirements]
 
@@ -498,6 +630,7 @@ Build structured input context from analysis extraction:
 - Created date: [Today's date in YYYY-MM-DD format]
 - Created by: Claude Code
 - Template type: [full or minimal]
+- Fragments available: [true/false]
 ```
 
 **Template type selection:**
@@ -627,6 +760,116 @@ Output (store result for Phase 4):
 
 ---
 
+## PHASE 3.5: CREATE AC/EC FRAGMENTS (if fragments exist)
+
+**Objective**: Parse spec output for acceptance criteria and exit criteria, create fragment files for traceability.
+
+**If `fragments_exist == false` from Phase 1.5**:
+- Skip this phase, proceed to Phase 4
+- Spec works without fragments
+
+**If `fragments_exist == true`**:
+
+**Use lib/fragment-loader.md**:
+
+Parse spec output (from Phase 2) for:
+1. **Acceptance Criteria**
+2. **Exit Criteria** (phase gates)
+
+### Step 3.5.1: Create Acceptance Criteria Fragments
+
+**Parse spec** for acceptance criteria section:
+- Look for lines starting with "- [ ]" under "Acceptance Criteria"
+- Extract criterion text
+- Extract fragment references: `*(validates: A-#, mitigates: R-#, verifies: M-#)*`
+
+**For each AC**:
+
+**Get next AC number** (Operation 11):
+```
+work_folder: [work_folder]
+fragment_type: "AC"
+```
+Returns next_number (e.g., 1, 2, 3, ...)
+
+**Create AC fragment** (Operation 7):
+```
+work_folder: [work_folder]
+fragment_type: "AC"
+fragment_number: [next_number]
+fragment_data: {
+  statement: [criterion text],
+  validates: [A-IDs extracted from references],
+  mitigates: [R-IDs extracted from references],
+  verifies: [M-IDs extracted from references],
+  verification_method: [extracted from spec if available],
+  stage: "plan",
+  timestamp: [current_timestamp]
+}
+```
+
+**Get current timestamp**:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+**Result**: New fragment file created (e.g., `fragments/AC-1.md`, `fragments/AC-2.md`, ...)
+
+### Step 3.5.2: Create Exit Criteria Fragments
+
+**Parse spec** for exit criteria by phase:
+- Look for exit criteria in implementation plan (usually in phases or deployment plan)
+- Extract criterion text
+- Extract phase name
+- Extract which ACs it validates
+
+**For each EC**:
+
+**Get next EC number** (Operation 11):
+```
+work_folder: [work_folder]
+fragment_type: "EC"
+```
+
+**Create EC fragment** (Operation 7):
+```
+work_folder: [work_folder]
+fragment_type: "EC"
+fragment_number: [next_number]
+fragment_data: {
+  statement: [criterion text],
+  phase: [phase name - e.g., "Phase 1", "Pre-deployment"],
+  validates: [AC-IDs this criterion proves],
+  verification_method: [how to verify - e.g., command, test],
+  stage: "plan",
+  timestamp: [current_timestamp]
+}
+```
+
+**Result**: New fragment file created (e.g., `fragments/EC-1.md`, `fragments/EC-2.md`, ...)
+
+### Step 3.5.3: Update Fragment Registry (Operation 9)
+
+**Update registry** with all new fragments:
+- New acceptance criteria added (AC-1, AC-2, ...)
+- New exit criteria added (EC-1, EC-2, ...)
+- Summary counts updated
+
+**Update**:
+```
+work_folder: [work_folder]
+identifier: [identifier]
+updates: [all AC and EC fragment updates from above steps]
+```
+
+**Result**: `fragments.md` registry updated with AC/EC fragments
+
+**If fragment creation fails**:
+- Log warning but don't block command
+- Continue to Phase 4
+
+---
+
 ## PHASE 4: COMPLETION & NEXT STEPS
 
 Use lib/completion-handler.md:
@@ -670,12 +913,20 @@ Before presenting the spec, verify ALL of these are complete:
 - [ ] User's chosen approach identified (or prompted if multiple options)
 - [ ] Enrichment decision made (if applicable): yes/no/manual/skipped
 
+### Fragment Loading (Phase 1.5, if applicable)
+- [ ] Fragment existence checked (if work folder available)
+- [ ] If fragments exist: Assumptions loaded (A-#)
+- [ ] If fragments exist: Risks loaded (R-#)
+- [ ] If fragments exist: Metrics loaded (M-#)
+- [ ] Fragment context passed to spec-generator (if applicable)
+
 ### Spec Generation (Phase 2)
 - [ ] Spec generated via spec-generator subagent (context isolated)
 - [ ] Spec contains title and metadata
 - [ ] Decision rationale or goal statement present
 - [ ] Implementation tasks are specific and actionable (checkboxes)
 - [ ] Acceptance criteria are testable and clear
+- [ ] If fragments provided: Acceptance criteria reference fragment IDs (validates: A-#, mitigates: R-#, verifies: M-#)
 - [ ] Testing strategy included (unit/integration/manual)
 - [ ] Risks documented (if applicable for full template)
 - [ ] File references use `file:line` format where applicable
@@ -686,6 +937,12 @@ Before presenting the spec, verify ALL of these are complete:
 - [ ] Jira posted successfully (if --post-to-jira flag)
 - [ ] All output operations confirmed with success messages
 - [ ] Error handling executed for any failed operations
+
+### Fragment Creation (Phase 3.5, if applicable)
+- [ ] If fragments exist: Acceptance criteria fragments created (AC-1.md, AC-2.md, ...)
+- [ ] If fragments exist: Exit criteria fragments created (EC-1.md, EC-2.md, ...)
+- [ ] If fragments exist: Fragment registry updated with AC/EC counts
+- [ ] Fragment IDs properly linked to assumptions/risks/metrics
 
 ### Quality
 - [ ] Spec is actionable (can be implemented from it)
@@ -720,6 +977,19 @@ After creating spec, suggest:
 - "Need me to start the implementation workspace?"
 - "Want me to break down any section further?"
 - "Should I create implementation tasks in Jira?"
+
+---
+
+**Command Version**: 2.0 (Fragment System Integration)
+**Last Updated**: 2025-11-08
+**Dependencies**:
+- `lib/argument-parser.md`
+- `lib/output-handler.md`
+- `lib/completion-handler.md`
+- `lib/fragment-loader.md` (NEW: Fragment loading and creation)
+- `schovi/agents/spec-generator/AGENT.md`
+- `schovi/templates/spec/full.md`
+**Changelog**: v2.0 - Added fragment system integration: loads A/R/M fragments, passes to spec-generator, creates AC/EC fragments
 
 ---
 

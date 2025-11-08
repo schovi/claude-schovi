@@ -36,6 +36,26 @@ Option [N]: [Solution Name]
 - Data flow: [Flow description]
 - Dependencies: [List of dependencies]
 
+### Fragment Context (if available)
+
+**Validated Assumptions** (from research):
+- A-1: [statement] - Status: ✅ Validated / ⏳ Pending / ❌ Failed
+- A-2: [statement] - Status: [status]
+
+**Identified Risks** (from research):
+- R-1: [description] - Impact: [High/Medium/Low], Probability: [High/Medium/Low]
+- R-2: [description] - Impact: [impact], Probability: [probability]
+
+**Defined Metrics** (from research):
+- M-1: [description] - Target: [target value]
+- M-2: [description] - Target: [target value]
+
+**Traceability Guidance**:
+Create acceptance criteria that:
+1. Validate pending assumptions (link with "validates: A-#")
+2. Mitigate identified risks (link with "mitigates: R-#")
+3. Verify metrics are met (link with "verifies: M-#")
+
 ### User Notes
 [Any user preferences or comments]
 
@@ -43,6 +63,7 @@ Option [N]: [Solution Name]
 - Jira ID: [ID or N/A]
 - Created by: [User email if available]
 - Created date: [Date]
+- Fragments available: [true/false]
 ```
 
 Extract each section carefully. Identify:
@@ -51,6 +72,7 @@ Extract each section carefully. Identify:
 - What files/components are affected
 - What flows need to change
 - What dependencies exist
+- **If fragments available**: Which assumptions need validation, which risks need mitigation, which metrics need verification
 
 ### Step 2: Load Template
 
@@ -102,8 +124,11 @@ The template file contains:
 **Acceptance Criteria**:
 - Testable checkboxes
 - Specific and measurable
-- Each criterion links to the risk it mitigates (traceability)
+- **If fragments available**: Link each criterion to fragment IDs using `*(validates: A-#, mitigates: R-#, verifies: M-#)*` format
+- **If no fragments**: Link to risk names as fallback `*(mitigates: [Risk name])*`
 - Standard criteria (tests pass, linting, review)
+- Ensure all pending assumptions are validated by at least one AC
+- Ensure all high/medium risks are mitigated by at least one AC
 
 **Testing Strategy**:
 - Unit tests (which files, what scenarios)
