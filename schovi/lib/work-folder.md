@@ -230,7 +230,8 @@ Based on `current_step`, determine the output filename:
 - `brainstorm` → `brainstorm-[identifier].md`
 - `research` → `research-[identifier].md` or `research-[identifier]-option[N].md`
 - `debug` → `debug-[identifier].md`
-- `plan` → `spec-[identifier].md`
+- `plan` → `plan-[identifier].md`
+- `spec` → `01-spec.md` (product specification, numbered)
 - `implement` → `implementation-[identifier].md`
 
 **Full path:**
@@ -459,7 +460,8 @@ Creating fresh metadata...
 | research | research-[id].md | research-EC-1234.md |
 | research (option) | research-[id]-option[N].md | research-EC-1234-option2.md |
 | debug | debug-[id].md | debug-EC-1234.md |
-| plan | spec-[id].md | spec-EC-1234.md |
+| plan | plan-[id].md | plan-EC-1234.md |
+| spec | 01-spec.md | 01-spec.md |
 | implement | implementation-[id].md | implementation-EC-1234.md |
 
 ---

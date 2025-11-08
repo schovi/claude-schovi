@@ -55,162 +55,40 @@ jiraId = [extracted jira id or null]
 
 ### Step 1.2: Resolve or Create Work Folder
 
-**Goal**: Find existing work folder or create new one with proper identifier.
+Use lib/work-folder.md:
 
-**Integration Point**: Use work folder library (`schovi/lib/work-folder.md`)
+```
+Configuration:
+  mode: "auto-detect"
 
-#### 1.2.1: Check for Explicit Work Folder
+  identifier: [jiraId from Step 1.1, or null]
+  description: [problemInput from Step 1.1]
 
-If `--work-dir` flag provided:
-```bash
-# Use exactly as specified
-work_folder="$workDir"
+  workflow_type: "full"
+  current_step: "spec"
 
-# Validate it exists or can be created
-if [ ! -d "$work_folder" ]; then
-  mkdir -p "$work_folder/context"
-fi
+  custom_work_dir: [workDir from Step 1.1, or null]
+
+Output (store for later phases):
+  work_folder: [path from library, e.g., ".WIP/EC-1234-feature"]
+  metadata_file: [path from library, e.g., ".WIP/EC-1234-feature/.metadata.json"]
+  output_file: [path from library, e.g., ".WIP/EC-1234-feature/01-spec.md"]
+  identifier: [identifier from library]
+  is_new: [true/false from library]
 ```
 
-#### 1.2.2: Auto-detect Existing Work Folder
+**Store the returned values for later phases.**
 
-If no `--work-dir`, try to find existing folder:
+**Note**: The work-folder library creates `.WIP/[identifier]/` with metadata. Workflow type "full" means: spec → analyze → plan → implement.
 
-**a) From Git Branch**:
-```bash
-# Get current branch
-branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-# Extract identifier (Jira ID)
-identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
-
-# Find work folder
-if [ -n "$identifier" ]; then
-  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
-fi
-```
-
-**b) From Jira ID in Input**:
-```bash
-# Extract Jira ID from problemInput
-jira_id=$(echo "$problemInput" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b')
-
-if [ -n "$jira_id" ]; then
-  work_folder=$(find .WIP -type d -name "${jira_id}*" | head -1)
-fi
-```
-
-#### 1.2.3: Create New Work Folder
-
-If no existing folder found, create new one:
-
-**Generate Identifier**:
-
-If Jira ID present:
-```bash
-jira_id="EC-1234"
-
-# Fetch Jira title (if not already fetched)
-jira_title="[from Jira issue]"
-
-# Generate slug from title
-slug=$(echo "$jira_title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
-
-# Combine
-identifier="${jira_id}-${slug}"
-```
-
-If no Jira ID (description-based):
-```bash
-# Generate slug from description
-slug=$(echo "$problemInput" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//')
-
-identifier="$slug"
-```
-
-If empty (interactive):
-```
-# Will generate after gathering requirements
-identifier="[will be created in Step 2]"
-```
-
-**Create Folder Structure**:
-```bash
-mkdir -p ".WIP/$identifier/context"
-```
-
-**Result**: Store `work_folder` path for later phases.
-
-### Step 1.3: Load or Create Metadata
-
-**Goal**: Track work state in `.metadata.json`
-
-#### 1.3.1: Check if Metadata Exists
-
-```bash
-metadata_file=".WIP/$identifier/.metadata.json"
-
-if [ -f "$metadata_file" ]; then
-  # Read existing metadata
-  cat "$metadata_file"
-else
-  # Will create new metadata in Step 1.3.2
-fi
-```
-
-#### 1.3.2: Create Initial Metadata (if new folder)
-
-Use Write tool to create `.WIP/[identifier]/.metadata.json`:
-
-```json
-{
-  "identifier": "EC-1234",
-  "title": "[from Jira or description]",
-  "slug": "[generated slug]",
-  "workFolder": ".WIP/EC-1234-add-user-auth",
-
-  "workflow": {
-    "type": "full",
-    "steps": ["spec", "analyze", "plan", "implement"],
-    "completed": [],
-    "current": "spec"
-  },
-
-  "files": {
-    "context": ["wireframe.png", "requirements.pdf"]
-  },
-
-  "git": {
-    "branch": "[from git rev-parse --abbrev-ref HEAD]",
-    "commits": [],
-    "lastCommit": null
-  },
-
-  "external": {
-    "jiraIssue": "EC-1234",
-    "jiraUrl": "https://company.atlassian.net/browse/EC-1234",
-    "githubIssue": null,
-    "githubPR": null
-  },
-
-  "timestamps": {
-    "created": "[from date -u +\"%Y-%m-%dT%H:%M:%SZ\"]",
-    "lastModified": "[same as created]",
-    "completed": null
-  }
-}
-```
-
-**Set workflow.type = "full"** because spec → analyze → plan → implement.
-
-### Step 1.4: Copy Supporting Materials to Context Folder
+### Step 1.3: Copy Supporting Materials to Context Folder
 
 If `--input` files provided:
 
 ```bash
 for file in $inputFiles; do
   # Copy to context folder
-  cp "$file" ".WIP/$identifier/context/$(basename $file)"
+  cp "$file" "[work_folder from Step 1.2]/context/$(basename $file)"
 
   # Read file if it's readable (images, PDFs, text)
   # Use Read tool to load content for analysis
@@ -451,15 +329,15 @@ Follow the outline above, filling in content based on:
 **Priority**:
 1. If `--output` flag: Use specified path
 2. If `--no-file`: Skip file output (terminal only)
-3. Default: `.WIP/[identifier]/01-spec.md`
+3. Default: Use `output_file` from Step 1.2 (work-folder library)
 
 ```bash
 if [ -n "$outputPath" ]; then
-  output_file="$outputPath"
+  final_output_file="$outputPath"
 elif [ "$noFile" = true ]; then
-  output_file=""  # Skip file output
+  final_output_file=""  # Skip file output
 else
-  output_file=".WIP/$identifier/01-spec.md"
+  final_output_file="[output_file from Step 1.2]"  # e.g., .WIP/EC-1234/01-spec.md
 fi
 ```
 
@@ -468,19 +346,24 @@ fi
 If file output enabled:
 
 **Use Write tool**:
-- file_path: `.WIP/[identifier]/01-spec.md`
+- file_path: [final_output_file from Step 4.1]
 - content: [Full specification from Phase 3]
 
 ### Step 4.3: Update Metadata
 
-**Read existing metadata**, update fields:
+**If work_folder exists and file was written:**
 
+Read current metadata:
+```bash
+cat [metadata_file from Step 1.2]
+```
+
+Update fields:
 ```json
 {
-  ...existing,
+  ...existing fields,
   "workflow": {
-    "type": "full",
-    "steps": ["spec", "analyze", "plan", "implement"],
+    ...existing.workflow,
     "completed": ["spec"],
     "current": "spec"
   },
@@ -489,13 +372,23 @@ If file output enabled:
     "context": ["wireframe.png", "requirements.pdf"]
   },
   "timestamps": {
-    ...existing.created,
-    "lastModified": "[now]"
+    ...existing.timestamps,
+    "lastModified": "[current timestamp]"
   }
 }
 ```
 
-**Use Write tool** to save updated metadata.
+Get current timestamp:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+Write updated metadata:
+```
+Write tool:
+  file_path: [metadata_file from Step 1.2]
+  content: [updated JSON]
+```
 
 ### Step 4.4: Post to Jira (if requested)
 
