@@ -244,6 +244,9 @@ schovi/
 - Technical deep dive (data flow, dependencies, code quality)
 - Implementation considerations (complexity, testing, risks)
 - Performance and security implications
+- **Assumption Validation Matrix** (Phase 3) - 3-8 critical assumptions with testing method, result, evidence
+- **Observations vs Inferences** (Phase 3) - Clear separation between objective facts and interpretations
+- **What We Will Measure Later** (Phase 3) - Performance, safety, and rollback metrics
 - Next steps: Guide to plan command
 
 **Quality Gates** (all must be met):
@@ -254,6 +257,9 @@ schovi/
 - Code quality assessed with specific examples
 - Implementation considerations provided (complexity, risks, testing)
 - Performance and security analyzed
+- **Assumption Validation Matrix** (Phase 3) with 3-8 assumptions, each having testing method, result (✅/❌/⏳), evidence
+- **Observations vs Inferences** (Phase 3) clearly separated throughout
+- **What We Will Measure Later** (Phase 3) section with performance/safety/rollback metrics and baseline approach
 - Output saved to work folder as `research-[id].md` or `research-[id]-option[N].md`
 
 ### Command: `/schovi:plan`
