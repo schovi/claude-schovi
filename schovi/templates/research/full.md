@@ -297,6 +297,36 @@ Controller (controller.ts:45)
 - [Data retention policies]
 - [Audit logging needs]
 
+### What We Will Measure Later
+
+**Performance Metrics** (measure during/after implementation):
+- [Metric 1 - e.g., API response time (p50, p95, p99)]
+- [Metric 2 - e.g., Database query duration]
+- [Metric 3 - e.g., Memory consumption per request]
+- [Metric 4 - e.g., Error rate and type distribution]
+
+**Safety Metrics** (monitor during rollout):
+- [Metric 1 - e.g., Feature flag adoption rate]
+- [Metric 2 - e.g., User error reports (comparison to baseline)]
+- [Metric 3 - e.g., Data consistency checks (audit queries)]
+- [Metric 4 - e.g., Rollback trigger conditions (error thresholds)]
+
+**Rollback Metrics** (validate rollback safety):
+- [Metric 1 - e.g., Rollback execution time]
+- [Metric 2 - e.g., Data integrity post-rollback (validation queries)]
+- [Metric 3 - e.g., Service recovery time after rollback]
+
+**Baseline Establishment**:
+- [What current metrics to capture before implementation]
+- [How to establish baseline (duration, sample size)]
+- [Where to store baseline data for comparison]
+
+**Instructions**:
+- Be specific about WHAT to measure, not just "monitor performance"
+- Include quantitative targets where possible (e.g., "p95 < 200ms")
+- Identify measurement tools/methods (e.g., "APM dashboard", "custom SQL query", "CloudWatch metrics")
+- Note if baseline needs to be established first
+
 ---
 
 ## 📚 Next Steps
@@ -335,12 +365,19 @@ This will generate detailed implementation specification with tasks, acceptance 
 - [Pattern 1 - e.g., All services use dependency injection via constructor]
 - [Pattern 2 - e.g., Error handling uses custom exception classes]
 
-**Assumptions Validated**:
-- ✅ [Assumption 1 - e.g., Database supports transactions - confirmed in `db.ts:45`]
-- ✅ [Assumption 2 - e.g., Frontend can handle async responses - confirmed in `api.ts:123`]
+**Assumption Validation Matrix**:
 
-**Assumptions Still Pending**:
-- ⏳ [Assumption 3 - e.g., External API supports webhooks - needs verification]
+| Assumption | How Tested | Result | Evidence |
+|------------|------------|--------|----------|
+| Database supports transactions | Code review of DB adapter | ✅ Pass | `db.ts:45` - TransactionManager class |
+| Frontend handles async responses | API client inspection | ✅ Pass | `api.ts:123` - Promise-based architecture |
+| External API supports webhooks | Documentation review needed | ⏳ Pending | Needs vendor docs verification |
+
+**Instructions**: List all critical assumptions made during research. For each:
+- **Assumption**: Clear statement of what we assume to be true
+- **How Tested**: Method used (code review, docs, testing, POC, etc.)
+- **Result**: ✅ Pass (validated), ❌ Fail (invalidated), ⏳ Pending (needs verification)
+- **Evidence**: Specific file:line reference, doc link, or test result
 ```
 
 ---
@@ -373,10 +410,55 @@ This will generate detailed implementation specification with tasks, acceptance 
 - Suggest testing strategy based on existing test patterns
 - Consider actual performance implications from code analysis
 
+### Separating Observations from Inferences
+
+**Critical Distinction**:
+- **Observations** = Objective facts from code/docs (WHAT exists)
+- **Inferences** = Subjective interpretations/conclusions (WHAT it means)
+
+**Examples**:
+
+✅ **Good - Observation then Inference**:
+```
+Observation: `UserController.ts:45-67` uses bcrypt for password hashing with salt rounds hardcoded to 10.
+Inference: This may be insufficient for high-security contexts; OWASP recommends 12+ rounds for 2024.
+```
+
+❌ **Bad - Mixed without distinction**:
+```
+The password hashing in `UserController.ts:45` is weak because it uses only 10 rounds.
+```
+
+**When Writing Research**:
+
+1. **State observations first** (file:line evidence):
+   - "The code does X at `file.ts:123`"
+   - "Function Y calls Z with parameters A, B at `file.ts:456`"
+   - "Test coverage includes scenarios 1, 2, 3 at `test.ts:789`"
+
+2. **Then provide inferences** (analysis/interpretation):
+   - "This suggests the system handles..."
+   - "This pattern indicates..."
+   - "This gap implies we need to..."
+
+3. **Keep them visually distinct**:
+   - Use "Observation:" / "Inference:" labels when clarity needed
+   - Or structure as: fact sentence → interpretation sentence
+   - Or use formatting: **Fact** (code ref) - Analysis follows
+
+**Apply this throughout**:
+- Current State Analysis: Map components (observations), then explain interactions (inferences)
+- Code Quality Assessment: List specific issues (observations), then assess severity (inferences)
+- Complexity Analysis: Identify affected areas (observations), then estimate effort (inferences)
+- Risk Analysis: Document actual constraints (observations), then predict impact (inferences)
+
+**Goal**: Readers should clearly distinguish between "what the code actually does" (verifiable) and "what we think it means" (interpretation).
+
 ### Validation Checklist
 
 Before returning output, verify:
 
+**Core Content**:
 - [ ] Problem/topic summary clearly states research focus
 - [ ] Current state analysis has file:line references for key components
 - [ ] Architecture overview shows actual component interactions
@@ -390,6 +472,25 @@ Before returning output, verify:
 - [ ] Security implications consider actual implementation details
 - [ ] Next steps are concrete and actionable
 - [ ] All file references use `file:line` format
+
+**New Quality Gates** (Phase 3 improvements):
+- [ ] **Assumption Validation Matrix** includes 3-8 critical assumptions with:
+  - Clear assumption statement
+  - Testing method (code review, docs, POC, etc.)
+  - Result (✅ Pass, ❌ Fail, ⏳ Pending)
+  - Evidence (file:line reference, doc link, test result)
+- [ ] **Observations vs Inferences** are clearly separated:
+  - Observations state facts with file:line references
+  - Inferences provide interpretation/analysis
+  - Visual distinction maintained (labels, formatting, or structure)
+- [ ] **What We Will Measure Later** section includes:
+  - Performance metrics with specific measurement targets
+  - Safety metrics for rollout monitoring
+  - Rollback metrics for validation
+  - Baseline establishment approach
+  - Specific tools/methods for measurement
+
+**Format**:
 - [ ] Output adheres to markdown structure exactly
 - [ ] Total output is ~4000-6000 tokens (deep and detailed)
 
@@ -402,10 +503,12 @@ Before returning output, verify:
 - Current State Analysis: ~800 tokens
 - Technical Deep Dive: ~2000 tokens
 - Implementation Considerations: ~1500 tokens
+  - Including "What We Will Measure Later": ~200 tokens
 - Next Steps: ~200 tokens
-- Research Methodology: ~200 tokens
+- Research Methodology: ~300 tokens
+  - Including "Assumption Validation Matrix": ~150 tokens
 
-**If over budget**: Compress research methodology first, then implementation considerations, while keeping all file:line references intact.
+**If over budget**: Compress research methodology first (except Assumption Validation Matrix), then implementation considerations, while keeping all file:line references and new quality gates intact.
 
 ---
 
@@ -415,6 +518,10 @@ See `schovi/templates/research/example.md` for a full example (to be created if 
 
 ---
 
-**Version**: 1.0
-**Last Updated**: 2025-11-07
+**Version**: 1.1 (Phase 3 - Enhanced Validation)
+**Last Updated**: 2025-11-08
 **Related Templates**: `templates/brainstorm/full.md`, `templates/spec/full.md`
+
+**Changelog**:
+- v1.1 (2025-11-08): Added Assumption Validation Matrix, Observations vs Inferences guidance, "What We Will Measure Later" section
+- v1.0 (2025-11-07): Initial release

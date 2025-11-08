@@ -32,6 +32,9 @@ Transform a chosen solution approach from brainstorming into a detailed technica
 - Technical deep dive (data flow, dependencies, code quality)
 - Implementation considerations (complexity, testing, risks)
 - Performance and security implications
+- **Assumption Validation Matrix** (3-8 critical assumptions with testing method, result, evidence)
+- **Observations vs Inferences** (clear separation between objective facts and interpretations)
+- **What We Will Measure Later** (performance, safety, and rollback metrics)
 - Next steps: Guide to plan command
 
 Saved as: `research-[id].md` or `research-[id]-option[N].md`
@@ -71,6 +74,8 @@ Saved as: `research-[id].md` or `research-[id]-option[N].md`
 ## Quality Gates
 
 All must be met before output:
+
+**Core Analysis**:
 - Deep exploration completed (4-6 minutes, thorough mode)
 - Architecture mapped with file:line references
 - Dependencies identified (direct and indirect)
@@ -78,6 +83,21 @@ All must be met before output:
 - Code quality assessed with specific examples
 - Implementation considerations provided (complexity, risks, testing)
 - Performance and security analyzed
+
+**Enhanced Validation** (Phase 3):
+- **Assumption Validation Matrix** with 3-8 assumptions, each having:
+  - Clear assumption statement
+  - Testing method (code review, docs, POC)
+  - Result (✅ Pass, ❌ Fail, ⏳ Pending)
+  - Evidence (file:line reference, doc link)
+- **Observations vs Inferences** clearly separated throughout
+- **What We Will Measure Later** section with:
+  - Performance metrics (with measurement targets)
+  - Safety metrics (for rollout monitoring)
+  - Rollback metrics (for validation)
+  - Baseline establishment approach
+
+**Output**:
 - Output saved to work folder as `research-[id].md` or `research-[id]-option[N].md`
 
 ## Next Steps
