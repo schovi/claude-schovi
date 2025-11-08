@@ -87,9 +87,86 @@ Store user response as option_number
 
 ---
 
+## PHASE 1.5: LOAD FRAGMENT CONTEXT (if fragments exist)
+
+**Objective**: Load existing fragment registry and assumption/unknown details to pass to research-executor for validation.
+
+**Use lib/fragment-loader.md**:
+
+### Step 1.5.1: Check if fragments exist (Operation 1)
+
+```
+work_folder: [from Phase 1, derived from input or work-folder library]
+```
+
+**If fragments don't exist**:
+- Skip this phase, proceed to Phase 2
+- Research will work without fragment context
+
+**If fragments exist**:
+- Continue to next step
+
+### Step 1.5.2: Load fragment registry (Operation 2)
+
+```
+work_folder: [work_folder path]
+```
+
+**Parse registry for**:
+- Count of assumptions (A-#)
+- Count of unknowns (U-#)
+- Current status of each
+
+**Store**:
+- `fragments_exist`: true
+- `assumption_count`: N
+- `unknown_count`: N
+
+### Step 1.5.3: Load all assumptions (Operation 4)
+
+```
+work_folder: [work_folder]
+fragment_type: "A"
+```
+
+**For each assumption**:
+- Extract ID (A-1, A-2, ...)
+- Extract statement
+- Extract current status (pending, validated, failed)
+
+**Store**:
+- `assumptions_list`: [
+    {id: "A-1", statement: "...", status: "pending"},
+    {id: "A-2", statement: "...", status: "pending"}
+  ]
+
+### Step 1.5.4: Load all unknowns (Operation 4)
+
+```
+work_folder: [work_folder]
+fragment_type: "U"
+```
+
+**For each unknown**:
+- Extract ID (U-1, U-2, ...)
+- Extract question
+- Extract current status (pending, answered)
+
+**Store**:
+- `unknowns_list`: [
+    {id: "U-1", question: "...", status: "pending"},
+    {id: "U-2", question: "...", status: "pending"}
+  ]
+
+**After Phase 1.5**:
+- Fragment context loaded (if exists)
+- Ready to pass to research-executor for validation
+
+---
+
 ## PHASE 2: EXECUTE RESEARCH (Isolated Context)
 
-**Objective**: Spawn research-executor subagent to perform ALL research work in isolated context.
+**Objective**: Spawn research-executor subagent to perform ALL research work in isolated context, including assumption validation if fragments exist.
 
 **Use Task tool with research-executor**:
 
@@ -106,13 +183,28 @@ Task tool configuration:
     - identifier: [auto-detect or generate]
     - exploration_mode: thorough
 
+    FRAGMENT CONTEXT (if fragments_exist == true):
+    ASSUMPTIONS TO VALIDATE:
+    [For each in assumptions_list:]
+    - [id]: [statement] (current status: [status])
+
+    UNKNOWNS TO INVESTIGATE:
+    [For each in unknowns_list:]
+    - [id]: [question] (current status: [status])
+
+    [If fragments_exist == false:]
+    No existing fragment context. Research will identify new assumptions/risks/metrics.
+
     Execute complete research workflow:
     1. Extract research target (from brainstorm option, Jira, GitHub, etc.)
     2. Fetch external context if needed (Jira/GitHub via nested subagents)
     3. Deep codebase exploration (Plan subagent, thorough mode)
-    4. Generate detailed technical analysis following template
+    4. If fragments exist: Validate each assumption and answer each unknown
+    5. Identify risks (R-1, R-2, ...) and metrics (M-1, M-2, ...)
+    6. Generate detailed technical analysis following template
 
     Return structured research output (~4000-6000 tokens) with file:line references.
+    Include assumption validation results and unknown answers if fragments provided.
 ```
 
 **Expected output from executor**:
@@ -162,7 +254,164 @@ ExitPlanMode tool:
 
 ## PHASE 4: OUTPUT HANDLING & WORK FOLDER
 
-### Step 4.1: Work Folder Resolution
+### Step 4.1: Update Fragments (if fragments exist)
+
+**If `fragments_exist == true` from Phase 1.5**:
+
+**Use lib/fragment-loader.md**:
+
+Parse research output for:
+1. **Assumption Validation Results**
+2. **Unknown Answers**
+3. **New Risks**
+4. **New Metrics**
+
+#### 4.1.1: Update Assumption Fragments (Operation 8)
+
+For each assumption in `assumptions_list`:
+
+**Parse research output** for validation section matching assumption ID:
+- Look for "Assumption Validation Matrix" table
+- Extract: validation method, result (✅/❌/⏳), evidence
+
+**Update fragment** (Operation 8):
+```
+work_folder: [work_folder]
+fragment_id: [assumption.id - e.g., "A-1"]
+updates: {
+  status: "validated" | "failed" | "pending",
+  validation_method: [extracted method],
+  validation_result: "pass" | "fail",
+  evidence: [extracted evidence items],
+  tested_by: "Research phase ([current_timestamp])"
+}
+```
+
+**Get current timestamp**:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+**Result**: Fragment file updated with validation results
+
+#### 4.1.2: Update Unknown Fragments (Operation 8)
+
+For each unknown in `unknowns_list`:
+
+**Parse research output** for answer matching unknown ID:
+- Look for answers in research output
+- Extract: finding, evidence, decision
+
+**Update fragment** (Operation 8):
+```
+work_folder: [work_folder]
+fragment_id: [unknown.id - e.g., "U-1"]
+updates: {
+  status: "answered" | "pending",
+  answer: [extracted finding],
+  evidence: [extracted evidence items],
+  decision: [extracted decision],
+  answered_by: "Research phase ([current_timestamp])"
+}
+```
+
+**Result**: Fragment file updated with answer
+
+#### 4.1.3: Create Risk Fragments (Operation 7)
+
+**Parse research output** for risks section:
+- Look for "Risks & Mitigation" or similar section
+- Extract risks identified
+
+**For each risk**:
+
+**Get next risk number** (Operation 11):
+```
+work_folder: [work_folder]
+fragment_type: "R"
+```
+Returns next_number (e.g., 1, 2, 3, ...)
+
+**Create risk fragment** (Operation 7):
+```
+work_folder: [work_folder]
+fragment_type: "R"
+fragment_number: [next_number]
+fragment_data: {
+  description: [risk description from research],
+  category: [Technical | Business | Operational],
+  impact: [High | Medium | Low],
+  probability: [High | Medium | Low],
+  impact_description: [what happens if risk occurs],
+  probability_rationale: [why this probability],
+  validates: [A-IDs this risk relates to],
+  mitigation_steps: [mitigation strategy],
+  contingency_steps: [contingency plan],
+  stage: "research",
+  timestamp: [current_timestamp]
+}
+```
+
+**Result**: New fragment file created (e.g., `fragments/R-1.md`)
+
+#### 4.1.4: Create Metric Fragments (Operation 7)
+
+**Parse research output** for metrics section:
+- Look for "What We Will Measure Later" section
+- Extract metrics defined
+
+**For each metric**:
+
+**Get next metric number** (Operation 11):
+```
+work_folder: [work_folder]
+fragment_type: "M"
+```
+
+**Create metric fragment** (Operation 7):
+```
+work_folder: [work_folder]
+fragment_type: "M"
+fragment_number: [next_number]
+fragment_data: {
+  description: [metric description],
+  purpose_validates: [A-IDs],
+  purpose_monitors: [R-IDs],
+  target_value: [target value],
+  acceptable_range: [min-max],
+  critical_threshold: [threshold],
+  baseline_commands: [how to establish baseline],
+  owner: [team or person],
+  timeline: [when to measure],
+  stage: "research",
+  timestamp: [current_timestamp]
+}
+```
+
+**Result**: New fragment file created (e.g., `fragments/M-1.md`)
+
+#### 4.1.5: Update Fragment Registry (Operation 9)
+
+**Update registry** with all changes:
+- Updated assumption statuses
+- Updated unknown statuses
+- New risks added
+- New metrics added
+
+**Update summary counts**:
+```
+work_folder: [work_folder]
+identifier: [identifier]
+updates: [all fragment updates from above steps]
+```
+
+**Result**: `fragments.md` registry updated with current state
+
+**If fragment updates fail**:
+- Log warning but don't block command
+- Continue to file writing
+
+### Step 4.2: Work Folder Resolution
 
 Use lib/work-folder.md:
 
@@ -192,7 +441,7 @@ Output (store for use below):
 
 **Store the returned values for steps below.**
 
-### Step 4.2: Write Research Output
+### Step 4.3: Write Research Output
 
 **If `file_output == true` (default unless --no-file):**
 
@@ -210,7 +459,7 @@ content: [research_output from Phase 3]
 **If write fails or --no-file:**
 Skip file creation, continue to terminal output.
 
-### Step 4.3: Update Metadata
+### Step 4.4: Update Metadata
 
 **If work_folder exists and file was written:**
 
@@ -251,7 +500,7 @@ Write tool:
   content: [updated JSON]
 ```
 
-### Step 4.4: Terminal Output
+### Step 4.5: Terminal Output
 
 **If `terminal_output == true` (default unless --quiet):**
 
@@ -326,6 +575,8 @@ This will generate detailed implementation tasks, acceptance criteria, and rollo
 Before completing, verify:
 
 - [ ] Input processed successfully with research target identified
+- [ ] Fragment context loaded (if fragments exist)
+- [ ] Assumptions and unknowns passed to executor (if fragments exist)
 - [ ] Executor invoked and completed successfully
 - [ ] Research output received (~4000-6000 tokens)
 - [ ] Output contains all required sections
@@ -335,6 +586,11 @@ Before completing, verify:
 - [ ] Code quality assessed with examples
 - [ ] Implementation considerations provided
 - [ ] All file references use file:line format
+- [ ] Assumption fragments updated with validation results (if fragments exist)
+- [ ] Unknown fragments updated with answers (if fragments exist)
+- [ ] Risk fragments created for identified risks (if fragments exist)
+- [ ] Metric fragments created for defined metrics (if fragments exist)
+- [ ] Fragment registry updated with all changes (if fragments exist)
 - [ ] File saved to work folder (unless --no-file)
 - [ ] Metadata updated
 - [ ] Terminal output displayed (unless --quiet)
@@ -369,10 +625,12 @@ Before completing, verify:
 
 ---
 
-**Command Version**: 2.0 (Executor Pattern)
-**Last Updated**: 2025-11-07
+**Command Version**: 3.0 (Executor Pattern + Fragment System)
+**Last Updated**: 2025-11-08
 **Dependencies**:
 - `lib/argument-parser.md`
 - `lib/work-folder.md`
+- `lib/fragment-loader.md` (NEW: Fragment loading and updating)
 - `schovi/agents/research-executor/AGENT.md`
 - `schovi/templates/research/full.md`
+**Changelog**: v3.0 - Added fragment system integration: loads assumptions/unknowns, validates during research, updates fragment files with results, creates risk/metric fragments

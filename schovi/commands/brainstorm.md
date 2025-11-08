@@ -245,7 +245,72 @@ Write tool:
   content: [updated JSON]
 ```
 
-### Step 4.4: Terminal Output
+### Step 4.4: Create Fragments
+
+**Use lib/fragment-loader.md**:
+
+Parse brainstorm output for assumptions and unknowns:
+
+1. **Extract Assumptions** from "Assumptions & Unknowns" section:
+   - Look for lines starting with "**A-#**:" or "- A-#:" or bullets under "Assumptions"
+   - Extract statement for each assumption
+
+2. **Extract Unknowns** from "Assumptions & Unknowns" section:
+   - Look for lines starting with "**U-#**:" or "- U-#:" or bullets under "Unknowns"
+   - Extract question for each unknown
+
+3. **Initialize Fragment System** (Operation 6):
+   ```
+   work_folder: [work_folder from Step 4.1]
+   identifier: [identifier from Step 4.1]
+   ```
+   - Creates `fragments/` directory
+   - Creates initial `fragments.md` registry
+
+4. **Batch Create Fragments** (Operation 10):
+   ```
+   work_folder: [work_folder]
+   identifier: [identifier]
+   fragments: [
+     {
+       type: "A",
+       number: 1,
+       statement: [extracted assumption statement],
+       source: "Created during brainstorm phase",
+       stage: "brainstorm",
+       timestamp: [current timestamp]
+     },
+     {
+       type: "A",
+       number: 2,
+       ...
+     },
+     {
+       type: "U",
+       number: 1,
+       question: [extracted unknown question],
+       importance: "Needed for research phase",
+       stage: "brainstorm",
+       timestamp: [current timestamp]
+     }
+   ]
+   ```
+
+**Get current timestamp**:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+**Result**:
+- Fragment files created: `fragments/A-1.md`, `fragments/A-2.md`, `fragments/U-1.md`, etc.
+- Registry created: `fragments.md`
+- All fragments have status ⏳ Pending
+
+**If fragment creation fails**:
+- Log warning but don't block command
+- Continue to terminal output
+
+### Step 4.5: Terminal Output
 
 **If `terminal_output == true` (default unless --quiet):**
 
@@ -267,6 +332,7 @@ Generated [N] solution options with broad feasibility analysis.
 
 Brainstorm saved to: `[output_file]`
 Work folder: `[work_folder]`
+Fragments: [A_COUNT] assumptions, [U_COUNT] unknowns
 
 ## 🔬 Next Steps
 
@@ -285,6 +351,7 @@ This will perform deep codebase exploration with detailed file:line references a
 
 **After this phase:**
 - Brainstorm file created in `.WIP/[identifier]/` work folder
+- Fragment system initialized with assumptions and unknowns
 - Metadata file updated
 - Terminal output displayed (unless --quiet)
 - User guided to next step (research command)
@@ -337,6 +404,10 @@ Before completing, verify:
 - [ ] Output contains all required sections (problem, constraints, options, matrix, recommendation)
 - [ ] 2-3 distinct options present (not variations)
 - [ ] File saved to work folder (unless --no-file)
+- [ ] Fragment system initialized (fragments/ directory and fragments.md created)
+- [ ] Assumption fragments created (A-1.md, A-2.md, etc.)
+- [ ] Unknown fragments created (U-1.md, U-2.md, etc.)
+- [ ] Fragment registry updated with all fragments
 - [ ] Metadata updated
 - [ ] Terminal output displayed (unless --quiet)
 - [ ] User guided to research command for next step
@@ -369,10 +440,12 @@ Before completing, verify:
 
 ---
 
-**Command Version**: 2.0 (Executor Pattern)
-**Last Updated**: 2025-11-07
+**Command Version**: 3.0 (Executor Pattern + Fragment System)
+**Last Updated**: 2025-11-08
 **Dependencies**:
 - `lib/argument-parser.md`
 - `lib/work-folder.md`
+- `lib/fragment-loader.md` (NEW: Fragment system operations)
 - `schovi/agents/brainstorm-executor/AGENT.md`
 - `schovi/templates/brainstorm/full.md`
+**Changelog**: v3.0 - Added fragment system for assumption/unknown tracking with cross-stage traceability

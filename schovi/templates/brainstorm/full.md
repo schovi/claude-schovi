@@ -57,15 +57,17 @@ Brainstorm provides **broad exploration** of 3-5 distinct solution approaches wi
 
 ## 🔍 Assumptions & Unknowns
 
-**Assumptions** *(explicitly labeled)*:
-- [Assumption 1 - e.g., Database migration tools are available]
-- [Assumption 2 - e.g., Frontend can adapt to API changes within 1 sprint]
-- [Assumption 3 - e.g., Current auth middleware is compatible with new approach]
+**Assumptions** *(explicitly labeled, ID for traceability)*:
+- **A-1**: [Assumption statement - e.g., Database migration tools are available]
+- **A-2**: [Assumption statement - e.g., Frontend can adapt to API changes within 1 sprint]
+- **A-3**: [Assumption statement - e.g., Current auth middleware is compatible with new approach]
 
-**Unknowns** *(need investigation)*:
-- [Unknown 1 - e.g., Exact performance impact of caching strategy]
-- [Unknown 2 - e.g., Third-party API rate limits for this use case]
-- [Unknown 3 - e.g., Compatibility with legacy client versions]
+**Unknowns** *(need investigation in research phase)*:
+- **U-1**: [Unknown question - e.g., Exact performance impact of caching strategy]
+- **U-2**: [Unknown question - e.g., Third-party API rate limits for this use case]
+- **U-3**: [Unknown question - e.g., Compatibility with legacy client versions]
+
+**Fragment System**: These IDs will be used to create individual fragment files (`fragments/A-1.md`, `fragments/U-1.md`, etc.) for tracking across brainstorm → research → plan workflow.
 
 ---
 
@@ -316,7 +318,10 @@ Before returning output, verify:
 
 - [ ] Problem summary is clear and complete (2-4 paragraphs)
 - [ ] Constraints are specific, not generic
-- [ ] Assumptions & Unknowns section present with explicit labeling
+- [ ] Assumptions section has A-1, A-2, ... IDs for traceability
+- [ ] Unknowns section has U-1, U-2, ... IDs for research phase
+- [ ] All assumptions use **A-#**: format (bold ID with colon)
+- [ ] All unknowns use **U-#**: format (bold ID with colon)
 - [ ] 3-5 distinct options provided (not variations)
 - [ ] Each option stays at CONCEPTUAL level (no file paths, scripts, or specific time estimates)
 - [ ] Each option has overview + key areas + benefits + challenges

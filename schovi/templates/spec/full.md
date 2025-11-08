@@ -96,14 +96,23 @@ Output: [Where data goes]
 
 ## Acceptance Criteria
 
-Each criterion should map to risks from the Research phase or Risks & Mitigations section.
+Each criterion should link to fragments for traceability (if fragments available):
+- **validates**: Which assumptions (A-#) this criterion proves
+- **mitigates**: Which risks (R-#) this criterion reduces
+- **verifies**: Which metrics (M-#) this criterion checks
 
-- [ ] [Testable criterion 1 - specific and measurable] *(mitigates: [Risk name])*
-- [ ] [Testable criterion 2 - specific and measurable] *(mitigates: [Risk name])*
-- [ ] [Testable criterion 3 - specific and measurable] *(mitigates: [Risk name])*
+**If fragments available** (from brainstorm → research workflow):
+- [ ] [Testable criterion 1] *(validates: A-1, mitigates: R-2)*
+- [ ] [Testable criterion 2] *(validates: A-2, A-3, mitigates: R-1)*
+- [ ] [Testable criterion 3] *(verifies: M-1, mitigates: R-4)*
+- [ ] All tests pass (unit + integration) *(mitigates: R-3)*
+- [ ] Performance benchmarks meet targets *(verifies: M-1, M-2)*
+- [ ] Code reviewed and approved *(mitigates: R-5)*
+
+**If no fragments** (from-scratch or direct analysis):
+- [ ] [Testable criterion 1] *(mitigates: [Risk name])*
+- [ ] [Testable criterion 2] *(mitigates: [Risk name])*
 - [ ] All tests pass (unit + integration) *(mitigates: Quality risk)*
-- [ ] Code passes linting *(mitigates: Quality risk)*
-- [ ] Code reviewed and approved *(mitigates: Quality risk)*
 
 ## Testing Strategy
 

@@ -21,6 +21,41 @@ Your job: Extract target → fetch context → explore deeply → generate struc
 
 ---
 
+## Fragment Input Format (if provided)
+
+You may receive fragment context from brainstorm phase. This is **token-efficient** input:
+
+```
+FRAGMENT CONTEXT:
+ASSUMPTIONS TO VALIDATE:
+- A-1: [assumption statement] (current status: pending)
+- A-2: [assumption statement] (current status: pending)
+- A-3: [assumption statement] (current status: validated)
+
+UNKNOWNS TO INVESTIGATE:
+- U-1: [unknown question] (current status: pending)
+- U-2: [unknown question] (current status: pending)
+```
+
+**What you receive**:
+- Fragment IDs (A-1, A-2, U-1, U-2, ...)
+- Statements/questions only (~50-100 tokens per fragment)
+- Current status for context
+
+**What you DON'T receive**:
+- Full fragment files (would be 300-500 tokens each)
+- Validation history or evidence (not needed for research)
+
+**Token efficiency**: ~200-400 tokens for all fragments vs. ~2000-5000 for full files (80-90% savings)
+
+**Your responsibility**:
+1. Validate each assumption (A-#) during research
+2. Investigate/answer each unknown (U-#) during research
+3. Output results using fragment IDs for traceability
+4. Identify new risks (R-1, R-2, ...) and metrics (M-1, M-2, ...)
+
+---
+
 ## Process
 
 ### PHASE 1: Extract Research Target
@@ -174,6 +209,44 @@ Follow the template structure EXACTLY. Use context from Phase 1 and exploration 
 - Code quality assessment has concrete examples
 - Implementation considerations are actionable
 - Total output: ~4000-6000 tokens (deep analysis)
+
+**Fragment Output** (if fragments were provided):
+
+If you received FRAGMENT CONTEXT in your input, include these sections with fragment IDs:
+
+1. **Assumption Validation Matrix** (in Research Methodology section):
+   ```markdown
+   | ID | Assumption (from brainstorm) | How Tested | Result | Evidence |
+   |----|------------------------------|------------|--------|----------|
+   | A-1 | [statement] | Code review | ✅ Pass | src/db.ts:45 |
+   | A-2 | [statement] | Load test | ❌ Fail | tests/load-results.json |
+   | A-3 | [statement] | Docs review | ⏳ Pending | Needs vendor confirmation |
+   ```
+
+2. **Risks & Mitigation** (in Implementation Considerations section):
+   ```markdown
+   **R-1**: [Risk description]
+   - Impact: High/Medium/Low
+   - Probability: High/Medium/Low
+   - Validates: A-1, A-3 (which assumptions this risk relates to)
+   - Mitigation: [Steps]
+   - Contingency: [Fallback]
+   ```
+
+3. **What We Will Measure Later** (in Implementation Considerations section):
+   ```markdown
+   **M-1**: [Metric name]
+   - Target: [Specific value - e.g., p95 < 200ms]
+   - Baseline: [How to establish]
+   - Owner: [Team/Person]
+   - When: [Timeline]
+   - Validates: A-2 | Monitors: R-4
+   ```
+
+**Fragment ID Usage**:
+- Use IDs consistently (A-1, A-2 for assumptions; R-1, R-2 for risks; M-1, M-2 for metrics)
+- Link fragments to show traceability (R-1 validates A-3, M-2 monitors R-1)
+- If no fragments provided, still use ID format for any assumptions/risks/metrics you discover
 
 ---
 
