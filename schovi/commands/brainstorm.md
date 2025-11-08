@@ -1,12 +1,12 @@
 ---
-description: Explore 2-3 distinct solution options with broad feasibility analysis
+description: Explore 3-5 distinct solution options at conceptual level with S/M/L sizing
 argument-hint: [jira-id|pr-url|#pr-number|issue-url|description] [--input PATH] [--output PATH] [--options N] [--no-file] [--quiet] [--work-dir PATH]
 allowed-tools: ["Read", "Write", "Task", "ExitPlanMode"]
 ---
 
 # Brainstorm Workflow
 
-You are performing **broad solution exploration** for a problem/feature/change using the **executor pattern**. Follow this structured workflow to generate 2-3 distinct solution options with high-level feasibility analysis.
+You are performing **broad solution exploration** for a problem/feature/change using the **executor pattern**. Follow this structured workflow to generate 3-5 distinct solution options at CONCEPTUAL level with S/M/L sizing (NO file paths, scripts, or numeric time estimates).
 
 **Key Innovation**: The brainstorm-executor subagent performs ALL work (context fetching, exploration, generation) in isolated context, keeping main context clean.
 
