@@ -1,483 +1,514 @@
+---
+name: work-folder
+description: Configuration-based work folder resolution and metadata management
+allowed-tools: ["Bash", "Read", "Write"]
+---
+
 # Work Folder Management Library
 
-**TL;DR:** All commands write to `.WIP/[identifier]/` with numbered files (01-spec.md, 02-analysis.md, etc.) and track state in `.metadata.json`.
+**Purpose**: Unified work folder resolution and metadata management for all commands.
 
-## Quick Start
+**Pattern**: Configuration-based invocation with clear outputs that commands can use.
 
-### For Commands
+---
 
-Every command that produces output should:
+## Quick Start for Commands
+
+All commands use the same pattern:
 
 ```markdown
-1. Find or create work folder: .WIP/EC-1234-slug/
-2. Load or create .metadata.json
-3. Write output: 0X-name.md (see file mapping below)
-4. Update metadata: workflow.completed, files, timestamps
-5. Show user: "Output saved to .WIP/EC-1234/02-analysis.md"
-```
+### Work Folder Resolution
 
-### File Mapping
-
-| Command | Output File | Workflow Type |
-|---------|-------------|---------------|
-| spec | 01-spec.md | full (spec→analyze→plan→implement) |
-| analyze | 02-analysis.md | technical (analyze→plan→implement) |
-| debug | 02-debug.md | bug (debug→[plan]→implement) |
-| plan | 03-plan.md | any |
-| implement | 04-progress.md | any |
-
-## Folder Structure
+Use lib/work-folder.md:
 
 ```
-.WIP/
-├── EC-1234-add-user-auth/              # Jira-based work
-│   ├── .metadata.json                  # State tracking
-│   ├── 02-analysis.md                  # From analyze command
-│   ├── 03-plan.md                      # From plan command
-│   ├── 04-progress.md                  # From implement command
-│   └── context/                        # Supporting files
-│       └── wireframe.png
-│
-├── GH-123-fix-timeout/                 # GitHub-based work
-│   ├── .metadata.json
-│   ├── 02-debug.md                     # From debug command
-│   └── 03-plan.md
-│
-└── add-loading-spinner/                # Simple work (no external ID)
-    ├── .metadata.json
-    └── 03-plan.md
+Configuration:
+  mode: "auto-detect"  # or "create" or "explicit"
+
+  identifier: [jira_id or github_id or null]
+  description: [problem_summary or null]
+
+  workflow_type: "brainstorm" | "research" | "debug" | "full"
+  current_step: "brainstorm" | "research" | "debug" | "plan" | "implement"
+
+  custom_work_dir: [from --work-dir flag, or null]
+
+Output (store for later):
+  work_folder: ".WIP/EC-1234-feature" or null
+  metadata_file: ".WIP/EC-1234-feature/.metadata.json" or null
+  output_file: ".WIP/EC-1234-feature/brainstorm-EC-1234.md"
 ```
 
-## Metadata Structure (.metadata.json)
+Store the output values and use them in later phases.
+```
+
+---
+
+## Implementation
+
+When a command invokes this library with a Configuration block, execute these steps:
+
+### Step 1: Parse Configuration
+
+Extract from configuration block:
+- `mode`: How to resolve folder (auto-detect, create, explicit)
+- `identifier`: Jira ID, GitHub ID, or null
+- `description`: Problem summary (for slug generation)
+- `workflow_type`: Type of workflow (brainstorm, research, debug, full)
+- `current_step`: Current command being executed
+- `custom_work_dir`: Custom path from --work-dir flag
+
+### Step 2: Resolve Work Folder
+
+#### Mode: "explicit" (from --work-dir flag)
+
+If `custom_work_dir` is provided:
+
+```bash
+# Use exactly as specified
+work_folder="$custom_work_dir"
+
+# Validate and create if needed
+mkdir -p "$work_folder/context" 2>/dev/null
+```
+
+Set: `work_folder = [custom_work_dir]`
+
+#### Mode: "auto-detect" (find existing)
+
+Try in order:
+
+**a) From Git Branch:**
+```bash
+# Get current branch
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+
+# Extract Jira ID
+jira_id=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
+
+# Find work folder
+if [ -n "$jira_id" ]; then
+  find .WIP -type d -name "${jira_id}*" | head -1
+fi
+```
+
+**b) From Identifier:**
+```bash
+# If identifier provided
+if [ -n "$identifier" ]; then
+  find .WIP -type d -name "${identifier}*" | head -1
+fi
+```
+
+**c) From Recent Folders:**
+```bash
+# List most recent 5 folders, let user choose
+ls -dt .WIP/*/ 2>/dev/null | head -5
+```
+
+If folder found:
+- Set: `work_folder = [found_path]`
+- Skip to Step 3 (load metadata)
+
+If not found:
+- Fall through to "create" mode
+
+#### Mode: "create" (new folder)
+
+If no folder found or mode is "create":
+
+**Generate identifier and slug:**
+
+```bash
+# If identifier provided (e.g., EC-1234)
+if [ -n "$identifier" ]; then
+  # Generate slug from description
+  slug=$(echo "$description" | tr '[:upper:]' '[:lower:]' | \
+         sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | \
+         cut -c1-50 | sed 's/-$//')
+
+  folder_name="${identifier}-${slug}"
+else
+  # No identifier, use slug only
+  slug=$(echo "$description" | tr '[:upper:]' '[:lower:]' | \
+         sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | \
+         cut -c1-50 | sed 's/-$//')
+
+  folder_name="$slug"
+fi
+
+# Create folder
+mkdir -p ".WIP/${folder_name}/context"
+```
+
+Set: `work_folder = .WIP/[folder_name]`
+
+### Step 3: Load or Create Metadata
+
+#### If folder already exists (auto-detect mode):
+
+```bash
+# Read existing metadata
+cat "$work_folder/.metadata.json"
+```
+
+Parse JSON and update:
+- `workflow.current = [current_step]`
+- `timestamps.lastModified = [now]`
+
+Store updated metadata for Step 4.
+
+#### If new folder (create mode):
+
+Generate new metadata structure:
 
 ```json
 {
-  "identifier": "EC-1234",
-  "title": "Add user authentication",
-  "workFolder": ".WIP/EC-1234-add-user-auth",
+  "identifier": "[identifier or slug]",
+  "title": "[description truncated to 100 chars]",
+  "workFolder": "[work_folder path]",
 
   "workflow": {
-    "type": "technical",
-    "steps": ["analyze", "plan", "implement"],
-    "completed": ["analyze"],
-    "current": "plan"
+    "type": "[workflow_type]",
+    "steps": ["[based on workflow_type]"],
+    "completed": [],
+    "current": "[current_step]"
   },
 
-  "files": {
-    "analysis": "02-analysis.md",
-    "plan": "03-plan.md"
-  },
+  "files": {},
 
   "git": {
-    "branch": "claude/auth-EC-1234-011CUpGnQ1VA9GwenfMMNoED",
-    "commits": ["abc123f"],
-    "lastCommit": "abc123f"
+    "branch": "[from git rev-parse --abbrev-ref HEAD]",
+    "commits": [],
+    "lastCommit": null
   },
 
   "external": {
-    "jiraIssue": "EC-1234",
-    "jiraUrl": "https://company.atlassian.net/browse/EC-1234",
-    "githubIssue": null,
+    "jiraIssue": "[identifier if Jira, else null]",
+    "jiraUrl": "[construct if Jira, else null]",
+    "githubIssue": "[identifier if GitHub, else null]",
     "githubPR": null
   },
 
   "timestamps": {
-    "created": "2025-01-15T10:00:00Z",
-    "lastModified": "2025-01-15T12:00:00Z",
+    "created": "[date -u +\"%Y-%m-%dT%H:%M:%SZ\"]",
+    "lastModified": "[date -u +\"%Y-%m-%dT%H:%M:%SZ\"]",
     "completed": null
-  },
-
-  "phases": {
-    "total": 4,
-    "completed": 2,
-    "current": 3,
-    "list": [
-      {
-        "number": 1,
-        "title": "Auth setup",
-        "status": "completed",
-        "commit": "abc123f"
-      }
-    ]
   }
 }
 ```
 
-**Required fields:** identifier, title, workFolder, workflow, files, git, external, timestamps
-**Optional fields:** phases (only for multi-phase implement)
+**Workflow steps mapping:**
+- `brainstorm`: ["brainstorm", "research", "plan", "implement"]
+- `research`: ["research", "plan", "implement"]
+- `debug`: ["debug", "plan", "implement"]
+- `full`: ["brainstorm", "research", "plan", "implement"]
 
-## Command Integration Pattern
+**Get current timestamp:**
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
 
-### Template (Copy This)
+**Get current branch:**
+```bash
+git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
+```
 
-```markdown
-## Phase 1: Resolve Work Folder
-
-### 1.1: Parse input
-- Extract Jira ID, GitHub issue, or description
-- Check for --work-dir flag
-
-### 1.2: Find existing work folder (if continuing workflow)
-
-**Try in order:**
-
-a) From --work-dir flag:
-   Use exactly as specified
-
-b) From git branch:
-   bash:
-   git rev-parse --abbrev-ref HEAD | grep -oE '[A-Z]{2,10}-[0-9]+'
-   find .WIP -type d -name "EC-1234*" | head -1
-
-c) From identifier in input:
-   bash:
-   echo "$input" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b'
-   find .WIP -type d -name "[identifier]*" | head -1
-
-d) Recent folders:
-   bash:
-   ls -dt .WIP/*/ | head -5
-
-### 1.3: Create work folder (if new work)
-
-If no folder found:
-
-bash:
-# Generate identifier
-jira_id="EC-1234"
-slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50)
-identifier="${jira_id}-${slug}"
-
-# Create folder
-mkdir -p ".WIP/$identifier/context"
-
-## Phase 2: Load or Create Metadata
-
-### 2.1: If folder exists, read metadata
-
-bash:
-cat .WIP/EC-1234/.metadata.json
-
-Parse to understand:
-- workflow.completed: what's done
-- workflow.current: last step
-- files: existing outputs
-
-### 2.2: If new folder, create metadata
+### Step 4: Write Metadata
 
 Use Write tool:
-- file_path: .WIP/[identifier]/.metadata.json
-- content: JSON with structure above
+```
+file_path: [work_folder]/.metadata.json
+content: [JSON from Step 3]
+```
 
-Set:
-- workflow.type based on command (spec→"full", analyze→"technical", debug→"bug")
-- workflow.steps: expected workflow
-- workflow.completed: []
-- workflow.current: [current command]
-- git.branch: from git rev-parse --abbrev-ref HEAD
-- timestamps.created: date -u +"%Y-%m-%dT%H:%M:%SZ"
+### Step 5: Determine Output File Path
 
-### 2.3: Validate prerequisites
+Based on `current_step`, determine the output filename:
 
-Check workflow.completed for required previous step:
-- plan needs: "analyze" OR "spec"
-- implement needs: "plan"
+**Mapping:**
+- `brainstorm` → `brainstorm-[identifier].md`
+- `research` → `research-[identifier].md` or `research-[identifier]-option[N].md`
+- `debug` → `debug-[identifier].md`
+- `plan` → `plan-[identifier].md`
+- `spec` → `01-spec.md` (product specification, numbered)
+- `implement` → `implementation-[identifier].md`
 
-If missing, STOP with error:
-"❌ Cannot run 'plan' - no analysis found. Run: /schovi:analyze EC-1234"
+**Full path:**
+```
+[work_folder]/[filename]
+```
 
-## Phase 3: Execute Command
+### Step 6: Return Output
 
-[Your command-specific logic here]
+Format output for command to parse:
 
-Read previous outputs if needed:
-- Plan command reads: 02-analysis.md or 01-spec.md
-- Implement reads: 03-plan.md
+```
+WORK_FOLDER_OUTPUT:
+work_folder: [absolute or relative path to .WIP/xxx]
+metadata_file: [work_folder]/.metadata.json
+output_file: [work_folder]/[filename from Step 5]
+identifier: [identifier or slug]
+is_new: [true if created, false if existing]
+```
 
-## Phase 4: Write Output
+Commands should extract these values and store them for use in output phases.
 
-Determine file path:
-- spec → .WIP/[identifier]/01-spec.md
-- analyze → .WIP/[identifier]/02-analysis.md
-- debug → .WIP/[identifier]/02-debug.md
-- plan → .WIP/[identifier]/03-plan.md
-- implement → .WIP/[identifier]/04-progress.md
+---
 
-Use Write tool:
-- file_path: [path above]
-- content: [your output]
+## Output File Writing (For Commands)
 
-## Phase 5: Update Metadata
+After commands receive the output, they write their content:
 
-Read existing metadata, update:
-- workflow.completed: append current command (if not already there)
-- workflow.current: current command
-- files.[command]: output filename
-- timestamps.lastModified: now
-- git.commits: append new commits if any
-- phases.*: update if implement command
+**Use Write tool:**
+```
+file_path: [output_file from work-folder library]
+content: [command's generated content]
+```
+
+**Then update metadata:**
+```bash
+# Read current metadata
+cat "$metadata_file"
+
+# Update fields:
+# - workflow.completed: append current_step if not present
+# - files.[current_step]: [filename only]
+# - timestamps.lastModified: [now]
+
+# Write back
+```
 
 Use Write tool to save updated metadata.
 
-## Phase 6: Show Results
-
-✅ [Command] complete!
-
-📁 Work folder: .WIP/[identifier]/
-📄 Output: 0X-name.md
-
-Next steps:
-- Review: cat .WIP/[identifier]/0X-name.md
-- Continue: /schovi:[next-command]
-```
+---
 
 ## Examples
 
-### Example 1: Analyze Command (New Work)
+### Example 1: Brainstorm (New Work)
 
-**Input:** `/schovi:analyze EC-1234`
-
-```markdown
-1. Parse input: EC-1234 (Jira ID)
-
-2. Fetch Jira via jira-analyzer:
-   Title: "Add user authentication"
-
-3. Generate identifier:
-   bash: echo "Add user authentication" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g'
-   Result: EC-1234-add-user-authentication
-
-4. Check if folder exists:
-   bash: find .WIP -type d -name "EC-1234*"
-   Result: (empty)
-
-5. Create folder:
-   bash: mkdir -p .WIP/EC-1234-add-user-authentication/context
-
-6. Create metadata:
-   Write tool: .WIP/EC-1234-add-user-authentication/.metadata.json
-   Set: workflow.type="technical", steps=["analyze","plan","implement"]
-
-7. Execute analysis: [deep codebase analysis]
-
-8. Write output:
-   Write tool: .WIP/EC-1234-add-user-authentication/02-analysis.md
-
-9. Update metadata:
-   workflow.completed=["analyze"], files.analysis="02-analysis.md"
-
-10. Show user:
-    ✅ Analysis complete!
-    📁 Work folder: .WIP/EC-1234-add-user-authentication/
-    📄 Analysis: 02-analysis.md
-    Next: /schovi:plan
+**Command invokes:**
+```
+Configuration:
+  mode: "auto-detect"
+  identifier: "EC-1234"
+  description: "Add user authentication"
+  workflow_type: "brainstorm"
+  current_step: "brainstorm"
+  custom_work_dir: null
 ```
 
-### Example 2: Plan Command (Auto-detect)
+**Library executes:**
+1. Mode auto-detect: No folder found for EC-1234
+2. Fall through to create mode
+3. Generate: `folder_name = "EC-1234-add-user-authentication"`
+4. Create: `mkdir -p .WIP/EC-1234-add-user-authentication/context`
+5. Create new metadata with workflow.type="brainstorm"
+6. Write metadata to `.WIP/EC-1234-add-user-authentication/.metadata.json`
+7. Return output
 
-**Input:** `/schovi:plan` (no args)
-
-```markdown
-1. Parse input: (empty)
-
-2. Auto-detect from git branch:
-   bash: git rev-parse --abbrev-ref HEAD
-   Result: claude/auth-EC-1234-011CUpGnQ1VA
-
-   bash: echo "claude/auth-EC-1234-011CUpGnQ1VA" | grep -oE '[A-Z]{2,10}-[0-9]+'
-   Result: EC-1234
-
-3. Find folder:
-   bash: find .WIP -type d -name "EC-1234*"
-   Result: .WIP/EC-1234-add-user-authentication
-
-4. Read metadata:
-   bash: cat .WIP/EC-1234-add-user-authentication/.metadata.json
-   workflow.completed: ["analyze"] ✅
-
-5. Validate: "analyze" in completed ✅
-
-6. Read input:
-   Read tool: .WIP/EC-1234-add-user-authentication/02-analysis.md
-
-7. Execute plan generation: [use spec-generator subagent]
-
-8. Write output:
-   Write tool: .WIP/EC-1234-add-user-authentication/03-plan.md
-
-9. Update metadata:
-   workflow.completed=["analyze","plan"], files.plan="03-plan.md"
-
-10. Show user:
-    ✅ Plan complete!
-    📁 Work folder: .WIP/EC-1234-add-user-authentication/
-    📄 Plan: 03-plan.md
-    Next: /schovi:implement
+**Library returns:**
+```
+WORK_FOLDER_OUTPUT:
+work_folder: .WIP/EC-1234-add-user-authentication
+metadata_file: .WIP/EC-1234-add-user-authentication/.metadata.json
+output_file: .WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md
+identifier: EC-1234
+is_new: true
 ```
 
-### Example 3: Implement with Resume
-
-**Input:** `/schovi:implement --resume`
-
-```markdown
-1. Parse input: --resume flag
-
-2. Auto-detect from git:
-   bash: git rev-parse --abbrev-ref HEAD | grep -oE '[A-Z]{2,10}-[0-9]+'
-   bash: find .WIP -type d -name "EC-1234*"
-   Result: .WIP/EC-1234-add-user-authentication
-
-3. Read metadata:
-   phases.completed: 2
-   phases.current: 3
-   phases.total: 4
-
-4. Read progress:
-   Read tool: .WIP/EC-1234-add-user-authentication/04-progress.md
-   Phase 1: ✅ Complete
-   Phase 2: ✅ Complete
-   Phase 3: 🚧 In progress (50%)
-
-5. Read plan (Phase 3 only):
-   Read tool: .WIP/EC-1234-add-user-authentication/03-plan.md
-   Extract Phase 3 tasks only
-
-6. Execute Phase 3 tasks: [implementation]
-
-7. Commit phase:
-   bash: git add . && git commit -m "feat: Complete Phase 3"
-   bash: git log -1 --format='%H'
-   Result: ghi789j
-
-8. Update progress:
-   Write tool: .WIP/EC-1234-add-user-authentication/04-progress.md
-   Phase 3: ✅ Complete (commit: ghi789j)
-
-9. Update metadata:
-   phases.completed=3, phases.list[2].status="completed", git.commits+=["ghi789j"]
-
-10. Show user:
-    ✅ Phase 3 complete!
-    📊 Progress: 3/4 phases (75%)
-    💾 Commit: ghi789j
-    Next: /schovi:implement --resume
+**Command stores:**
+```
+work_folder = ".WIP/EC-1234-add-user-authentication"
+output_file = ".WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md"
 ```
 
-## Essential Bash Commands
+**Command writes content:**
+```
+Write tool:
+  file_path: .WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md
+  content: [brainstorm output]
+```
+
+**Command updates metadata:**
+```
+Read: .WIP/EC-1234-add-user-authentication/.metadata.json
+Update: workflow.completed = ["brainstorm"]
+        files.brainstorm = "brainstorm-EC-1234.md"
+Write: .WIP/EC-1234-add-user-authentication/.metadata.json
+```
+
+### Example 2: Research (Continuing Workflow)
+
+**Command invokes:**
+```
+Configuration:
+  mode: "auto-detect"
+  identifier: "EC-1234"
+  description: null
+  workflow_type: "research"
+  current_step: "research"
+  custom_work_dir: null
+```
+
+**Library executes:**
+1. Mode auto-detect: Find existing `.WIP/EC-1234-add-user-authentication`
+2. Read metadata: workflow.completed = ["brainstorm"]
+3. Update metadata: workflow.current = "research"
+4. Return output
+
+**Library returns:**
+```
+WORK_FOLDER_OUTPUT:
+work_folder: .WIP/EC-1234-add-user-authentication
+metadata_file: .WIP/EC-1234-add-user-authentication/.metadata.json
+output_file: .WIP/EC-1234-add-user-authentication/research-EC-1234.md
+identifier: EC-1234
+is_new: false
+```
+
+### Example 3: Custom Work Dir
+
+**Command invokes:**
+```
+Configuration:
+  mode: "explicit"
+  identifier: null
+  description: null
+  workflow_type: "debug"
+  current_step: "debug"
+  custom_work_dir: "/tmp/my-debug-session"
+```
+
+**Library executes:**
+1. Mode explicit: Use `/tmp/my-debug-session`
+2. Create folder: `mkdir -p /tmp/my-debug-session/context`
+3. Create new metadata
+4. Return output
+
+**Library returns:**
+```
+WORK_FOLDER_OUTPUT:
+work_folder: /tmp/my-debug-session
+metadata_file: /tmp/my-debug-session/.metadata.json
+output_file: /tmp/my-debug-session/debug-session.md
+identifier: my-debug-session
+is_new: true
+```
+
+---
+
+## Error Handling
+
+### Folder Not Found (auto-detect)
+
+If auto-detect finds no folder and no identifier to create:
+
+```
+⚠️ Cannot resolve work folder
+
+Options:
+1. Provide identifier: EC-1234
+2. Specify folder: --work-dir .WIP/my-work
+3. Continue without work folder (terminal only)
+
+Return: work_folder = null
+```
+
+### Invalid Custom Directory
+
+If custom_work_dir cannot be created:
+
+```
+⚠️ Cannot create work folder: [custom_work_dir]
+
+Error: [mkdir error]
+
+Return: work_folder = null
+```
+
+### Metadata Corruption
+
+If existing .metadata.json is invalid:
+
+```
+⚠️ Invalid metadata in [work_folder]/.metadata.json
+
+Backup created: .metadata.json.bak
+
+Creating fresh metadata...
+```
+
+---
+
+## Workflow Type Reference
+
+| Workflow Type | Steps | Typical Flow |
+|--------------|-------|--------------|
+| brainstorm | brainstorm → research → plan → implement | Explore options first |
+| research | research → plan → implement | Deep dive analysis |
+| debug | debug → plan → implement | Fix bugs |
+| full | brainstorm → research → plan → implement | Complete workflow |
+
+---
+
+## File Naming Convention
+
+| Command | Output Filename | Example |
+|---------|----------------|---------|
+| brainstorm | brainstorm-[id].md | brainstorm-EC-1234.md |
+| research | research-[id].md | research-EC-1234.md |
+| research (option) | research-[id]-option[N].md | research-EC-1234-option2.md |
+| debug | debug-[id].md | debug-EC-1234.md |
+| plan | plan-[id].md | plan-EC-1234.md |
+| spec | 01-spec.md | 01-spec.md |
+| implement | implementation-[id].md | implementation-EC-1234.md |
+
+---
+
+## Bash Utilities
 
 ```bash
 # Extract Jira ID
-echo "$input" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b'
-
-# Extract GitHub issue
-echo "$input" | grep -oE '(issues|pull)/[0-9]+' | grep -oE '[0-9]+'
+echo "$text" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b' | head -1
 
 # Generate slug
-echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | cut -c1-50 | sed 's/-$//'
-
-# Get current branch
-git rev-parse --abbrev-ref HEAD
-
-# Extract identifier from branch
-git rev-parse --abbrev-ref HEAD | grep -oE '[A-Z]{2,10}-[0-9]+'
+echo "$description" | tr '[:upper:]' '[:lower:]' | \
+  sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | \
+  cut -c1-50 | sed 's/-$//'
 
 # Find work folder
 find .WIP -type d -name "EC-1234*" | head -1
 
-# List recent folders
-ls -dt .WIP/*/ | head -5
-
 # Get timestamp
 date -u +"%Y-%m-%dT%H:%M:%SZ"
 
-# Check if file exists
-ls .WIP/EC-1234/02-analysis.md 2>/dev/null && echo "exists"
-
-# Create folder
-mkdir -p .WIP/EC-1234-slug/context
+# Get current branch
+git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
 ```
 
-## Error Patterns
+---
 
-### Work Folder Not Found
-```
-❌ Work folder not found for "EC-1234"
+## Integration Notes
 
-Suggestions:
-- Create: /schovi:analyze EC-1234
-- Specify: /schovi:plan --input .WIP/EC-1234/02-analysis.md
-- List: ls .WIP/
-```
+**All commands should:**
+1. Invoke this library in Phase 1 (after argument parsing)
+2. Store the returned `work_folder` and `output_file` values
+3. Write their content to `output_file` in output phase
+4. Update metadata after writing
 
-### Missing Prerequisites
-```
-❌ Cannot run 'plan' - no analysis found
+**This library does NOT:**
+- Write command output content (commands do this)
+- Display terminal output (commands handle this)
+- Post to Jira (commands use output-handler for this)
 
-Current: .WIP/EC-1234/ (workflow: [])
-Required: 02-analysis.md or 01-spec.md
+**This library DOES:**
+- Resolve/create work folder
+- Create/update .metadata.json
+- Return file paths for commands to use
 
-Action: Run /schovi:analyze EC-1234 first
-```
+---
 
-## Command-Specific Notes
-
-### analyze
-- Creates: 02-analysis.md
-- Workflow: technical (analyze→plan→implement)
-- Can fetch Jira/GitHub context
-
-### debug
-- Creates: 02-debug.md (replaces analysis in bug workflow)
-- Workflow: bug (debug→[plan]→implement)
-- Root cause analysis + fix proposal
-
-### spec (new, to be implemented)
-- Creates: 01-spec.md
-- Workflow: full (spec→analyze→plan→implement)
-- Product discovery from images/docs/requirements
-
-### plan
-- Requires: analyze OR spec completed
-- Creates: 03-plan.md
-- Can use --from-scratch to bypass analysis
-- Multi-phase for large tasks
-
-### implement (to be enhanced)
-- Requires: plan completed
-- Creates: 04-progress.md
-- Supports --resume for multi-phase
-- Auto-commits after each phase
-
-## Key Principles
-
-1. **Auto-detect first** - Try git branch, then identifier, then recent folders
-2. **Fail fast** - Block if prerequisites missing, show exact command to run
-3. **Idempotent** - Commands can be re-run safely, overwrite existing outputs
-4. **Update metadata always** - After every command execution
-5. **Clear errors** - Always suggest exact next action
-
-## Testing
-
-```bash
-# Test analyze (new work)
-/schovi:analyze TEST-001
-ls .WIP/TEST-001*/
-cat .WIP/TEST-001*/.metadata.json | jq .
-
-# Test plan (auto-detect)
-/schovi:plan
-cat .WIP/TEST-001*/03-plan.md
-
-# Test error handling
-/schovi:plan TEST-999  # Should fail with clear message
-```
-
-## Utilities
-
-See `work-folder-helpers.sh` for bash utility functions:
-- `generate_identifier()` - Create folder identifier
-- `find_work_folder()` - Search for work folder
-- `extract_jira_id()` - Parse Jira ID from text
-- `get_output_file_path()` - Get correct output path for command
-
-See `metadata-template.json` for complete JSON schema.
+**Version**: 3.0 (Configuration-based)
+**Last Updated**: 2025-11-08
+**Replaces**: Procedural step-by-step pattern (v2.0)

@@ -435,28 +435,22 @@ Use lib/work-folder.md:
 
 ```
 Configuration:
-  mode: "auto-detect"  # Find existing or create new
+  mode: "auto-detect"
 
   identifier: [Jira ID from analysis, or null]
   description: [Problem title from analysis]
 
-  workflow_type: "full"  # For plan command: analyze → plan → implement
-
-  workflow_steps:
-    - "analyze"  # May already be completed
-    - "plan"     # Current step
-    - "implement"
+  workflow_type: "full"
+  current_step: "plan"
 
   custom_work_dir: [work_dir from arguments, or null]
 
-  file_numbering:
-    "analyze": "02-analysis.md"
-    "plan": "03-plan.md"
-    "implement": "04-implementation-notes.md"
-
 Output (store for later phases):
-  work_folder: ".WIP/EC-1234-feature" or null
-  metadata: {JSON object with workflow state} or null
+  work_folder: [path from library, e.g., ".WIP/EC-1234-feature"]
+  metadata_file: [path from library, e.g., ".WIP/EC-1234-feature/.metadata.json"]
+  output_file: [path from library, e.g., ".WIP/EC-1234-feature/plan-EC-1234.md"]
+  identifier: [identifier from library]
+  is_new: [true/false from library]
 ```
 
 ---
@@ -610,7 +604,7 @@ Configuration:
 
   file_config:
     output_path: [output_path from arguments, or null for auto]
-    default_basename: "spec"
+    default_basename: "plan"
     work_folder: [work_folder from Step 1.5, or null]
     jira_id: [from analysis, or null]
     workflow_step: "plan"

@@ -151,58 +151,124 @@ ExitPlanMode tool:
 
 ## PHASE 4: OUTPUT HANDLING & WORK FOLDER
 
+### Step 4.1: Work Folder Resolution
+
 Use lib/work-folder.md:
 
 ```
 Configuration:
-  command_name: "debug"
-  identifier: [identifier from fix_proposal_output]
-  work_dir: [work_dir from argument parsing or null]
+  mode: "auto-detect"
 
-  file_handling:
-    create_file: [file_output]
-    file_content: [fix_proposal_output from Phase 2]
-    default_filename: "debug-[identifier].md"
-    custom_path: [output_path or null]
+  identifier: [identifier extracted from fix_proposal_output or input]
+  description: [extract problem title from fix_proposal_output]
 
-  metadata:
-    command: "debug"
-    identifier: [identifier]
-    timestamp: [current timestamp]
-    input_type: [detected from problem_input]
-    severity: [extracted from output]
-    root_cause: [extracted from output]
+  workflow_type: "debug"
+  current_step: "debug"
 
-  terminal_output: [terminal_output]
-  terminal_message: |
-    # 🐛 Debug Complete: [identifier]
+  custom_work_dir: [work_dir from argument parsing, or null]
 
-    Root cause analysis and fix proposal ready.
+Output (store for use below):
+  work_folder: [path from library, e.g., ".WIP/EC-1234-feature"]
+  metadata_file: [path from library, e.g., ".WIP/EC-1234-feature/.metadata.json"]
+  output_file: [path from library, e.g., ".WIP/EC-1234-feature/debug-EC-1234.md"]
+  identifier: [identifier from library]
+  is_new: [true/false from library]
+```
 
-    ## 🔍 Root Cause
+**Store the returned values for steps below.**
 
-    [Extract root cause summary from fix_proposal_output - 2-3 sentences]
+### Step 4.2: Write Debug Output
 
-    ## 💡 Fix Location
+**If `file_output == true` (default unless --no-file):**
 
-    [Extract fix location from output - file:line]
+Use Write tool:
+```
+file_path: [output_file from Step 4.1]
+content: [fix_proposal_output from Phase 3]
+```
 
-    ## 📁 Output
+**If write succeeds:**
+```
+📄 Fix proposal saved to: [output_file]
+```
 
-    Fix proposal saved to: `[file_path]`
-    Work folder: `[work_folder_path]`
+**If write fails or --no-file:**
+Skip file creation, continue to terminal output.
 
-    ## 🚀 Next Steps
+### Step 4.3: Update Metadata
 
-    Ready to implement the fix:
+**If work_folder exists and file was written:**
 
-    ```bash
-    # Review the fix proposal first
-    cat [file_path]
+Read current metadata:
+```bash
+cat [metadata_file from Step 4.1]
+```
 
-    # Then implement (coming soon)
-    /schovi:implement --input debug-[identifier].md
-    ```
+Update fields:
+```json
+{
+  ...existing fields,
+  "workflow": {
+    ...existing.workflow,
+    "completed": ["debug"],
+    "current": "debug"
+  },
+  "files": {
+    "debug": "debug-[identifier].md"
+  },
+  "timestamps": {
+    ...existing.timestamps,
+    "lastModified": "[current timestamp]"
+  }
+}
+```
+
+Get current timestamp:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+Write updated metadata:
+```
+Write tool:
+  file_path: [metadata_file]
+  content: [updated JSON]
+```
+
+### Step 4.4: Terminal Output
+
+**If `terminal_output == true` (default unless --quiet):**
+
+Display:
+```markdown
+# 🐛 Debug Complete: [identifier]
+
+Root cause analysis and fix proposal ready.
+
+## 🔍 Root Cause
+
+[Extract root cause summary from fix_proposal_output - 2-3 sentences]
+
+## 💡 Fix Location
+
+[Extract fix location from output - file:line]
+
+## 📁 Output
+
+Fix proposal saved to: `[output_file]`
+Work folder: `[work_folder]`
+
+## 🚀 Next Steps
+
+Ready to implement the fix:
+
+```bash
+# Review the fix proposal first
+cat [output_file]
+
+# Then implement (coming soon)
+/schovi:implement --input debug-[identifier].md
+```
 ```
 
 ---
