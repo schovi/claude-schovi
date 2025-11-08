@@ -162,54 +162,123 @@ ExitPlanMode tool:
 
 ## PHASE 4: OUTPUT HANDLING & WORK FOLDER
 
+### Step 4.1: Work Folder Resolution
+
 Use lib/work-folder.md:
 
 ```
 Configuration:
-  command_name: "research"
-  identifier: [identifier from research_output]
-  work_dir: [work_dir from argument parsing or null]
+  mode: "auto-detect"
 
-  file_handling:
-    create_file: [file_output]
-    file_content: [research_output from Phase 2]
-    default_filename: "research-[identifier].md"
-    custom_path: [output_path or null]
+  identifier: [identifier extracted from research_output or input]
+  description: [extract problem title from research_output]
 
-  metadata:
-    command: "research"
-    identifier: [identifier]
-    timestamp: [current timestamp]
-    input_type: [detected from input_value]
-    source: [source description]
-    exploration_time: [N/A - handled by executor]
-    is_from_brainstorm: [true if brainstorm file]
-    option_number: [option_number if applicable]
+  workflow_type: "research"
+  current_step: "research"
 
-  terminal_output: [terminal_output]
-  terminal_message: |
-    # 🔬 Research Complete: [identifier]
+  custom_work_dir: [work_dir from argument parsing, or null]
 
-    Deep technical analysis completed.
+Output (store for use below):
+  work_folder: [path from library, e.g., ".WIP/EC-1234-feature"]
+  metadata_file: [path from library, e.g., ".WIP/EC-1234-feature/.metadata.json"]
+  output_file: [path from library, e.g., ".WIP/EC-1234-feature/research-EC-1234.md"]
+  identifier: [identifier from library]
+  is_new: [true/false from library]
+```
 
-    ## 📊 Analysis Summary
+**Note**: If `option_number` was provided (from brainstorm), adjust output_file:
+- Change from: `research-[identifier].md`
+- To: `research-[identifier]-option[N].md`
 
-    [Extract key findings from research_output - 3-5 bullet points]
+**Store the returned values for steps below.**
 
-    ## 📁 Output
+### Step 4.2: Write Research Output
 
-    Research saved to: `[file_path]`
-    Work folder: `[work_folder_path]`
+**If `file_output == true` (default unless --no-file):**
 
-    ## 📋 Next Steps
+Use Write tool:
+```
+file_path: [output_file from Step 4.1, adjusted for option if needed]
+content: [research_output from Phase 3]
+```
 
-    Ready to create implementation specification:
+**If write succeeds:**
+```
+📄 Research saved to: [output_file]
+```
 
-    ```bash
-    /schovi:plan --input research-[identifier].md
-    ```
+**If write fails or --no-file:**
+Skip file creation, continue to terminal output.
 
-    This will generate detailed implementation tasks, acceptance criteria, and rollout plan.
+### Step 4.3: Update Metadata
+
+**If work_folder exists and file was written:**
+
+Read current metadata:
+```bash
+cat [metadata_file from Step 4.1]
+```
+
+Update fields:
+```json
+{
+  ...existing fields,
+  "workflow": {
+    ...existing.workflow,
+    "completed": [...existing.completed, "research"],
+    "current": "research"
+  },
+  "files": {
+    ...existing.files,
+    "research": "research-[identifier].md"
+  },
+  "timestamps": {
+    ...existing.timestamps,
+    "lastModified": "[current timestamp]"
+  }
+}
+```
+
+Get current timestamp:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+Write updated metadata:
+```
+Write tool:
+  file_path: [metadata_file]
+  content: [updated JSON]
+```
+
+### Step 4.4: Terminal Output
+
+**If `terminal_output == true` (default unless --quiet):**
+
+Display:
+```markdown
+# 🔬 Research Complete: [identifier]
+
+Deep technical analysis completed.
+
+## 📊 Analysis Summary
+
+[Extract key findings from research_output - 3-5 bullet points]
+
+## 📁 Output
+
+Research saved to: `[output_file]`
+Work folder: `[work_folder]`
+
+## 📋 Next Steps
+
+Ready to create implementation specification:
+
+```bash
+/schovi:plan --input research-[identifier].md
+```
+
+This will generate detailed implementation tasks, acceptance criteria, and rollout plan.
 ```
 
 ---

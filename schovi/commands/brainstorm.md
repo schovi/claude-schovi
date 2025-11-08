@@ -161,65 +161,130 @@ ExitPlanMode tool:
 
 ## PHASE 4: OUTPUT HANDLING & WORK FOLDER
 
+### Step 4.1: Work Folder Resolution
+
 Use lib/work-folder.md:
 
 ```
 Configuration:
-  command_name: "brainstorm"
-  identifier: [identifier extracted from brainstorm_output]
-  work_dir: [work_dir from argument parsing or null]
+  mode: "auto-detect"
 
-  file_handling:
-    create_file: [file_output]
-    file_content: [brainstorm_output from Phase 2]
-    default_filename: "brainstorm-[identifier].md"
-    custom_path: [output_path or null]
+  identifier: [identifier extracted from brainstorm_output or problem_input]
+  description: [extract problem title from brainstorm_output]
 
-  metadata:
-    command: "brainstorm"
-    identifier: [identifier]
-    timestamp: [current timestamp]
-    input_type: [detected from problem_input: jira|github_pr|github_issue|file|text]
-    options_generated: [options_count or extracted from output]
-    exploration_time: [N/A - handled by executor]
-    recommended_option: [extract from output]
+  workflow_type: "brainstorm"
+  current_step: "brainstorm"
 
-  terminal_output: [terminal_output]
-  terminal_message: |
-    # 🧠 Brainstorm Complete: [identifier]
+  custom_work_dir: [work_dir from argument parsing, or null]
 
-    Generated [N] solution options with broad feasibility analysis.
+Output (store for use below):
+  work_folder: [path from library, e.g., ".WIP/EC-1234-feature"]
+  metadata_file: [path from library, e.g., ".WIP/EC-1234-feature/.metadata.json"]
+  output_file: [path from library, e.g., ".WIP/EC-1234-feature/brainstorm-EC-1234.md"]
+  identifier: [identifier from library]
+  is_new: [true/false from library]
+```
 
-    ## Options Summary
+**Store the returned values for steps below.**
 
-    [Extract option summaries from brainstorm_output - 1-2 lines each]
+### Step 4.2: Write Brainstorm Output
 
-    ## 🎯 Recommendation
+**If `file_output == true` (default unless --no-file):**
 
-    [Extract recommendation from brainstorm_output - 2-3 sentences]
+Use Write tool:
+```
+file_path: [output_file from Step 4.1]
+content: [brainstorm_output from Phase 2]
+```
 
-    ## 📁 Output
+**If write succeeds:**
+```
+📄 Brainstorm saved to: [output_file]
+```
 
-    Brainstorm saved to: `[file_path]`
-    Work folder: `[work_folder_path]`
+**If write fails or --no-file:**
+Skip file creation, continue to terminal output.
 
-    ## 🔬 Next Steps
+### Step 4.3: Update Metadata
 
-    Choose an option for deep technical research:
+**If work_folder exists and file was written:**
 
-    ```bash
-    # Research recommended option
-    /schovi:research --input brainstorm-[identifier].md --option [N]
+Read current metadata:
+```bash
+cat [metadata_file from Step 4.1]
+```
 
-    # Or research a different option
-    /schovi:research --input brainstorm-[identifier].md --option [1|2|3]
-    ```
+Update fields:
+```json
+{
+  ...existing fields,
+  "workflow": {
+    ...existing.workflow,
+    "completed": ["brainstorm"],
+    "current": "brainstorm"
+  },
+  "files": {
+    "brainstorm": "brainstorm-[identifier].md"
+  },
+  "timestamps": {
+    ...existing.timestamps,
+    "lastModified": "[current timestamp]"
+  }
+}
+```
 
-    This will perform deep codebase exploration with detailed file:line references and implementation considerations.
+Get current timestamp:
+```bash
+date -u +"%Y-%m-%dT%H:%M:%SZ"
+```
+
+Write updated metadata:
+```
+Write tool:
+  file_path: [metadata_file]
+  content: [updated JSON]
+```
+
+### Step 4.4: Terminal Output
+
+**If `terminal_output == true` (default unless --quiet):**
+
+Display:
+```markdown
+# 🧠 Brainstorm Complete: [identifier]
+
+Generated [N] solution options with broad feasibility analysis.
+
+## Options Summary
+
+[Extract option summaries from brainstorm_output - 1-2 lines each]
+
+## 🎯 Recommendation
+
+[Extract recommendation from brainstorm_output - 2-3 sentences]
+
+## 📁 Output
+
+Brainstorm saved to: `[output_file]`
+Work folder: `[work_folder]`
+
+## 🔬 Next Steps
+
+Choose an option for deep technical research:
+
+```bash
+# Research recommended option
+/schovi:research --input brainstorm-[identifier].md --option [N]
+
+# Or research a different option
+/schovi:research --input brainstorm-[identifier].md --option [1|2|3]
+```
+
+This will perform deep codebase exploration with detailed file:line references and implementation considerations.
 ```
 
 **After this phase:**
-- Brainstorm file created in work folder
+- Brainstorm file created in `.WIP/[identifier]/` work folder
 - Metadata file updated
 - Terminal output displayed (unless --quiet)
 - User guided to next step (research command)
