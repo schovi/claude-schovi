@@ -34,10 +34,13 @@ Configuration:
   custom_work_dir: [from --work-dir flag, or null]
 
 Output (store for later):
-  work_folder: ".WIP/EC-1234-feature" or null
-  metadata_file: ".WIP/EC-1234-feature/.metadata.json" or null
-  output_file: ".WIP/EC-1234-feature/brainstorm-EC-1234.md"
+  work_folder: "/absolute/path/to/repo/.WIP/EC-1234-feature" or null
+  metadata_file: "/absolute/path/to/repo/.WIP/EC-1234-feature/.metadata.json" or null
+  output_file: "/absolute/path/to/repo/.WIP/EC-1234-feature/brainstorm-EC-1234.md"
+  repo_root: "/absolute/path/to/repo"
 ```
+
+**Important**: All paths are absolute, pointing to `repo_root/.WIP/`. The `.WIP` folder is always created at the repository root (or initial working directory if not in a git repo), ensuring consistency regardless of where commands are executed from.
 
 Store the output values and use them in later phases.
 ```
@@ -60,19 +63,35 @@ Extract from configuration block:
 
 ### Step 2: Resolve Work Folder
 
+**First, determine the repository root or initial working directory:**
+
+```bash
+# Get repository root (or fall back to current directory if not in git repo)
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+# Define WIP base directory at repository root
+wip_base="${repo_root}/.WIP"
+```
+
+**Important**: All `.WIP` folder operations must use `$wip_base` to ensure folders are created at the repository root, not in subdirectories.
+
 #### Mode: "explicit" (from --work-dir flag)
 
 If `custom_work_dir` is provided:
 
 ```bash
-# Use exactly as specified
-work_folder="$custom_work_dir"
+# If custom path is relative, make it relative to repo root
+if [[ "$custom_work_dir" != /* ]]; then
+  work_folder="${repo_root}/${custom_work_dir}"
+else
+  work_folder="$custom_work_dir"
+fi
 
 # Validate and create if needed
 mkdir -p "$work_folder/context" 2>/dev/null
 ```
 
-Set: `work_folder = [custom_work_dir]`
+Set: `work_folder = [custom_work_dir resolved to absolute path]`
 
 #### Mode: "auto-detect" (find existing)
 
@@ -86,9 +105,9 @@ branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
 # Extract Jira ID
 jira_id=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
 
-# Find work folder
+# Find work folder at repository root
 if [ -n "$jira_id" ]; then
-  find .WIP -type d -name "${jira_id}*" | head -1
+  find "$wip_base" -type d -name "${jira_id}*" 2>/dev/null | head -1
 fi
 ```
 
@@ -96,14 +115,14 @@ fi
 ```bash
 # If identifier provided
 if [ -n "$identifier" ]; then
-  find .WIP -type d -name "${identifier}*" | head -1
+  find "$wip_base" -type d -name "${identifier}*" 2>/dev/null | head -1
 fi
 ```
 
 **c) From Recent Folders:**
 ```bash
-# List most recent 5 folders, let user choose
-ls -dt .WIP/*/ 2>/dev/null | head -5
+# List most recent 5 folders at repository root, let user choose
+ls -dt "$wip_base"/*/ 2>/dev/null | head -5
 ```
 
 If folder found:
@@ -137,11 +156,11 @@ else
   folder_name="$slug"
 fi
 
-# Create folder
-mkdir -p ".WIP/${folder_name}/context"
+# Create folder at repository root
+mkdir -p "${wip_base}/${folder_name}/context"
 ```
 
-Set: `work_folder = .WIP/[folder_name]`
+Set: `work_folder = [wip_base]/[folder_name]` (absolute path at repository root)
 
 ### Step 3: Load or Create Metadata
 
@@ -245,12 +264,15 @@ Format output for command to parse:
 
 ```
 WORK_FOLDER_OUTPUT:
-work_folder: [absolute or relative path to .WIP/xxx]
+work_folder: [absolute path to repo_root/.WIP/xxx]
 metadata_file: [work_folder]/.metadata.json
 output_file: [work_folder]/[filename from Step 5]
 identifier: [identifier or slug]
 is_new: [true if created, false if existing]
+repo_root: [absolute path to repository root]
 ```
+
+**Important**: `work_folder` is always an absolute path pointing to a folder inside `repo_root/.WIP/`. This ensures consistency regardless of where the command is executed from.
 
 Commands should extract these values and store them for use in output phases.
 
@@ -299,43 +321,46 @@ Configuration:
 ```
 
 **Library executes:**
-1. Mode auto-detect: No folder found for EC-1234
-2. Fall through to create mode
-3. Generate: `folder_name = "EC-1234-add-user-authentication"`
-4. Create: `mkdir -p .WIP/EC-1234-add-user-authentication/context`
-5. Create new metadata with workflow.type="brainstorm"
-6. Write metadata to `.WIP/EC-1234-add-user-authentication/.metadata.json`
-7. Return output
+1. Determine repository root: `repo_root = /home/user/my-project`
+2. Set WIP base: `wip_base = /home/user/my-project/.WIP`
+3. Mode auto-detect: No folder found for EC-1234
+4. Fall through to create mode
+5. Generate: `folder_name = "EC-1234-add-user-authentication"`
+6. Create: `mkdir -p /home/user/my-project/.WIP/EC-1234-add-user-authentication/context`
+7. Create new metadata with workflow.type="brainstorm"
+8. Write metadata to `/home/user/my-project/.WIP/EC-1234-add-user-authentication/.metadata.json`
+9. Return output
 
 **Library returns:**
 ```
 WORK_FOLDER_OUTPUT:
-work_folder: .WIP/EC-1234-add-user-authentication
-metadata_file: .WIP/EC-1234-add-user-authentication/.metadata.json
-output_file: .WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md
+work_folder: /home/user/my-project/.WIP/EC-1234-add-user-authentication
+metadata_file: /home/user/my-project/.WIP/EC-1234-add-user-authentication/.metadata.json
+output_file: /home/user/my-project/.WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md
 identifier: EC-1234
 is_new: true
+repo_root: /home/user/my-project
 ```
 
 **Command stores:**
 ```
-work_folder = ".WIP/EC-1234-add-user-authentication"
-output_file = ".WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md"
+work_folder = "/home/user/my-project/.WIP/EC-1234-add-user-authentication"
+output_file = "/home/user/my-project/.WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md"
 ```
 
 **Command writes content:**
 ```
 Write tool:
-  file_path: .WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md
+  file_path: /home/user/my-project/.WIP/EC-1234-add-user-authentication/brainstorm-EC-1234.md
   content: [brainstorm output]
 ```
 
 **Command updates metadata:**
 ```
-Read: .WIP/EC-1234-add-user-authentication/.metadata.json
+Read: /home/user/my-project/.WIP/EC-1234-add-user-authentication/.metadata.json
 Update: workflow.completed = ["brainstorm"]
         files.brainstorm = "brainstorm-EC-1234.md"
-Write: .WIP/EC-1234-add-user-authentication/.metadata.json
+Write: /home/user/my-project/.WIP/EC-1234-add-user-authentication/.metadata.json
 ```
 
 ### Example 2: Research (Continuing Workflow)
@@ -352,22 +377,25 @@ Configuration:
 ```
 
 **Library executes:**
-1. Mode auto-detect: Find existing `.WIP/EC-1234-add-user-authentication`
-2. Read metadata: workflow.completed = ["brainstorm"]
-3. Update metadata: workflow.current = "research"
-4. Return output
+1. Determine repository root: `repo_root = /home/user/my-project`
+2. Set WIP base: `wip_base = /home/user/my-project/.WIP`
+3. Mode auto-detect: Find existing `/home/user/my-project/.WIP/EC-1234-add-user-authentication`
+4. Read metadata: workflow.completed = ["brainstorm"]
+5. Update metadata: workflow.current = "research"
+6. Return output
 
 **Library returns:**
 ```
 WORK_FOLDER_OUTPUT:
-work_folder: .WIP/EC-1234-add-user-authentication
-metadata_file: .WIP/EC-1234-add-user-authentication/.metadata.json
-output_file: .WIP/EC-1234-add-user-authentication/research-EC-1234.md
+work_folder: /home/user/my-project/.WIP/EC-1234-add-user-authentication
+metadata_file: /home/user/my-project/.WIP/EC-1234-add-user-authentication/.metadata.json
+output_file: /home/user/my-project/.WIP/EC-1234-add-user-authentication/research-EC-1234.md
 identifier: EC-1234
 is_new: false
+repo_root: /home/user/my-project
 ```
 
-### Example 3: Custom Work Dir
+### Example 3: Custom Work Dir (Absolute Path)
 
 **Command invokes:**
 ```
@@ -381,10 +409,11 @@ Configuration:
 ```
 
 **Library executes:**
-1. Mode explicit: Use `/tmp/my-debug-session`
-2. Create folder: `mkdir -p /tmp/my-debug-session/context`
-3. Create new metadata
-4. Return output
+1. Determine repository root: `repo_root = /home/user/my-project`
+2. Mode explicit: Use `/tmp/my-debug-session` (absolute path, use as-is)
+3. Create folder: `mkdir -p /tmp/my-debug-session/context`
+4. Create new metadata
+5. Return output
 
 **Library returns:**
 ```
@@ -394,6 +423,38 @@ metadata_file: /tmp/my-debug-session/.metadata.json
 output_file: /tmp/my-debug-session/debug-session.md
 identifier: my-debug-session
 is_new: true
+repo_root: /home/user/my-project
+```
+
+### Example 4: Custom Work Dir (Relative Path)
+
+**Command invokes:**
+```
+Configuration:
+  mode: "explicit"
+  identifier: null
+  description: null
+  workflow_type: "debug"
+  current_step: "debug"
+  custom_work_dir: "my-work/debug-session"
+```
+
+**Library executes:**
+1. Determine repository root: `repo_root = /home/user/my-project`
+2. Mode explicit: Relative path provided, resolve to `repo_root/my-work/debug-session`
+3. Create folder: `mkdir -p /home/user/my-project/my-work/debug-session/context`
+4. Create new metadata
+5. Return output
+
+**Library returns:**
+```
+WORK_FOLDER_OUTPUT:
+work_folder: /home/user/my-project/my-work/debug-session
+metadata_file: /home/user/my-project/my-work/debug-session/.metadata.json
+output_file: /home/user/my-project/my-work/debug-session/debug-session.md
+identifier: debug-session
+is_new: true
+repo_root: /home/user/my-project
 ```
 
 ---
@@ -469,6 +530,12 @@ Creating fresh metadata...
 ## Bash Utilities
 
 ```bash
+# Get repository root (or current directory if not in git repo)
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+# Define WIP base directory
+wip_base="${repo_root}/.WIP"
+
 # Extract Jira ID
 echo "$text" | grep -oE '\b[A-Z]{2,10}-[0-9]{1,6}\b' | head -1
 
@@ -477,14 +544,17 @@ echo "$description" | tr '[:upper:]' '[:lower:]' | \
   sed 's/[^a-z0-9-]/-/g' | sed 's/-\+/-/g' | \
   cut -c1-50 | sed 's/-$//'
 
-# Find work folder
-find .WIP -type d -name "EC-1234*" | head -1
+# Find work folder (always at repository root)
+find "$wip_base" -type d -name "EC-1234*" 2>/dev/null | head -1
 
 # Get timestamp
 date -u +"%Y-%m-%dT%H:%M:%SZ"
 
 # Get current branch
 git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
+
+# Check if path is absolute (starts with /)
+[[ "$path" = /* ]]
 ```
 
 ---
@@ -509,6 +579,7 @@ git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main"
 
 ---
 
-**Version**: 3.0 (Configuration-based)
+**Version**: 3.1 (Repository root resolution)
 **Last Updated**: 2025-11-08
-**Replaces**: Procedural step-by-step pattern (v2.0)
+**Changes**: All `.WIP` folders now created at repository root (via `git rev-parse --show-toplevel`) to ensure consistency regardless of execution location. All paths returned are absolute.
+**Replaces**: 3.0 (Configuration-based with relative paths)
