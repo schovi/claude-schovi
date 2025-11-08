@@ -61,26 +61,49 @@ Output: [Where data goes]
 ## Implementation Tasks
 
 ### Phase 1: [Phase Name - e.g., Backend Service]
+**Complexity**: [Small / Medium / High]
+
+**Tasks**:
 - [ ] [Specific, actionable task] (`file:line` if applicable)
 - [ ] [Another specific task] (`file:line` if applicable)
 - [ ] [Another task]
 
+**Phase Gates** (must complete before Phase 2):
+- [ ] [Exit criterion 1 - proves key assumption or viability]
+- [ ] [Exit criterion 2 - validates approach works]
+
 ### Phase 2: [Phase Name - e.g., Frontend Integration]
+**Complexity**: [Small / Medium / High]
+
+**Tasks**:
 - [ ] [Specific task]
 - [ ] [Another task]
 
+**Phase Gates** (must complete before Phase 3):
+- [ ] [Exit criterion 1 - integration verified]
+- [ ] [Exit criterion 2 - no blocking issues]
+
 ### Phase 3: [Phase Name - e.g., Testing & Validation]
+**Complexity**: [Small / Medium / High]
+
+**Tasks**:
 - [ ] [Testing-related task]
 - [ ] [Validation task]
 
+**Phase Gates** (must complete before deployment):
+- [ ] [Exit criterion 1 - all tests pass]
+- [ ] [Exit criterion 2 - acceptance criteria met]
+
 ## Acceptance Criteria
 
-- [ ] [Testable criterion 1 - specific and measurable]
-- [ ] [Testable criterion 2 - specific and measurable]
-- [ ] [Testable criterion 3 - specific and measurable]
-- [ ] All tests pass (unit + integration)
-- [ ] Code passes linting
-- [ ] Code reviewed and approved
+Each criterion should map to risks from the Research phase or Risks & Mitigations section.
+
+- [ ] [Testable criterion 1 - specific and measurable] *(mitigates: [Risk name])*
+- [ ] [Testable criterion 2 - specific and measurable] *(mitigates: [Risk name])*
+- [ ] [Testable criterion 3 - specific and measurable] *(mitigates: [Risk name])*
+- [ ] All tests pass (unit + integration) *(mitigates: Quality risk)*
+- [ ] Code passes linting *(mitigates: Quality risk)*
+- [ ] Code reviewed and approved *(mitigates: Quality risk)*
 
 ## Testing Strategy
 
@@ -157,6 +180,41 @@ Output: [Where data goes]
 - "Add `processFeature()` method"
 - "Wire up dependency injection"
 
+### Define Clear Phase Gates
+Phase gates are go/no-go checkpoints that prove viability before proceeding.
+
+❌ Generic gates: "Phase complete", "All tasks done"
+✅ Specific gates that validate assumptions:
+- "API endpoint returns expected data structure (smoke test)"
+- "Database migration runs without errors on staging data"
+- "Integration test passes with real external service"
+
+**Gate Principles**:
+- Each gate proves a key assumption or risk is mitigated
+- Gates should be testable/verifiable (not subjective)
+- Failing a gate means reconsidering the approach
+- Typically 1-3 gates per phase
+
+### Estimate Complexity, Not Time
+Use complexity ratings to set expectations without false precision.
+
+❌ "2 hours", "3 days", "1 week" (overly precise, often wrong)
+✅ Complexity levels:
+- **Small**: Straightforward change, single file, low risk, ~1-4 hours
+- **Medium**: Multiple files, some unknowns, moderate risk, ~1-2 days
+- **High**: Cross-cutting change, many dependencies, high risk, 3+ days
+
+### Link Acceptance Criteria to Risks
+Show traceability between what you're testing and what risk it mitigates.
+
+❌ "Feature works correctly"
+✅ "API handles concurrent requests without data corruption *(mitigates: Race condition risk)*"
+
+**Traceability Benefits**:
+- Ensures every identified risk has a verification step
+- Makes testing strategy more focused and purposeful
+- Helps reviewers understand why each criterion matters
+
 ---
 
 ## Validation Checklist
@@ -166,8 +224,11 @@ Before returning spec, ensure:
 - [ ] Decision & Rationale section has approach, rationale (2-3 sentences), alternatives considered
 - [ ] Technical Overview has data flow, affected services with file:line, key changes (3-5 items)
 - [ ] Implementation Tasks organized in phases with checkboxes
+- [ ] Each phase has complexity rating (Small / Medium / High)
+- [ ] Each phase has 1-3 phase gates that prove viability before proceeding
 - [ ] Each task is specific and actionable with file:line references where applicable
 - [ ] Acceptance Criteria has 3+ testable criteria plus standard criteria (tests, linting, review)
+- [ ] Each acceptance criterion links to a risk it mitigates (traceability)
 - [ ] Testing Strategy has unit tests, integration tests, and manual testing with specific scenarios
 - [ ] Risks & Mitigations has at least 2 risks with mitigation strategies
 - [ ] References section has Jira issue and analysis source

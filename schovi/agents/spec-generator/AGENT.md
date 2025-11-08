@@ -94,12 +94,15 @@ The template file contains:
 
 **Implementation Tasks**:
 - Group by phase (Backend, Frontend, Testing)
+- Each phase has complexity rating (Small / Medium / High)
+- Each phase has 1-3 phase gates (exit criteria that prove viability)
 - Specific actionable tasks with checkboxes
 - Include file:line references where known
 
 **Acceptance Criteria**:
 - Testable checkboxes
 - Specific and measurable
+- Each criterion links to the risk it mitigates (traceability)
 - Standard criteria (tests pass, linting, review)
 
 **Testing Strategy**:
@@ -156,9 +159,12 @@ Return the spec in this format:
 2. **ALWAYS** make tasks specific and actionable
 3. **ALWAYS** preserve file:line references from analysis
 4. **ALWAYS** include rationale for decisions (full template)
-5. **ALWAYS** create testable acceptance criteria
-6. **ALWAYS** use checkboxes for tasks and criteria
-7. **ALWAYS** keep spec concise but complete
+5. **ALWAYS** add complexity rating (Small/Medium/High) to each phase
+6. **ALWAYS** add 1-3 phase gates per phase that prove viability
+7. **ALWAYS** create testable acceptance criteria
+8. **ALWAYS** link each acceptance criterion to the risk it mitigates
+9. **ALWAYS** use checkboxes for tasks and criteria
+10. **ALWAYS** keep spec concise but complete
 
 ## Content Guidelines
 
@@ -230,8 +236,11 @@ Before returning your spec, verify:
 - [ ] Title and status included
 - [ ] Decision rationale present with approach selected
 - [ ] Implementation tasks are checkboxes
+- [ ] Each phase has complexity rating (Small / Medium / High)
+- [ ] Each phase has 1-3 phase gates proving viability
 - [ ] Tasks are specific and actionable (not "fix bug" - instead "update validation in Validator.ts:45")
 - [ ] Acceptance criteria are testable checkboxes
+- [ ] Each acceptance criterion links to risk it mitigates
 - [ ] Testing section present
 - [ ] file:line references preserved from analysis
 - [ ] Total output under 3000 tokens
@@ -317,36 +326,66 @@ If invalid → Error response (400)
 ## Implementation Tasks
 
 ### Phase 1: Validation Logic
+**Complexity**: Small
+
+**Tasks**:
 - [ ] Add boolean type check in `FieldMappingValidator.ts:67`
 - [ ] Update `isValidFieldType()` method to reject boolean explicitly
 - [ ] Add test coverage for boolean rejection
 
+**Phase Gates** (must complete before Phase 2):
+- [ ] Unit test confirms boolean types are rejected with clear error message
+- [ ] Existing valid types (number, text) still pass validation
+
 ### Phase 2: Error Messaging
+**Complexity**: Small
+
+**Tasks**:
 - [ ] Add error message constant: "Boolean field types cannot be mapped"
 - [ ] Update validation error response in `MappingController.ts:123`
 - [ ] Add user-friendly error message to frontend display
 
+**Phase Gates** (must complete before Phase 3):
+- [ ] Integration test verifies 400 error returned for boolean field type
+- [ ] Error message displays correctly in UI
+
 ### Phase 3: Migration & Cleanup
+**Complexity**: Medium
+
+**Tasks**:
 - [ ] Create database migration script to find existing boolean mappings
 - [ ] Add migration to convert or remove 3 affected mappings
 - [ ] Test migration in staging environment
 
+**Phase Gates** (must complete before Phase 4):
+- [ ] Migration successfully runs on staging data copy
+- [ ] All 3 existing boolean mappings identified and handled
+
 ### Phase 4: Testing & Deployment
+**Complexity**: Small
+
+**Tasks**:
 - [ ] Run full test suite
 - [ ] Manual QA verification
 - [ ] Deploy to staging
 - [ ] Run migration on production
 
+**Phase Gates** (must complete before production):
+- [ ] All acceptance criteria verified in staging
+- [ ] Zero boolean mappings remain after migration
+
 ## Acceptance Criteria
 
-- [ ] Boolean field types are rejected during mapping validation
-- [ ] Only `number` and `text`/`string` types pass validation
-- [ ] Error message clearly states "Boolean field types cannot be mapped"
-- [ ] Existing 3 boolean mappings are migrated successfully
-- [ ] All unit tests pass
-- [ ] Integration tests cover boolean rejection scenario
-- [ ] Code review approved
-- [ ] QA verified in staging
+Each criterion maps to risks identified during analysis or in Risks & Mitigations section.
+
+- [ ] Boolean field types are rejected during mapping validation *(mitigates: Invalid data type risk)*
+- [ ] Only `number` and `text`/`string` types pass validation *(mitigates: Invalid data type risk)*
+- [ ] Error message clearly states "Boolean field types cannot be mapped" *(mitigates: User confusion risk)*
+- [ ] Existing 3 boolean mappings are migrated successfully *(mitigates: Data migration risk)*
+- [ ] All unit tests pass *(mitigates: Quality risk)*
+- [ ] Integration tests cover boolean rejection scenario *(mitigates: Integration risk)*
+- [ ] Code review approved *(mitigates: Quality risk)*
+- [ ] QA verified in staging *(mitigates: Production deployment risk)*
 
 ## Testing Strategy
 
