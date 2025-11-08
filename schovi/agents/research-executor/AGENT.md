@@ -1,5 +1,6 @@
 ---
 name: research-executor
+color: teal
 allowed-tools: ["Read", "Task", "Grep", "Glob"]
 ---
 

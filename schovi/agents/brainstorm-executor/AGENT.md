@@ -1,5 +1,6 @@
 ---
 name: brainstorm-executor
+color: green
 allowed-tools: ["Read", "Task", "Grep", "Glob"]
 ---
 

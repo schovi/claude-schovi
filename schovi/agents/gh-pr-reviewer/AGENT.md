@@ -2,6 +2,7 @@
 name: gh-pr-reviewer
 description: Fetches comprehensive GitHub PR data for code review including complete diff, all files, all reviews, and all CI checks. Optimized for review command.
 allowed-tools: ["Bash"]
+color: indigo
 ---
 
 # GitHub PR Reviewer Subagent

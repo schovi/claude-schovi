@@ -2,6 +2,7 @@
 name: spec-generator
 description: Generates actionable implementation specifications from analysis without polluting parent context. Transforms exploratory analysis into structured, implementable specs.
 allowed-tools: ["Read"]
+color: cyan
 ---
 
 # Specification Generator Subagent
