@@ -235,33 +235,39 @@ Controller (controller.ts:45)
 
 **Technical Risks**:
 
-1. **[Risk 1 - e.g., Database migration may cause downtime]**
+1. **R-1: [Risk description - e.g., Database migration may cause downtime]**
    - Impact: [High/Medium/Low]
    - Probability: [High/Medium/Low]
+   - Validates: [A-IDs this risk relates to - e.g., A-1, A-3]
    - Mitigation: [Specific steps to reduce risk]
    - Contingency: [Fallback plan if risk materializes]
 
-2. **[Risk 2 - e.g., New caching layer may have consistency issues]**
+2. **R-2: [Risk description - e.g., New caching layer may have consistency issues]**
    - Impact: [High/Medium/Low]
    - Probability: [High/Medium/Low]
+   - Validates: [A-IDs - e.g., A-2]
    - Mitigation: [Specific steps to reduce risk]
    - Contingency: [Fallback plan if risk materializes]
 
 **Business Risks**:
 
-1. **[Risk 3 - e.g., Feature may confuse existing users]**
+3. **R-3: [Risk description - e.g., Feature may confuse existing users]**
    - Impact: [High/Medium/Low]
    - Probability: [High/Medium/Low]
+   - Validates: [A-IDs - if applicable]
    - Mitigation: [Specific steps to reduce risk]
    - Contingency: [Fallback plan if risk materializes]
 
 **Operational Risks**:
 
-1. **[Risk 4 - e.g., Rollout may require off-hours deployment]**
+4. **R-4: [Risk description - e.g., Rollout may require off-hours deployment]**
    - Impact: [High/Medium/Low]
    - Probability: [High/Medium/Low]
+   - Validates: [A-IDs - if applicable]
    - Mitigation: [Specific steps to reduce risk]
    - Contingency: [Fallback plan if risk materializes]
+
+**Fragment IDs**: Each risk gets a sequential ID (R-1, R-2, ...) for traceability. Link to assumptions (A-#) to show which assumptions this risk challenges or validates
 
 ### Performance Implications
 
@@ -300,30 +306,48 @@ Controller (controller.ts:45)
 ### What We Will Measure Later
 
 **Performance Metrics** (measure during/after implementation):
-- [Metric 1 - e.g., API response time (p50, p95, p99)]
-- [Metric 2 - e.g., Database query duration]
-- [Metric 3 - e.g., Memory consumption per request]
-- [Metric 4 - e.g., Error rate and type distribution]
+
+- **M-1**: [Metric name - e.g., API response time (p50, p95, p99)]
+  - Target: [Specific value - e.g., p95 < 200ms]
+  - Baseline: [How to establish - e.g., APM query, current: 180ms]
+  - Owner: [Team/Person - e.g., Backend Team]
+  - When: [Timeline - e.g., Week 1 post-deploy, continuous monitoring]
+  - Validates: [A-IDs - e.g., A-2] | Monitors: [R-IDs - e.g., R-4]
+
+- **M-2**: [Metric name - e.g., Database query duration]
+  - Target: [Specific value]
+  - Baseline: [How to establish]
+  - Owner: [Team/Person]
+  - When: [Timeline]
+  - Validates: [A-IDs] | Monitors: [R-IDs]
 
 **Safety Metrics** (monitor during rollout):
-- [Metric 1 - e.g., Feature flag adoption rate]
-- [Metric 2 - e.g., User error reports (comparison to baseline)]
-- [Metric 3 - e.g., Data consistency checks (audit queries)]
-- [Metric 4 - e.g., Rollback trigger conditions (error thresholds)]
+
+- **M-3**: [Metric name - e.g., Error rate during rollout]
+  - Target: [Specific value - e.g., < 0.1%]
+  - Baseline: [How to establish - e.g., Current error rate from logs]
+  - Owner: [Team/Person - e.g., DevOps]
+  - When: [Timeline - e.g., During rollout, first 48h]
+  - Validates: [A-IDs] | Monitors: [R-IDs - e.g., R-1, R-2]
 
 **Rollback Metrics** (validate rollback safety):
-- [Metric 1 - e.g., Rollback execution time]
-- [Metric 2 - e.g., Data integrity post-rollback (validation queries)]
-- [Metric 3 - e.g., Service recovery time after rollback]
 
-**Baseline Establishment**:
-- [What current metrics to capture before implementation]
-- [How to establish baseline (duration, sample size)]
-- [Where to store baseline data for comparison]
+- **M-4**: [Metric name - e.g., Rollback completion time]
+  - Target: [Specific value - e.g., < 5 minutes]
+  - Baseline: [How to establish - e.g., Test rollback in staging]
+  - Owner: [Team/Person - e.g., DevOps]
+  - When: [Timeline - e.g., Pre-deployment verification]
+  - Validates: [A-IDs] | Monitors: [R-IDs - e.g., R-1]
+
+**Fragment IDs**: Each metric gets a sequential ID (M-1, M-2, ...) for traceability. Link to:
+- **Validates**: Which assumptions (A-#) this metric proves/disproves
+- **Monitors**: Which risks (R-#) this metric tracks
 
 **Instructions**:
-- Be specific about WHAT to measure, not just "monitor performance"
-- Include quantitative targets where possible (e.g., "p95 < 200ms")
+- Be specific about WHAT to measure (not just "monitor performance")
+- Include quantitative targets (e.g., "p95 < 200ms", "< 0.1% error rate")
+- Assign owners (who is responsible for monitoring)
+- Define when to measure (baseline date, continuous monitoring start, gates)
 - Identify measurement tools/methods (e.g., "APM dashboard", "custom SQL query", "CloudWatch metrics")
 - Note if baseline needs to be established first
 
@@ -367,17 +391,20 @@ This will generate detailed implementation specification with tasks, acceptance 
 
 **Assumption Validation Matrix**:
 
-| Assumption | How Tested | Result | Evidence |
-|------------|------------|--------|----------|
-| Database supports transactions | Code review of DB adapter | ✅ Pass | `db.ts:45` - TransactionManager class |
-| Frontend handles async responses | API client inspection | ✅ Pass | `api.ts:123` - Promise-based architecture |
-| External API supports webhooks | Documentation review needed | ⏳ Pending | Needs vendor docs verification |
+| ID | Assumption (from brainstorm) | How Tested | Result | Evidence |
+|----|------------------------------|------------|--------|----------|
+| A-1 | Database supports transactions | Code review of DB adapter | ✅ Pass | `db.ts:45` - TransactionManager class |
+| A-2 | Frontend handles async responses | API client inspection | ✅ Pass | `api.ts:123` - Promise-based architecture |
+| A-3 | External API supports webhooks | Documentation review needed | ⏳ Pending | Needs vendor docs verification |
 
-**Instructions**: List all critical assumptions made during research. For each:
-- **Assumption**: Clear statement of what we assume to be true
-- **How Tested**: Method used (code review, docs, testing, POC, etc.)
+**Instructions**: Validate assumptions from brainstorm phase (A-1, A-2, ...). For each:
+- **ID**: Fragment ID from brainstorm (A-1, A-2, etc.)
+- **Assumption**: Statement from brainstorm fragment
+- **How Tested**: Method used (code review, docs, testing, POC, spike)
 - **Result**: ✅ Pass (validated), ❌ Fail (invalidated), ⏳ Pending (needs verification)
-- **Evidence**: Specific file:line reference, doc link, or test result
+- **Evidence**: Specific file:line reference, doc link, test output, or measurement
+
+**If no brainstorm fragments exist**: Create table without ID column and list new assumptions discovered during research
 ```
 
 ---
