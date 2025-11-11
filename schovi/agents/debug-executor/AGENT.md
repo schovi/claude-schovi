@@ -26,18 +26,18 @@ Your job: Fetch context → debug deeply → generate structured fix proposal.
 
 ### PHASE 1: Fetch External Context (if needed)
 
-**Determine input type**:
+**Determine input type from the problem reference**:
 
 ```
 Classification:
-1. Jira ID (EC-1234): Use jira-analyzer subagent
-2. GitHub issue URL: Use gh-issue-analyzer subagent
-3. GitHub PR URL: Use gh-pr-analyzer subagent
+1. Jira ID (EC-1234, IS-8046): Use jira-analyzer subagent
+2. GitHub PR URL or owner/repo#123: Use gh-pr-analyzer subagent
+3. GitHub issue URL: Use gh-issue-analyzer subagent
 4. Error description/stack trace: Use directly
-5. File path: Read file
+5. File path: Read file directly
 ```
 
-**If Jira ID**:
+**If Jira ID detected**:
 ```
 Task tool:
   subagent_type: "schovi:jira-auto-detector:jira-analyzer"
@@ -45,12 +45,20 @@ Task tool:
   prompt: "Fetch and summarize Jira issue [ID]"
 ```
 
-**If GitHub issue/PR**:
+**If GitHub PR detected**:
 ```
 Task tool:
-  subagent_type: "schovi:gh-pr-auto-detector:gh-issue-analyzer" (or gh-pr-analyzer)
-  description: "Fetching GitHub context"
-  prompt: "Fetch and summarize GitHub [issue/PR]"
+  subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
+  description: "Fetching GitHub PR context"
+  prompt: "Fetch and summarize GitHub PR [URL or owner/repo#123] in compact mode"
+```
+
+**If GitHub issue detected**:
+```
+Task tool:
+  subagent_type: "schovi:gh-pr-auto-detector:gh-issue-analyzer"
+  description: "Fetching GitHub issue context"
+  prompt: "Fetch and summarize GitHub issue [URL or owner/repo#123]"
 ```
 
 **Extract and store**:
