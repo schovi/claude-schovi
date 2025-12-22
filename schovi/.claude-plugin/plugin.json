@@ -1,6 +1,6 @@
 {
   "name": "schovi",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Complete workflow automation for software engineering with unified commands: analyze (problem analysis), plan (specification), implement (autonomous execution), commit (structured commits), publish (GitHub PR with auto-push), Jira/GitHub/Datadog integration, intelligent code exploration",
   "author": {
     "name": "David Schovanec",
