@@ -21,7 +21,7 @@ Automate PR creation/updates with:
 4. **Phase 4: Description Source Detection** - Search for spec file → Jira issue → commit history
 5. **Phase 5: PR Description Generation** - Create structured description (Problem/Solution/Changes/Quality & Impact)
 6. **Phase 6: PR Title Generation** - Format with Jira ID or from commits (50-100 chars)
-7. **Phase 7: PR Creation/Update & Verification** - Execute gh pr create (draft by default) or gh pr edit for updates, verify, display URL, run confetti
+7. **Phase 7: PR Creation/Update & Verification** - Execute gh pr create (draft by default) or gh pr edit for updates, verify, display URL
 
 ## Input Options
 
@@ -38,7 +38,6 @@ Automate PR creation/updates with:
 - **Concise Format**: Problem/Solution/Changes/Quality & Impact (target 150-250 words, human-readable)
 - **Branch Validation**: Blocks main/master, warns on naming mismatch
 - **Clean State**: Requires no uncommitted changes
-- **Confetti**: Runs confetti celebration on successful PR creation or update
 
 ## Description Source Intelligence
 

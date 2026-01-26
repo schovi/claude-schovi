@@ -1583,11 +1583,6 @@ Perfect! Create PR when ready:
 
 ### Step 4.5: Completion Signal
 
-Execute confetti command:
-```bash
-open "raycast://extensions/raycast/raycast/confetti" 2>/dev/null || true
-```
-
 Display final message:
 ```
 ╭─────────────────────────────────────────────╮
@@ -2089,7 +2084,6 @@ After completion:
 - [ ] Jira posted (if requested)
 - [ ] Next steps provided
 - [ ] Proactive PR offer (if applicable)
-- [ ] Confetti executed
 
 ---
 
@@ -2128,7 +2122,6 @@ After completion:
 - Show progress frequently (visual updates)
 - Use formatting (boxes, emojis) for milestones
 - Provide clear status per task/phase
-- Celebrate completion with confetti
 
 **Error Recovery**:
 - Auto-fix when possible (linting, simple test fixes)
@@ -2162,7 +2155,6 @@ After completion:
 8. **Report clearly** - Progress, celebrate success, document issues
 9. **Leverage shared libraries** - Argument parser, input processor, work folder manager
 10. **Provide next steps** - Guide user, offer PR creation
-11. **Run confetti** - Signal completion
 
 ---
 

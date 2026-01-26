@@ -21,7 +21,6 @@ This command creates or updates GitHub pull requests following these principles:
 - **Smart description**: Auto-detects best source (spec → Jira → commits)
 - **Auto-push**: Automatically pushes branch before creating PR
 - **Validation**: Ensures clean state, proper branch, no conflicts
-- **Confetti completion**: Celebrates successful PR creation or update
 
 ## Usage Patterns
 
@@ -1259,19 +1258,6 @@ Handle PR description and context output based on flags:
 ⚠️ **[Publish]** Cannot post to Jira: No Jira ID detected
 ```
 
-### Step 7.8: Run Confetti Command
-
-```
-Per CLAUDE.md workflow requirements, always run confetti at end of work.
-```
-
-Execute:
-```bash
-open "raycast://extensions/raycast/raycast/confetti"
-```
-
-Display: `🎉 **Confetti time!** 🎉`
-
 ---
 
 ## ERROR HANDLING
@@ -1569,7 +1555,6 @@ Consider updating PR description with:
    - Standalone command (not auto-executed)
    - User decides when to create or update PR
    - Works with existing commit/implement commands
-   - Celebrates completion with confetti
 
 8. **CREATE vs UPDATE Mode**:
    - Automatically detect existing PR in Phase 2.6

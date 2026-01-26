@@ -14,7 +14,6 @@ Execute implementation autonomously with:
 - Auto-fixing of validation failures
 - Progress tracking with complexity estimation
 - Structured commits (simple or verbose/conventional)
-- Confetti celebration on completion
 
 ## Workflow
 
@@ -28,7 +27,7 @@ Execute implementation autonomously with:
    - Max 2 retry attempts
    - Auto-fixing on failures
    - Clear error messages with resolution steps
-5. **Phase 5: Completion** - Summary, Jira posting (optional), confetti
+5. **Phase 5: Completion** - Summary, Jira posting (optional)
 
 ## Input Options
 
@@ -122,7 +121,6 @@ Execute implementation autonomously with:
 - Progress file (04-progress.md in work folder)
 - Execution log (optional, with --output flag)
 - Jira comment (optional, with --post-to-jira flag)
-- Confetti celebration on success
 
 ## Validation Support
 
