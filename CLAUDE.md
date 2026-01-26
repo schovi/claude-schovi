@@ -89,6 +89,7 @@ See `schovi/lib/README.md` for detailed documentation.
 | `/schovi:commit` | Structured git commits with context | [doc/commands/commit.md](doc/commands/commit.md) |
 | `/schovi:publish` | Create/update GitHub PRs | [doc/commands/publish.md](doc/commands/publish.md) |
 | `/schovi:review` | Code review with issue detection | [doc/commands/review.md](doc/commands/review.md) |
+| `/schovi:worktree` | Manage git worktrees for isolated work | [schovi/commands/worktree.md](schovi/commands/worktree.md) |
 
 ## Subagents
 

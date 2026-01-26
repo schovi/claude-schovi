@@ -1,7 +1,7 @@
 ---
 description: Comprehensive code review with issue detection and improvement suggestions
-argument-hint: [PR/Jira/issue/file] [--quick]
-allowed-tools: ["Task", "Bash", "Read", "Grep", "Glob", "mcp__jetbrains__*"]
+argument-hint: [PR/Jira/issue/file] [--quick] [--keep-worktree]
+allowed-tools: ["Task", "Bash", "Read", "Write", "Grep", "Glob", "mcp__jetbrains__*"]
 ---
 
 # Review Command
@@ -19,6 +19,7 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 
 **Flags**:
 - `--quick`: Perform quick review (lighter analysis, faster results)
+- `--keep-worktree`: Don't teardown worktree after review (for follow-up work)
 - Default: Deep review (comprehensive analysis with codebase exploration)
 
 ## Execution Workflow
@@ -66,151 +67,128 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 
 **Wait for subagent completion before proceeding**.
 
-### Phase 2.5: Source Code Fetching
+### Phase 2.5: Worktree Setup & Source Code Access
 
-**For GitHub PRs and issues with code references, fetch actual source code for deeper analysis**.
+**For GitHub PRs, create an isolated worktree to review code without affecting current work**.
 
-This phase is **CRITICAL** for providing accurate, code-aware reviews. Skip only for quick reviews or non-code content.
+This phase ensures reviews run in parallel to any other work. The worktree provides a clean checkout of the PR branch.
 
-#### Step 1: Identify Files to Fetch
+#### Step 1: Create Worktree (GitHub PRs only)
 
-**Extract file paths from fetched context**:
+**Follow lib/worktree.md to create isolated environment**:
 
-1. **For GitHub PRs**:
-   - gh-pr-reviewer returns **ALL changed files** with individual stats
-   - Files already include: additions, deletions, total changes, status (added/modified/removed)
-   - Files are sorted by changes (descending) for easy prioritization
-   - PR head SHA included for fetching
+1. **Extract PR info from context**:
+   - Branch name: `headRefName` from gh-pr-reviewer
+   - Repository: `owner/repo` from PR URL
+   - PR number: for purpose tracking
 
-2. **For Jira/GitHub Issues**:
-   - Extract file:line references from description/comments
-   - May need to search for files if not explicitly mentioned
+2. **Create worktree**:
+```bash
+# Detect project path from current repo
+remote_url=$(git remote get-url origin 2>/dev/null)
+# Parse to org/repo
 
-3. **For file inputs**:
-   - Already have content from Phase 2
+# Sanitize branch name
+sanitized=$(echo "$branch" | tr '/' '-')
+worktree_path=~/worktrees/$project_path/$sanitized
 
-**Prioritize files for fetching** (up to 10 most relevant for deep review):
-- **From PR context**: Top 10 files by total changes (already sorted)
-- Files mentioned in PR description or review comments
+# Create worktree if it doesn't exist
+if [ ! -d "$worktree_path" ]; then
+  # Ensure bare repo exists
+  if [ ! -d "~/worktrees/$project_path/.bare" ]; then
+    # Find source repo for --reference
+    source_repo=$(find ~/work ~/productboard -maxdepth 2 -name ".git" -exec dirname {} \; 2>/dev/null | while read dir; do
+      if git -C "$dir" remote get-url origin 2>/dev/null | grep -q "$project_path"; then
+        echo "$dir"
+        break
+      fi
+    done)
+
+    if [ -n "$source_repo" ]; then
+      git clone --bare --reference "$source_repo" "$remote_url" ~/worktrees/$project_path/.bare
+    else
+      git clone --bare "$remote_url" ~/worktrees/$project_path/.bare
+    fi
+  fi
+
+  # Create worktree
+  cd ~/worktrees/$project_path/.bare
+  git fetch origin
+  git worktree add ../$sanitized origin/$branch --checkout
+fi
+
+# Update metadata
+# Add entry to .meta.json with purpose "review: PR #123"
+```
+
+3. **Display worktree info**:
+```
+📂 Review worktree created
+   Path: ~/worktrees/org/repo/feature-branch
+   Branch: feature/branch
+   Purpose: review: PR #123
+```
+
+**Store `worktree_path` for use in subsequent phases**.
+
+#### Step 2: Identify Files to Review
+
+**Extract file paths from PR context**:
+
+- gh-pr-reviewer returns **ALL changed files** with stats
+- Files include: additions, deletions, total changes, status
+- Files are sorted by changes (descending)
+
+**Prioritize files** (up to 10 for deep review, 3 for quick):
+- Top files by total changes
 - Core logic files (controllers, services, models) over config/docs
 - Test files related to changes
-- Exclude: package-lock.json, yarn.lock, large generated files
+- Exclude: package-lock.json, yarn.lock, generated files
 
-#### Step 2: Determine Source Code Access Method
+#### Step 3: Read Files from Worktree
 
-**Check available methods in priority order**:
+**All file access uses the worktree path**:
 
-1. **Local Repository Access** (PREFERRED):
-   - Check if current working directory is the target repository
-   - For PRs: Use `git remote -v` to verify repo matches PR repository
-   - If branch exists locally: Check out the PR branch or use current branch
-   - Direct file access via Read tool
-
-2. **JetBrains MCP Integration** (if available):
-   - Check if `mcp__jetbrains__*` tools are available
-   - Use `mcp__jetbrains__get_file_content` for file reading
-   - Use `mcp__jetbrains__search_everywhere` for finding related files
-   - Provides IDE-aware context (usages, definitions)
-
-3. **GitHub API Fetch** (fallback):
-   - For external repositories or when local access unavailable
-   - Use `gh api` to fetch file contents from GitHub
-   - Fetch from the PR branch/commit SHA
-   - Example: `gh api repos/{owner}/{repo}/contents/{path}?ref={sha}`
-
-#### Step 3: Fetch Source Files
-
-**Execute fetching based on determined method**:
-
-**Local Repository Method**:
 ```bash
-# Verify we're in correct repo
-git remote -v | grep -q "owner/repo"
+# Read files from worktree
+cd $worktree_path
 
-# For PR review: Optionally fetch and checkout PR branch
-gh pr checkout <PR_NUMBER>  # or use existing branch
-
-# Read files directly
-# Use Read tool for each file path identified in Step 1
+# Use Read tool with worktree-relative paths
+# Example: Read $worktree_path/src/api/controller.ts
 ```
 
-**JetBrains MCP Method** (if available):
-```
-# Use mcp__jetbrains__get_file_content for each file
-# This provides IDE context like imports, usages, etc.
+**For deep reviews, also fetch**:
+- Related dependencies (imports/requires)
+- Reverse dependencies (files importing changed files)
+- Test files for changed code
 
-# Example:
-mcp__jetbrains__get_file_content(file_path: "src/api/controller.ts")
-```
-
-**GitHub API Method**:
+Use Grep/Glob within worktree:
 ```bash
-# Use PR head SHA from gh-pr-reviewer output
-# Extract owner, repo, and headRefOid from PR summary
-
-# For each file path:
-gh api repos/{owner}/{repo}/contents/{file_path}?ref={headRefOid} \
-  --jq '.content' | base64 -d
-
-# Alternative: Use gh pr diff for changed files
-gh pr diff <PR_NUMBER>
-
-# Note: headRefOid (commit SHA) from full mode summary ensures exact version
+# Find related files in worktree
+cd $worktree_path
+grep -r "import.*from.*{filename}" --include="*.ts"
 ```
 
-#### Step 4: Store Fetched Content
+#### Step 4: Display Access Info
 
-**Organize fetched code for analysis**:
+```
+📥 Reviewing code in isolated worktree
+📂 Path: ~/worktrees/org/repo/feature-branch
+📄 Analyzing X files (Y lines changed)
+```
 
-1. **Create in-memory file map**:
-   - Key: file path (e.g., "src/api/controller.ts")
-   - Value: file content or relevant excerpt
-   - Include line numbers for changed sections
+#### For Non-PR Reviews (Jira, files, free-form)
 
-2. **Handle large files**:
-   - For files >500 lines, fetch only changed sections ±50 lines of context
-   - Use `git diff` with context lines: `gh pr diff <PR> --patch`
-   - Store full path + line ranges
-
-3. **Capture metadata**:
-   - File size, lines changed (additions/deletions)
-   - File type/language
-   - Related test files
-
-#### Step 5: Fetch Related Dependencies (Deep Review Only)
-
-**For deep reviews, explore related code**:
-
-1. **Identify dependencies**:
-   - Parse imports/requires from fetched files
-   - Find files that import changed files (reverse dependencies)
-   - Locate test files for changed code
-
-2. **Fetch related files**:
-   - Use Grep tool to find related code: `import.*from.*{filename}`
-   - Use Glob tool to find test files: `**/*{filename}.test.*`
-   - Read up to 5 most relevant related files
-
-3. **Build call graph context**:
-   - Identify functions/methods changed
-   - Find callers of those functions
-   - Track data flow through changed code
+**Skip worktree creation**:
+- Jira/GitHub issues: Read files from current directory or JetBrains MCP
+- File paths: Read directly
+- Free-form: Use current codebase context
 
 #### Error Handling
 
-**Handle fetching failures gracefully**:
-
-- **Local repo not available**: Fall back to GitHub API or proceed with context summary only
-- **GitHub API rate limit**: Use available context, note limitation in review
-- **File too large**: Fetch diff sections only, note in review
-- **Branch/commit not found**: Use main/master branch, add warning
-- **Authentication failure**: Proceed with summary context, suggest `gh auth login`
-
-**Always notify user of fetching method used**:
-```
-📥 Fetching source code via [local repository / JetBrains MCP / GitHub API]
-📄 Retrieved X files (Y lines total)
-```
+- **Worktree creation fails**: Fall back to GitHub API fetch
+- **Branch not found**: Report error, suggest checking PR status
+- **Disk space issues**: Report error, suggest cleanup with `/schovi:worktree teardown --all`
 
 ### Phase 3: Review Analysis
 
@@ -448,14 +426,40 @@ gh pr diff <PR_NUMBER>
 **Estimated Fix Time:** [X minutes/hours for addressing Must Fix + Should Fix items]
 ```
 
+### Phase 5: Worktree Cleanup
+
+**After review is complete, teardown the worktree** (unless `--keep-worktree` flag):
+
+```bash
+# Only for PR reviews with worktree
+if [ -n "$worktree_path" ] && [ "$keep_worktree" != "true" ]; then
+  cd ~/worktrees/$project_path/.bare
+  git worktree remove ../$sanitized --force
+
+  # Update .meta.json to remove entry
+fi
+```
+
+**If `--keep-worktree` flag is set**:
+```
+📂 Worktree kept for follow-up work
+   Path: ~/worktrees/org/repo/feature-branch
+
+   To continue working: cd ~/worktrees/org/repo/feature-branch
+   To remove later: /schovi:worktree teardown feature/branch
+```
+
+---
+
 ## Quality Gates
 
 **Before presenting review, verify**:
 
-- ✅ Context successfully fetched (or file read)
-- ✅ Source code fetched (deep review) or diff retrieved (quick review)
-- ✅ Fetching method reported to user (local/JetBrains/GitHub)
-- ✅ Analysis completed on actual source code (deep or quick as requested)
+- ✅ Context successfully fetched via subagent
+- ✅ Worktree created for PR reviews (or reused existing)
+- ✅ Source code read from worktree (deep: 10 files, quick: 3 files)
+- ✅ Worktree path displayed to user
+- ✅ Analysis completed on actual source code
 - ✅ Summary section with 2-3 sentence overview
 - ✅ Risk Assessment section with risk level and 2-4 factors
 - ✅ Security Review section present (concerns found OR explicit "no concerns")
@@ -463,36 +467,41 @@ gh pr diff <PR_NUMBER>
 - ✅ At least 3 key changes/info points identified with specific code references
 - ✅ Issues section organized by priority (Must Fix / Should Fix / Consider)
 - ✅ Each issue includes file:line reference and Action recommendation
-- ✅ 2-5 recommendations provided with benefits and optional code examples
+- ✅ 2-5 recommendations provided with benefits
 - ✅ File references use `file:line` format for all code mentions
-- ✅ Verdict section with approval status (Approve/Approve with changes/Needs work/Blocked)
-- ✅ Merge Criteria checklist with specific requirements from Must Fix and Should Fix
-- ✅ Estimated Fix Time provided
+- ✅ Verdict section with approval status
+- ✅ Merge Criteria checklist with specific requirements
+- ✅ Worktree cleaned up (unless `--keep-worktree`)
 
 ## Important Rules
 
-1. **No File Output**: This command outputs to terminal ONLY, no file creation
-2. **No Work Folder Integration**: Does not use work folder system (unlike implement/debug)
-3. **Context Isolation**: Always use subagents for external data fetching
-4. **Holistic Assessment**: Always include Risk, Security, and Performance sections (even if no concerns)
-5. **Priority-Based Issues**: Organize issues by priority (Must Fix / Should Fix / Consider), not just severity
-6. **Actionable Feedback**: All issues and recommendations must include specific Action items
-7. **Clear Verdict**: Provide explicit merge decision with criteria checklist and estimated fix time
-8. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
-9. **File References**: Use `file:line` format for all code references
+1. **Worktree Isolation**: PR reviews ALWAYS use isolated worktree (lib/worktree.md)
+2. **No File Output**: This command outputs to terminal ONLY, no file creation
+3. **No Work Folder Integration**: Does not use work folder system (unlike implement/debug)
+4. **Context Isolation**: Always use subagents for external data fetching
+5. **Holistic Assessment**: Always include Risk, Security, and Performance sections (even if no concerns)
+6. **Priority-Based Issues**: Organize issues by priority (Must Fix / Should Fix / Consider), not just severity
+7. **Actionable Feedback**: All issues and recommendations must include specific Action items
+8. **Clear Verdict**: Provide explicit merge decision with criteria checklist and estimated fix time
+9. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
+10. **File References**: Use `file:line` format for all code references
+11. **Cleanup**: Always teardown worktree after review unless `--keep-worktree`
 
 ## Example Usage
 
 ```bash
-# Review GitHub PR (deep)
+# Review GitHub PR (deep) - creates isolated worktree
 /schovi:review https://github.com/owner/repo/pull/123
 /schovi:review owner/repo#123
 /schovi:review #123
 
-# Quick review of PR
+# Quick review of PR (still uses worktree, fewer files)
 /schovi:review #123 --quick
 
-# Review Jira ticket
+# Keep worktree for follow-up work
+/schovi:review #123 --keep-worktree
+
+# Review Jira ticket (no worktree, uses current codebase)
 /schovi:review EC-1234
 
 # Review local file
@@ -509,16 +518,16 @@ gh pr diff <PR_NUMBER>
 1. Parse input and classify type correctly
 2. Use appropriate subagent for context fetching (fully qualified names)
 3. Wait for subagent completion before analysis
-4. **Execute Phase 2.5: Source Code Fetching** (critical for accurate reviews):
-   - Identify files to fetch from context
-   - Determine access method (local > JetBrains > GitHub)
-   - Fetch source files (up to 10 for deep, up to 3 for quick)
-   - Notify user of fetching method and file count
-   - Handle errors gracefully, fall back when needed
-5. Analyze **actual fetched source code**, not just context summaries
-6. For deep review: Fetch dependencies and use Explore for additional context
-7. For quick review: Fetch minimal files (top 3) or use diff only
-8. **Generate all required sections**:
+4. **For PR reviews - Create isolated worktree** (Phase 2.5):
+   - Follow lib/worktree.md to create worktree
+   - Use PR branch name from context
+   - Purpose: "review: PR #N"
+   - All file access happens in worktree path
+5. Read source files from worktree (up to 10 for deep, 3 for quick)
+6. Analyze **actual source code from worktree**, not just context summaries
+7. For deep review: Explore dependencies within worktree
+8. For quick review: Read top 3 files only
+9. **Generate all required sections**:
    - Summary (2-3 sentences)
    - Risk Assessment (risk level + 2-4 factors)
    - Security Review (concerns OR explicit "no concerns")
@@ -527,40 +536,43 @@ gh pr diff <PR_NUMBER>
    - Issues Found (organized as Must Fix / Should Fix / Consider)
    - Recommendations (2-5 actionable items)
    - Verdict (approval status + merge criteria + fix time estimate)
-9. Always perform security analysis on fetched code
-10. Provide specific file:line references from actual code
-11. Prioritize issues by urgency (Must/Should/Consider) with Action items
-12. Give 2-5 actionable recommendations with benefits and optional code examples
-13. Provide clear verdict with merge criteria checklist and estimated fix time
-14. Check all quality gates before output
-15. Output to terminal ONLY (no files)
+10. Always perform security analysis on code
+11. Provide specific file:line references
+12. Prioritize issues by urgency (Must/Should/Consider) with Action items
+13. Give 2-5 actionable recommendations
+14. Provide clear verdict with merge criteria checklist
+15. **Teardown worktree after review** (unless `--keep-worktree`)
+16. Output to terminal ONLY (no files)
 
 **YOU MUST NOT**:
 
 1. Create any files or use work folders
 2. Skip context fetching phase (Phase 2)
-3. Skip source code fetching phase (Phase 2.5) without valid reason
+3. Skip worktree creation for PR reviews
 4. Proceed without waiting for subagent completion
-5. Review without fetching actual source code (except quick mode fallback)
+5. Review PR without using worktree isolation
 6. Skip Risk Assessment, Security Review, or Performance Impact sections
-7. Give vague suggestions without specific file:line references from fetched code
-8. Miss security vulnerability analysis on actual code
+7. Give vague suggestions without specific file:line references
+8. Miss security vulnerability analysis
 9. Provide generic feedback without code-level specifics
-10. Skip priority classification for issues (Must Fix / Should Fix / Consider)
+10. Skip priority classification for issues
 11. Omit Action items from issues or merge criteria from verdict
 12. Base review solely on PR descriptions without examining code
+13. Leave worktree behind without `--keep-worktree` flag
 
 ## Error Handling
 
 - **Invalid input**: Ask user to clarify or provide valid PR/Jira/file
 - **Context fetch failure**: Report error and suggest checking credentials/permissions
-- **Source code fetch failure**:
-  - Try alternate methods (local → JetBrains → GitHub)
-  - Fall back to diff-based review if all methods fail
-  - Notify user of limitation and suggest fixes
-- **Repository mismatch**: Notify user if reviewing external repo from different local repo
-- **Branch not found**: Fall back to main/master branch with warning
-- **File too large**: Fetch diff sections only, note in review
-- **GitHub API rate limit**: Use local/JetBrains if available, or note limitation
+- **Worktree creation failure**:
+  - Check if bare repo clone failed (network, permissions)
+  - Check if branch exists on remote
+  - Fall back to GitHub API if worktree fails
+  - Suggest: `gh auth login` or check network
+- **Branch not found on remote**: Report error, check PR is still open
+- **Disk space issues**: Suggest cleanup with `/schovi:worktree teardown --all`
+- **Worktree already exists**: Reuse existing worktree, run update first
+- **File too large**: Note in review, focus on changed sections
 - **Empty context**: Report that nothing was found to review
 - **Analysis timeout**: Fall back to quick review and notify user
+- **Teardown failure**: Warn user, suggest manual cleanup

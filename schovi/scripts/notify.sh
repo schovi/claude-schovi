@@ -11,19 +11,25 @@ PROJECT=$(basename "${CWD:-Unknown}")
 case "$EVENT_TYPE" in
   "notification")
     TITLE="Input Required"
+    SUBTITLE="$PROJECT"
     MESSAGE="Claude needs your input"
     SOUND="Ping"
     ;;
   "stop")
     TITLE="Task Complete"
+    SUBTITLE=""
     MESSAGE="$PROJECT"
     SOUND="Glass"
     ;;
 esac
 
-terminal-notifier \
-  -title "$TITLE" \
-  -subtitle "$PROJECT" \
-  -message "$MESSAGE" \
-  -sound "$SOUND" \
-  -group "ClaudeCode-$EVENT_TYPE"
+ARGS=(
+  -title "$TITLE"
+  -message "$MESSAGE"
+  -sound "$SOUND"
+  -group "ClaudeCode-${CWD:-default}"
+)
+
+[ -n "$SUBTITLE" ] && ARGS+=(-subtitle "$SUBTITLE")
+
+terminal-notifier "${ARGS[@]}"

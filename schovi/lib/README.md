@@ -468,6 +468,36 @@ See COMMAND-TEMPLATE.md for detailed guide.
 
 ---
 
+### Infrastructure Libraries
+
+#### 8. worktree.md
+
+**Purpose**: Git worktree management for isolated branch operations
+
+**Size**: ~140 lines
+
+**Command**: `/schovi:worktree create|update|teardown|list`
+
+**Directory**: `~/worktrees/ORG/REPO/BRANCH-NAME/`
+
+**Operations**:
+- `create <branch>` - Create worktree with optional `--purpose`
+- `update [branch]` - Sync with remote
+- `teardown [branch]` - Remove worktree(s), supports `--all`
+- `list` - Show worktrees with metadata
+
+**Used by**: Commands needing isolated code access (review, debug)
+
+**Integration**:
+```markdown
+# From a command that needs isolated branch access:
+1. Create worktree for PR branch with purpose "review: PR #123"
+2. Work in ~/worktrees/org/repo/branch-name
+3. Teardown when done
+```
+
+---
+
 ## Integration Guide
 
 ### For New Commands
