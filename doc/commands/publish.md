@@ -2,130 +2,150 @@
 
 ## Description
 
-Create or update GitHub pull requests with automated branch pushing and smart description generation. Automatically detects existing PRs and updates them on subsequent runs.
+Create or update GitHub pull requests with automatic description generation. Always creates draft PRs targeting main branch.
 
 ## Purpose
 
 Automate PR creation/updates with:
 - Auto-push with upstream tracking
-- Smart description generation (spec → Jira → commits priority)
+- Smart description generation from various input sources
 - Branch validation and safety checks
-- Draft by default for safer workflow
+- Always draft for safer workflow
 - Update support for existing PRs
 
 ## Workflow
 
-1. **Phase 1: Input Parsing** - Parse Jira ID, spec file, flags; auto-detect from branch name
-2. **Phase 2: Git State Validation** - Check branch (block main/master), validate naming, check uncommitted changes, detect existing PR
-3. **Phase 3: Branch Pushing** - Auto-push with upstream tracking, verify push succeeded
-4. **Phase 4: Description Source Detection** - Search for spec file → Jira issue → commit history
-5. **Phase 5: PR Description Generation** - Create structured description (Problem/Solution/Changes/Quality & Impact)
-6. **Phase 6: PR Title Generation** - Format with Jira ID or from commits (50-100 chars)
-7. **Phase 7: PR Creation/Update & Verification** - Execute gh pr create (draft by default) or gh pr edit for updates, verify, display URL
+1. **Phase 1: Input Detection & Validation** - Detect input type, validate git state, check for existing PR
+2. **Phase 2: Git Operations** - Push branch with upstream tracking
+3. **Phase 3: Description Generation** - Fetch/read content, generate description
+4. **Phase 4: PR Creation/Update** - Create draft PR or update existing PR
 
 ## Input Options
 
-- Jira ID (EC-1234)
-- Spec file path (./spec-EC-1234.md)
-- Flags: `--ready`, `--base`, `--title`, `--no-push`, `--spec`
+Single positional argument (or none). Detection order:
+
+1. **Jira pattern**: `EC-1234`, `PROJ-567` (matches `[A-Z]{2,10}-\d{1,6}`)
+2. **File path**: `./spec.md`, `./docs/plan.md`
+3. **Folder path**: `./docs/` (finds main doc inside)
+4. **URL**: `https://...`
+5. **Plain text**: Any other string used as context
+6. **None**: Uses commit history
 
 ## Key Features
 
-- **Draft by Default**: Creates draft PRs by default for safer workflow, use --ready for ready PRs
-- **Update Support**: Automatically detects and updates existing PRs when called multiple times
-- **Auto-Push**: Always push branch before creating/updating PR (unless --no-push)
-- **Smart Description**: Auto-detects best source (spec → Jira → commits priority)
-- **Concise Format**: Problem/Solution/Changes/Quality & Impact (target 150-250 words, human-readable)
-- **Branch Validation**: Blocks main/master, warns on naming mismatch
-- **Clean State**: Requires no uncommitted changes
+- **Always Draft**: All PRs created as drafts
+- **Always Main**: Base branch is always `main`
+- **Always Push**: Branch is always pushed before PR creation
+- **Update Support**: Automatically detects and updates existing PRs
+- **Smart Description**: Auto-generates from input source
+- **Final State Language**: Describes what code does now, not how it evolved
 
-## Description Source Intelligence
+## Description Source by Input Type
 
-**Priority 1: Spec file (./spec-EC-1234.md)**
-- Problem: 2-3 sentences from spec Problem section
-- Solution: Single paragraph from Technical Overview (no subsections)
-- Changes: Grouped bullets from Implementation Tasks (no phases)
-- Quality & Impact: Combined testing/breaking/rollback from Testing Strategy
+**Jira ID** (via jira-analyzer subagent):
+- Fetches issue summary and context
+- Extracts problem statement and acceptance criteria
 
-**Priority 2: Jira issue (via jira-analyzer)**
-- Problem: Condensed from issue description
-- Changes: Simplified from acceptance criteria
-- Solution: Brief approach from commits + context
-- Quality & Impact: From issue comments + analysis
+**File/Folder**:
+- Reads spec or plan file content
+- Extracts problem/solution/changes sections
 
-**Priority 3: Commit history (git log)**
-- Problem: Inferred from commit summary
-- Changes: Key commits as bullets
-- Solution: Technical approach from analysis
-- Quality & Impact: Minimal (encourages manual update)
+**URL**:
+- Fetches and extracts relevant content
 
-**Brevity Principles**: Remove phase numbering, file:line details, exhaustive lists, verbose explanations. Focus on WHAT changed for human readers, not execution HOW.
+**Text**:
+- Uses provided text as context
 
-## PR Creation Format
+**None** (commit history):
+- Analyzes commits since divergence from main
+- Generates description from commit messages and diff stats
+
+## PR Format
 
 ```bash
-# Default: Draft PR
+# Create (always draft)
 gh pr create --draft --title "EC-1234: Description" \
              --base main \
              --body "$(cat <<'EOF' ... EOF)"
 
-# With --ready flag: Ready PR
-gh pr create --title "EC-1234: Description" \
-             --base main \
-             --body "$(cat <<'EOF' ... EOF)"
+# Update existing
+gh pr edit <number> --body "$(cat <<'EOF' ... EOF)"
 ```
 
-## PR Update Format
+## Description Template
 
-```bash
-# Update description
-gh pr edit <number> --body "$(cat <<'EOF' ... EOF)"
+```markdown
+## [Bug | New Feature | Enhancement | Chore]
 
-# Update title (if --title flag)
-gh pr edit <number> --title "New title"
+[2-3 sentences: What problem this solves and why it matters]
 
-# Convert draft to ready (if --ready flag)
-gh pr ready <number>
+## Solution
+
+[Single paragraph: How the code now works]
+
+## Changes
+
+**[Area 1]**:
+- Change description
+
+**[Area 2]**:
+- Change description
+
+## Notes (only if applicable)
+
+### Breaking Changes
+[If any]
+
+### Migration
+[If needed]
 ```
 
 ## Dependencies
 
 ### Calls
-- `jira-analyzer` agent (optional, for Jira context)
-- `spec-generator` agent (via reading spec file)
+- `jira-analyzer` agent (for Jira input)
 - GitHub CLI (`gh`) via Bash tool
 - Git commands via Bash tool
-- `argument-parser` library
 
 ### Called By
 - User invocation (standalone manual command)
-- NOT auto-executed by `/schovi:implement`
 
 ## Usage Examples
 
 ```bash
-# Create PR (auto-detect context from branch/spec/commits)
+# Use commit history (no input)
 /schovi:publish
 
-# Create draft PR with custom base branch
-/schovi:publish --draft --base develop
+# With Jira context
+/schovi:publish EC-1234
 
-# Create ready PR for specific Jira issue
-/schovi:publish EC-1234 --ready
+# With spec file
+/schovi:publish ./spec-EC-1234.md
 
-# Create PR with custom title
-/schovi:publish --title "Add OAuth 2.0 support"
+# With folder (finds main doc)
+/schovi:publish ./docs/
 
-# Update existing PR (automatically detected)
+# With URL
+/schovi:publish https://example.com/spec
+
+# Update existing PR (run again on same branch)
 /schovi:publish
-
-# Skip auto-push
-/schovi:publish --no-push
 ```
 
-## Integration
+## Post-Creation
 
-Standalone manual command (not auto-executed by implement).
+After creating a draft PR:
+
+```bash
+# Add reviewers
+gh pr edit 123 --add-reviewer @username
+
+# Mark ready for review
+gh pr ready 123
+
+# Watch CI checks
+gh pr checks 123 --watch
+```
 
 ## Location
 

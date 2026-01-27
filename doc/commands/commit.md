@@ -2,93 +2,92 @@
 
 ## Description
 
-Create structured git commits with validation, smart analysis, and conventional format. Automatically analyzes changes, validates branch safety, and generates descriptive multi-line commit messages.
+Create structured git commits with automatic analysis and smart auto-amend. Auto-stages all changes, analyzes diffs to determine commit type, and generates descriptive commit messages.
 
-## Purpose
+## Usage
 
-Automate commit creation with:
-- Conventional commit format (feat, fix, chore, etc.)
-- Branch validation (blocks main/master)
-- Smart git diff analysis for message generation
-- Optional external context (Jira/GitHub) when needed
+```bash
+/schovi:commit              # Auto-analyze diff
+/schovi:commit EC-1234      # Analyze diff + Jira context
+/schovi:commit #123         # Analyze diff + GitHub context
+/schovi:commit "some notes" # Analyze diff + use notes as context
+```
 
-## Workflow
+## Behavior
 
-1. **Phase 1: Input Parsing** - Detect Jira ID, GitHub issue/PR, custom notes, or auto-detect changes
-2. **Phase 2: Git State Validation** - Check branch (block main/master), validate branch naming, check for conflicts
-3. **Phase 3: Staging & Analysis** - Auto-stage changes (or use staged-only), analyze diff to determine commit type
-4. **Phase 4: Optional Context Fetching** - Fetch external context (Jira/GitHub) only if diff analysis unclear
-5. **Phase 5: Message Generation** - Create conventional commit with title, description, bullet points, references
-6. **Phase 6: Commit & Verification** - Execute commit with HEREDOC format, verify success
+- Always auto-stages all changes (`git add .`)
+- Auto-detects commit type from diff analysis
+- Smart auto-amend for unpushed commits touching same files
+- Auto-detects Jira ID from branch name if not provided
+- Blocks commits on main/master
 
-## Input Options
+## Input Detection
 
-- Jira ID (EC-1234)
-- GitHub issue/PR (URL or owner/repo#123)
-- Custom notes (free-form text)
-- Flags: `--message`, `--staged-only`, `--type`
+Parsed in this order:
 
-## Key Features
+1. **Jira pattern**: `[A-Z]{2,10}-\d{1,6}` (EC-1234, PROJ-567)
+2. **GitHub reference**: `#\d+`, `owner/repo#\d+`, or GitHub URL
+3. **Plain text**: Everything else (used as context notes)
+4. **None**: Pure diff analysis
 
-- **Conventional Commits**: Auto-detect type (feat, fix, chore, refactor, docs, test, style, perf)
-- **Branch Validation**: Blocks main/master commits, warns on branch/Jira mismatch
-- **Smart Analysis**: Analyzes git diff to generate descriptive multi-line messages
-- **Change Intelligence**: Determines commit type from file paths, diff content, and keywords
-- **Optional Context**: Fetches Jira/GitHub context only when needed (defers to diff analysis)
+## Commit Type Detection
+
+Determined from diff analysis (priority order):
+
+| Type | Triggers |
+|------|----------|
+| test | Files only in test directories or `*.test.*`, `*.spec.*` |
+| docs | Only markdown/documentation files |
+| chore | Only package.json, lockfiles, configs |
+| fix | Bug keywords, error handling changes |
+| feat | New files, new functions, "add"/"implement" keywords |
+| refactor | Code restructuring, no behavior change |
+| perf | Performance keywords (optimize, cache) |
+| style | Only whitespace/formatting |
+
+Default: `chore` if uncertain
+
+## Auto-Amend Logic
+
+**Amend if both conditions are true**:
+1. Last commit is NOT pushed to remote
+2. Current changes touch same files as last commit
+
+**New commit if**:
+- All commits are pushed, OR
+- Changes touch different files
+
+This reduces commit noise for iterative work while preventing accidental combination of unrelated changes.
 
 ## Commit Message Format
 
 ```
-PREFIX: Title (50-72 chars)
+<type>: <title>
 
-Description paragraph explaining problem/solution/changes
+<Description paragraph>
 
-- Bullet point of specific change
-- Bullet point of specific change
-- Bullet point of specific change
+- <Bullet point 1>
+- <Bullet point 2>
+- <Bullet point 3>
 
-Related to: [Reference]
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
+Related to: <Reference>
 ```
+
+## Workflow
+
+1. **Input Detection & Validation** - Parse input, auto-detect Jira from branch, validate git state
+2. **Staging & Analysis** - Run `git add .`, analyze diff, determine type
+3. **Message Generation** - Fetch external context if provided, generate message
+4. **Commit Execution** - Decide amend vs new, execute, verify
 
 ## Dependencies
 
 ### Calls
-- `jira-analyzer` agent (optional, for Jira context)
-- `gh-issue-analyzer` agent (optional, for GitHub issue context)
-- `gh-pr-analyzer` agent (optional, for GitHub PR context)
-- Git commands via Bash tool
-- `argument-parser` library
+- `jira-analyzer` agent (for Jira context)
+- `gh-pr-analyzer` agent (for GitHub context)
 
 ### Called By
 - User invocation
-- `/schovi:implement` command (for phase-based commits)
-
-## Usage Examples
-
-```bash
-# Commit with Jira context
-/schovi:commit EC-1234
-
-# Commit with custom notes
-/schovi:commit "Add user authentication"
-
-# Commit staged changes only
-/schovi:commit --staged-only
-
-# Commit with specific type
-/schovi:commit --type feat
-
-# Commit with custom message
-/schovi:commit --message "fix: Resolve null pointer in authentication"
-```
-
-## Integration
-
-Can be used standalone or called from implement flow for phase-based commits.
 
 ## Location
 

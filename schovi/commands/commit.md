@@ -1,301 +1,136 @@
 ---
-description: Create structured git commits with context from Jira, GitHub, or change analysis
-argument-hint: [jira-id|github-issue|github-pr|notes|--message "text"]
-allowed-tools: ["Bash", "Grep", "Read", "Task", "AskUserQuestion"]
+description: Create structured git commits with automatic analysis
+argument-hint: [context]
+allowed-tools: ["Bash", "Grep", "Read", "Task"]
 ---
 
-# 🚀 Git Commit Command
+# Git Commit Command
 
-╭─────────────────────────────────────────────╮
-│ /schovi:commit - Structured Commit Creation │
-╰─────────────────────────────────────────────╯
+Creates well-structured git commits with conventional format and automatic change analysis.
 
-Creates well-structured git commits with conventional format, automatic change analysis, and optional external context fetching.
+**Behavior**:
+- Always auto-stages all changes (`git add .`)
+- Auto-detects commit type from diff
+- Smart auto-amend for unpushed commits touching same files
+- Auto-detects Jira ID from branch name
 
-## Command Overview
-
-This command creates git commits following these principles:
-- **Conventional commit format**: `PREFIX: Title` with detailed description
-- **Smart validation**: Prevents commits on main/master, validates branch naming
-- **Change analysis**: Analyzes diffs to determine commit type and generate description
-- **Optional context**: Fetches Jira/GitHub context when diff analysis is unclear
-- **Claude Code footer**: Includes automation signature and co-authorship
-
-## Usage Patterns
+## Usage
 
 ```bash
-# Auto-analyze changes and create commit
-/schovi:commit
-
-# With Jira context
-/schovi:commit EC-1234
-
-# With GitHub issue context
-/schovi:commit https://github.com/owner/repo/issues/123
-/schovi:commit owner/repo#123
-
-# With GitHub PR context
-/schovi:commit https://github.com/owner/repo/pull/456
-/schovi:commit owner/repo#456
-
-# With custom notes for commit message
-/schovi:commit "Add user authentication with JWT tokens"
-
-# Override commit message completely
-/schovi:commit --message "feat: Custom commit message"
-
-# Only commit staged changes (don't auto-stage)
-/schovi:commit --staged-only
+/schovi:commit              # Auto-analyze diff
+/schovi:commit EC-1234      # Analyze diff + Jira context
+/schovi:commit #123         # Analyze diff + GitHub context
+/schovi:commit "some notes" # Analyze diff + use notes as context
 ```
 
 ---
 
 # EXECUTION FLOW
 
-## PHASE 1: Input Parsing & Context Detection
+## Phase 1: Input Detection & Validation
 
-### Step 1.1: Parse Arguments
+### Step 1.1: Parse Input
 
-```
-Parse the user's input to detect:
-1. Jira issue ID pattern: [A-Z]{2,10}-\d{1,6} (e.g., EC-1234, PROJ-567)
-2. GitHub issue URL: https://github.com/[owner]/[repo]/issues/\d+
-3. GitHub issue shorthand: [owner]/[repo]#\d+
-4. GitHub PR URL: https://github.com/[owner]/[repo]/pull/\d+
-5. GitHub PR shorthand: [owner]/[repo]#\d+ or #\d+
-6. Custom notes: Free-form text
-7. Flags: --message "text", --staged-only, --type prefix
-```
+Parse single positional argument (or none). Detect input type in this order:
 
-### Step 1.2: Display Detection
+1. **Jira pattern**: Matches `[A-Z]{2,10}-\d{1,6}` (e.g., EC-1234, PROJ-567)
+2. **GitHub reference**: Matches `#\d+`, `owner/repo#\d+`, or GitHub URL
+3. **Plain text**: Everything else (used as context notes)
+4. **None**: No argument provided
 
-Display what was detected:
+Store: `INPUT_TYPE` (jira|github|text|none) and `INPUT_VALUE`
 
-```markdown
-╭─────────────────────────────────────────────╮
-│ 📝 COMMIT COMMAND                           │
-╰─────────────────────────────────────────────╯
+### Step 1.2: Auto-detect Jira ID from Branch
 
-**Detected Input**:
-- Type: [Jira Issue | GitHub Issue | GitHub PR | Custom Notes | Auto-detect]
-- Reference: [ID/URL if applicable]
-- Flags: [List any flags provided]
+If no Jira ID from input, extract from branch name:
+
+```bash
+git rev-parse --abbrev-ref HEAD
 ```
 
-### Step 1.3: Work Folder Detection (Optional Enhancement)
+Extract pattern: `[A-Z]{2,10}-\d{1,6}` from branch name.
 
-**Objective**: Auto-detect work folder to enrich commit context automatically.
+Examples:
+- `EC-1234-add-auth` → EC-1234
+- `feature/IS-5678-fix-bug` → IS-5678
 
-**Try to find work folder** (non-blocking):
+Store: `JIRA_ID` (from input or branch, may be empty)
+
+### Step 1.3: Validate Git State
+
+Run these checks:
 
 ```bash
 # Get current branch
-branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-# Extract identifier (Jira ID)
-identifier=$(echo "$branch" | grep -oE '[A-Z]{2,10}-[0-9]+' | head -1)
-
-# Find work folder
-if [ -n "$identifier" ]; then
-  work_folder=$(find .WIP -type d -name "${identifier}*" | head -1)
-
-  # Read metadata if folder exists
-  if [ -f "$work_folder/.metadata.json" ]; then
-    cat "$work_folder/.metadata.json"
-  fi
-fi
-```
-
-**If work folder found, extract**:
-- `work_folder_path`: .WIP/[identifier]
-- `work_identifier`: From metadata.identifier
-- `work_title`: From metadata.title
-- `work_external`: From metadata.external (Jira/GitHub URLs)
-- `work_progress`: Read 04-progress.md if exists (for phase-based commits)
-
-**If no work folder found**:
-- Continue with user-provided context only
-- No error - work folder is optional
-
-**Benefits of work folder context**:
-- Auto-fills Jira ID if not provided by user
-- Uses title from metadata for better commit messages
-- Can reference phase number for multi-phase implementations
-- Links commits to work folder in metadata
-
-### Step 1.4: Store Context
-
-Store the detected context in variables for later phases:
-- `context_type`: jira | github_issue | github_pr | custom | auto
-- `context_ref`: The ID/URL/notes
-- `flag_message`: Custom message if --message provided
-- `flag_staged_only`: Boolean for --staged-only
-- `flag_commit_type`: Explicit commit type if --type provided
-- `work_folder`: Path to work folder (or null if not found)
-- `work_metadata`: Parsed metadata object (or null)
-- `work_progress`: Progress info (or null)
-
----
-
-## PHASE 2: Git State Validation
-
-### Step 2.1: Get Current Branch
-
-```bash
 git rev-parse --abbrev-ref HEAD
-```
 
-**Validation**:
-- ❌ **ERROR if on main/master**: Cannot commit directly to main/master branch
-- ✅ **Continue**: If on feature/bugfix/chore branch
+# Check for merge conflicts
+git status --porcelain | grep -E '^(U|.U)'
 
-**Error Display** (if on main/master):
-```markdown
-╭─────────────────────────────────────────────╮
-│ ❌ COMMIT BLOCKED                           │
-╰─────────────────────────────────────────────╯
-
-**Reason**: Direct commits to main/master are not allowed.
-
-**Current branch**: main
-
-**Suggested Actions**:
-1. Create a feature branch: `git checkout -b feature/your-feature`
-2. Create from Jira: `git checkout -b EC-1234-description`
-3. Switch to existing branch: `git checkout <branch-name>`
-
-Commit cancelled.
-```
-
-### Step 2.2: Validate Branch Name (if Jira context)
-
-If context_type is "jira":
-
-```bash
-git rev-parse --abbrev-ref HEAD
-```
-
-Check if branch name contains the Jira issue key (case-insensitive).
-
-**Validation**:
-- ⚠️  **WARN if mismatch**: Branch name doesn't contain Jira issue key
-- ✅ **OK**: Branch name matches (e.g., EC-1234-feature for EC-1234)
-
-**Warning Display** (if mismatch):
-```markdown
-⚠️  **Branch Naming Warning**
-
-**Expected**: Branch name should contain issue key "EC-1234"
-**Current branch**: feature/user-auth
-**Suggestion**: Consider renaming branch to EC-1234-user-auth
-
-Continue with commit? [Proceeding...]
-```
-
-### Step 2.3: Check Git Status
-
-```bash
+# Check for any changes
 git status --porcelain
 ```
 
-**Analyze output**:
-- **Staged changes**: Lines starting with M, A, D, R, C in first column
-- **Unstaged changes**: Lines with modifications in second column
-- **Untracked files**: Lines starting with ??
-- **Merge conflicts**: Lines starting with U
+**Block if**:
+- On main/master branch
+- Merge conflicts exist
+- No changes to commit (staged, unstaged, or untracked)
 
-**Validation**:
-- ❌ **ERROR if merge conflicts**: Resolve conflicts before committing
-- ⚠️  **WARN if no changes**: No staged or unstaged changes detected
-- ✅ **Continue**: Changes detected
+**Error Display** (on main/master):
+```
+Cannot commit on main/master branch.
 
-**Error Display** (if conflicts):
-```markdown
-╭─────────────────────────────────────────────╮
-│ ❌ MERGE CONFLICTS DETECTED                 │
-╰─────────────────────────────────────────────╯
+Create a feature branch first:
+  git checkout -b feature/your-feature
+  git checkout -b EC-1234-description
+```
 
-**Files with conflicts**:
-- src/api/controller.ts
-- src/models/user.ts
+**Error Display** (merge conflicts):
+```
+Merge conflicts detected.
 
-**Action Required**: Resolve merge conflicts before committing.
+Files with conflicts:
+[list conflicted files]
 
+Resolve conflicts before committing:
 1. Edit conflicted files
-2. Mark as resolved: `git add <file>`
-3. Run commit command again
-
-Commit cancelled.
+2. git add <file>
+3. Run /schovi:commit again
 ```
 
-**Empty Changes Display**:
-```markdown
-╭─────────────────────────────────────────────╮
-│ ⚠️  NO CHANGES DETECTED                     │
-╰─────────────────────────────────────────────╯
-
-**Git Status**: Working directory clean
-**Staged**: 0 files
-**Unstaged**: 0 files
-
-Nothing to commit.
+**Error Display** (no changes):
 ```
+No changes to commit.
 
-### Step 2.4: Summary Display
-
-```markdown
-╭─────────────────────────────────────────────╮
-│ ✅ GIT STATE VALIDATION PASSED              │
-╰─────────────────────────────────────────────╯
-
-**Branch**: feature/user-authentication
-**Branch Status**: Valid feature branch
-**Jira Validation**: ✅ Branch matches EC-1234 [if applicable]
-**Changes Detected**: Yes
-
-**Summary**:
-- Staged: 3 files
-- Unstaged: 5 files
-- Untracked: 2 files
-
-Proceeding to staging phase...
+Working directory is clean.
 ```
 
 ---
 
-## PHASE 3: Staging & Change Analysis
+## Phase 2: Staging & Analysis
 
-### Step 3.1: Determine Staging Strategy
+### Step 2.1: Auto-stage All Changes
 
-**Default behavior** (when `--staged-only` NOT provided):
 ```bash
 git add .
 ```
-Display: `🔄 Auto-staging all changes (git add .)`
 
-**Staged-only behavior** (when `--staged-only` provided or called from implement flow):
-- Skip auto-staging
-- Only commit what's already staged
-- Display: `📋 Using only staged changes`
+Display: `Staging all changes...`
 
-**Validation after staging**:
+### Step 2.2: Verify Staged Files
+
 ```bash
 git diff --cached --name-only
 ```
 
-If no files staged:
-```markdown
-❌ **No staged changes**
+**Error if no staged files** (shouldn't happen after add .):
+```
+No files staged for commit.
 
-No files are staged for commit. Cannot proceed.
-
-**Suggestions**:
-1. Stage specific files: `git add <files>`
-2. Stage all changes: `git add .`
-3. Check working directory: `git status`
+Check: git status
 ```
 
-### Step 3.2: Analyze Staged Changes
+### Step 2.3: Analyze Diff
 
 ```bash
 # Get summary statistics
@@ -306,204 +141,84 @@ git diff --cached
 ```
 
 **Display**:
-```markdown
-╭─────────────────────────────────────────────╮
-│ 🔍 ANALYZING STAGED CHANGES                 │
-╰─────────────────────────────────────────────╯
-
-**Files Changed**: 5 files
-**Insertions**: +234 lines
-**Deletions**: -45 lines
-
-**Affected Files**:
-- src/api/auth-controller.ts (+156, -12)
-- src/models/user.ts (+45, -8)
-- src/services/jwt-service.ts (+28, -0)
-- tests/auth.test.ts (+5, -25)
-- README.md (+0, -0)
-
-Analyzing changes to determine commit type...
+```
+Analyzing X files (+Y, -Z lines)...
 ```
 
-### Step 3.3: Determine Commit Type
+### Step 2.4: Determine Commit Type
 
-Analyze the diff to determine the appropriate conventional commit prefix.
+Analyze the diff to determine conventional commit prefix:
 
-**Logic**:
-1. **feat**: New features, new files with substantial code, new API endpoints
-   - Keywords: "new", "add", "implement", "create"
-   - Indicators: New files, new functions/classes, new routes
+**Detection rules** (in priority order):
 
-2. **fix**: Bug fixes, error handling, corrections
-   - Keywords: "fix", "bug", "error", "issue", "resolve"
-   - Indicators: Changes in error handling, conditional logic fixes
+1. **test**: Files only in `test/`, `tests/`, `__tests__/`, or `*.test.*`, `*.spec.*`
+2. **docs**: Only markdown/documentation files, no code changes
+3. **chore**: Only `package.json`, lockfiles, configs, build scripts
+4. **fix**: Error handling changes, bug keywords (fix, bug, error, resolve), conditional logic fixes
+5. **feat**: New files with substantial code, new functions/classes, new API endpoints, "add", "implement"
+6. **refactor**: Code restructuring, moving code, renaming, extracting functions (no behavior change)
+7. **perf**: Performance keywords (optimize, cache, faster)
+8. **style**: Only whitespace/formatting changes
 
-3. **chore**: Maintenance, dependencies, configs, build changes
-   - Keywords: "update", "upgrade", "maintain", "cleanup"
-   - Indicators: package.json, lockfiles, config files, build scripts
+**Default**: `chore` if uncertain
 
-4. **refactor**: Code restructuring without changing behavior
-   - Keywords: "refactor", "restructure", "reorganize", "simplify"
-   - Indicators: Moving code, renaming, extracting functions
+Store: `COMMIT_TYPE`
 
-5. **test**: Test additions or updates
-   - Keywords: "test", "spec"
-   - Indicators: Files in test/ directories, *.test.*, *.spec.*
+### Step 2.5: Extract Key Changes
 
-6. **docs**: Documentation changes only
-   - Keywords: "doc", "readme", "comment"
-   - Indicators: .md files, comment changes, no code changes
+From diff analysis, extract:
+- **Primary change**: One-line description of main change
+- **Key changes**: 2-5 bullet points of specific changes
 
-7. **style**: Code style/formatting (no logic change)
-   - Keywords: "format", "style", "lint"
-   - Indicators: Whitespace, formatting, linting fixes
-
-8. **perf**: Performance improvements
-   - Keywords: "performance", "optimize", "faster", "cache"
-   - Indicators: Algorithm changes, caching additions
-
-**Override**: If `--type` flag provided, use that instead.
-
-**Display**:
-```markdown
-🎯 **Commit Type Determined**: feat
-**Reasoning**: New authentication controller and JWT service implementation detected
-```
-
-### Step 3.4: Extract Change Summary
-
-Analyze the diff to extract:
-1. **Primary change**: What's the main thing being changed?
-2. **Affected components**: Which parts of the system are touched?
-3. **Key changes**: 2-4 bullet points describing specific changes
-
-**Store for commit message generation**:
-- `commit_type`: The determined prefix (feat/fix/chore/etc.)
-- `primary_change`: One-line description
-- `affected_files`: List of changed files
-- `key_changes`: Array of bullet points
+Store: `PRIMARY_CHANGE`, `KEY_CHANGES`
 
 ---
 
-## PHASE 4: Optional Context Fetching
+## Phase 3: Message Generation
 
-### Step 4.1: Evaluate Need for External Context
+### Step 3.1: Fetch External Context (if provided)
 
-**Decision logic**:
-
+**Jira** (`INPUT_TYPE=jira`):
+Spawn jira-analyzer subagent:
 ```
-IF context_type is "jira" OR "github_issue" OR "github_pr":
-    IF primary_change is clear AND key_changes are substantial:
-        SKIP context fetching
-        Display: "📊 Change analysis is clear, skipping external context fetch"
-    ELSE:
-        FETCH external context
-        Display: "🔍 Fetching external context to enrich commit message..."
-ELSE:
-    SKIP context fetching
-```
-
-**Indicators that analysis is "clear"**:
-- 3+ key changes identified
-- Primary change is descriptive (>15 chars)
-- Commit type confidence is high
-
-### Step 4.2: Fetch Context (if needed)
-
-#### For Jira Issues:
-
-```markdown
-🔍 **Fetching Jira Context**
-⏳ Fetching issue EC-1234 via jira-analyzer...
-```
-
-Use Task tool:
-```
-prompt: "Fetch and summarize Jira issue [JIRA-KEY]"
+prompt: "Fetch and summarize Jira issue [INPUT_VALUE]"
 subagent_type: "schovi:jira-auto-detector:jira-analyzer"
-description: "Fetching Jira issue summary"
+description: "Fetching Jira issue"
 ```
 
-#### For GitHub Issues:
-
-```markdown
-🔍 **Fetching GitHub Issue Context**
-⏳ Fetching issue via gh-issue-analyzer...
+**GitHub** (`INPUT_TYPE=github`):
+Spawn gh-pr-analyzer subagent:
 ```
-
-Use Task tool:
-```
-prompt: "Fetch and summarize GitHub issue [URL or owner/repo#123]"
-subagent_type: "schovi:gh-issue-analyzer:gh-issue-analyzer"
-description: "Fetching GitHub issue summary"
-```
-
-#### For GitHub PRs:
-
-```markdown
-🔍 **Fetching GitHub PR Context**
-⏳ Fetching PR via gh-pr-analyzer...
-```
-
-Use Task tool:
-```
-prompt: "Fetch and summarize GitHub pull request [URL or owner/repo#123]"
+prompt: "Fetch and summarize GitHub reference [INPUT_VALUE]"
 subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
-description: "Fetching GitHub PR summary"
+description: "Fetching GitHub context"
 ```
 
-### Step 4.3: Merge Context with Analysis
+**Text** (`INPUT_TYPE=text`):
+Use `INPUT_VALUE` directly as additional context.
 
-Combine external context with diff analysis:
-- Use external context to clarify "why" (problem being solved)
-- Use diff analysis to describe "what" (specific changes made)
-- Prioritize diff analysis for technical accuracy
+**None** (`INPUT_TYPE=none`):
+Skip, use diff analysis only.
 
----
+### Step 3.2: Generate Commit Message
 
-## PHASE 5: Commit Message Generation
-
-### Step 5.1: Generate Message Components
-
-**Context Priority**:
-1. **Work folder context** (if available from Step 1.3)
-   - Use metadata.title for description context
-   - Use metadata.identifier for Related reference
-   - Use work_progress for phase-based commit titles
-2. **User-provided context** (Jira, GitHub, notes from Step 1.1-1.2)
-3. **Diff analysis** (from Phase 3-4)
-
-**Title Line** (50-72 chars):
+**Title** (50-72 chars):
 ```
-<commit_type>: <brief description of primary change>
-```
-
-**If work_progress exists** (multi-phase implementation):
-```
-<commit_type>: Complete <phase title> (Phase N/Total)
+<COMMIT_TYPE>: <PRIMARY_CHANGE>
 ```
 
 Examples:
 - `feat: Add JWT authentication to user login`
-- `fix: Resolve token expiration handling bug`
-- `feat: Complete authentication core (Phase 1/4)` [from work_progress]
+- `fix: Resolve token expiration handling`
 - `chore: Update dependencies to latest versions`
 
-**Description Paragraph** (2-3 sentences):
-Explain the problem, solution, or context. Answer:
-- What problem does this solve? (if fix/feat)
-- Why was this change needed?
-- What approach was taken?
-
-**If work_metadata exists**: Reference work title
-- "Implements Phase N of [work_title]"
-- "Part of [work_title] implementation"
+**Description** (2-3 sentences):
+Explain what changed and why. Use context from:
+- External source (Jira/GitHub/notes) if provided
+- Diff analysis for technical details
 
 **Bullet Points** (2-5 items):
-List specific changes:
-- Technical changes (new functions, modified logic)
-- File-level changes (new files, removed files)
-- Integration changes (API changes, database changes)
+List specific changes from `KEY_CHANGES`.
 
 **Related Reference** (if applicable):
 ```
@@ -514,382 +229,148 @@ or
 Related to: owner/repo#123
 ```
 
-**Footer**:
-```
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-### Step 5.2: Assemble Complete Message
+### Step 3.3: Assemble Complete Message
 
 **Format**:
 ```
 <TYPE>: <Title>
 
-<Description paragraph explaining problem/solution/changes>
+<Description paragraph>
 
 - <Bullet point 1>
 - <Bullet point 2>
 - <Bullet point 3>
-- <Bullet point 4>
 
-Related to: <JIRA-KEY or GitHub reference>
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
+Related to: <Reference>
 ```
 
-### Step 5.3: Display Preview
-
-```markdown
-╭─────────────────────────────────────────────╮
-│ 📝 COMMIT MESSAGE PREVIEW                   │
-╰─────────────────────────────────────────────╯
-
+**Display preview**:
 ```
-feat: Add JWT authentication to user login
-
-Implements JSON Web Token based authentication system to replace
-session-based auth. Adds token generation, verification, and refresh
-functionality with configurable expiration times.
-
-- Add AuthController with login/logout endpoints
-- Implement JwtService for token operations
-- Create User model with password hashing
-- Add authentication middleware for protected routes
-- Update tests to cover new auth flow
-
-Related to: EC-1234
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
-Proceeding with commit...
+Commit message:
+───────────────
+<full message>
+───────────────
 ```
 
 ---
 
-## PHASE 6: Commit Execution & Verification
+## Phase 4: Commit Execution
 
-### Step 6.1: Execute Commit
+### Step 4.1: Determine Amend vs New Commit
 
+**Check if last commit is unpushed**:
+```bash
+git log @{u}..HEAD --oneline 2>/dev/null | head -1
 ```
-IMPORTANT: Use HEREDOC format for multi-line commit messages to ensure proper formatting.
+
+- If error (no upstream) → unpushed commits exist
+- If has output → unpushed commits exist
+- If no output → all pushed, create new commit
+
+**If unpushed commits exist, check file overlap**:
+```bash
+# Files in last commit
+git diff-tree --no-commit-id --name-only -r HEAD
+
+# Files currently staged
+git diff --cached --name-only
 ```
 
-Execute commit:
+Compare the two lists. If any files appear in both → candidate for amend.
+
+**Decision**:
+- **AMEND** if: unpushed commits AND file overlap exists
+- **NEW** if: all pushed OR no file overlap
+
+**Display**:
+- Amend: `Amending previous commit (same files, not pushed)`
+- New: `Creating new commit`
+
+### Step 4.2: Execute Commit
+
+**IMPORTANT**: Use HEREDOC format for multi-line commit messages.
+
+**New commit**:
 ```bash
 git commit -m "$(cat <<'EOF'
-feat: Add JWT authentication to user login
-
-Implements JSON Web Token based authentication system to replace
-session-based auth. Adds token generation, verification, and refresh
-functionality with configurable expiration times.
-
-- Add AuthController with login/logout endpoints
-- Implement JwtService for token operations
-- Create User model with password hashing
-- Add authentication middleware for protected routes
-- Update tests to cover new auth flow
-
-Related to: EC-1234
-
-🤖 Generated with Claude Code
-
-Co-Authored-By: Claude <noreply@anthropic.com>
+<COMMIT_MESSAGE>
 EOF
 )"
 ```
 
-### Step 6.2: Verify Commit Created
+**Amend**:
+```bash
+git commit --amend -m "$(cat <<'EOF'
+<COMMIT_MESSAGE>
+EOF
+)"
+```
+
+### Step 4.3: Verify and Display Result
 
 ```bash
 git log -1 --oneline
-```
-
-**Success indicators**:
-- Command exit code 0
-- Log shows new commit hash
-
-**Failure indicators**:
-- Non-zero exit code
-- Errors about hooks, conflicts, etc.
-
-### Step 6.2.5: Update Work Folder Metadata (if applicable)
-
-**If work_folder exists** (from Step 1.3):
-
-1. Get commit hash:
-```bash
-git log -1 --format='%H'
-```
-
-2. Read existing metadata:
-```bash
-cat "$work_folder/.metadata.json"
-```
-
-3. Update fields:
-```json
-{
-  ...existing,
-  "git": {
-    "branch": "[current branch]",
-    "commits": [...existing.commits, "[new commit hash]"],
-    "lastCommit": "[new commit hash]"
-  },
-  "timestamps": {
-    ...existing.timestamps,
-    "lastModified": "[now from date -u]"
-  }
-}
-```
-
-4. If work_progress exists (phase-based implementation):
-   - Update metadata.phases.list[current_phase].commit with new hash
-   - Update 04-progress.md with commit reference
-
-5. Use Write tool to save updated metadata to `$work_folder/.metadata.json`.
-
-**If no work folder**:
-- Skip metadata update (not an error)
-
-### Step 6.3: Display Result
-
-**Success Display**:
-```markdown
-╭─────────────────────────────────────────────╮
-│ ✅ COMMIT CREATED SUCCESSFULLY              │
-╰─────────────────────────────────────────────╯
-
-📝 **Commit Hash**: a3b2c1d
-📋 **Type**: feat
-📌 **Title**: Add JWT authentication to user login
-🔗 **Related**: EC-1234
-
-**Commit Details**:
-```
 git log -1 --stat
 ```
 
-**Next Steps**:
-1. Review commit: `git show`
-2. Continue development and commit more changes
-3. Create pull request when ready: `git push` and use GitHub UI
-4. Or amend if needed: `git commit --amend`
+**Success Display**:
+```
+Commit created: <hash>
+
+<TYPE>: <Title>
+
+Files: X changed, +Y, -Z
+
+Next steps:
+  git show           # review commit
+  git push           # push to remote
+  /schovi:publish    # create PR
 ```
 
-**Error Display** (if commit failed):
-```markdown
-╭─────────────────────────────────────────────╮
-│ ❌ COMMIT FAILED                            │
-╰─────────────────────────────────────────────╯
-
-**Error Output**:
+**Error Display**:
 ```
-[Git error message]
-```
+Commit failed.
 
-**Possible Causes**:
-1. Pre-commit hooks failed (linting, tests)
-2. Commit message validation failed
-3. File permissions issues
+Error: [git error message]
 
-**Suggested Actions**:
-1. Check hook output above for specific errors
-2. Fix issues and run `/schovi:commit` again
-3. Override hooks if necessary: `git commit --no-verify -m "message"`
-4. Check git configuration: `git config --list`
+Possible causes:
+- Pre-commit hooks failed
+- File permissions issues
 
-Run `/schovi:commit --message "..."` to retry with specific message.
+Try:
+  git status
+  git commit --no-verify -m "..."  # skip hooks
 ```
 
 ---
 
-## SPECIAL CASES
+## Error Handling
 
-### Case 1: Called from Implement Flow
+**Not a git repository**:
+```
+Not a git repository.
 
-When this command is called from `/schovi:implement` or other workflows:
-
-**Detection**: Check if called with special context variable or flag `--from-implement`
-
-**Modified Behavior**:
-1. **Staging**: Use `--staged-only` behavior (don't auto-stage all changes)
-2. **Validation**: Skip branch name validation (implement handles it)
-3. **Message**: Use phase-specific message format if provided
-4. **Display**: Minimal output (just commit hash and title)
-
-**Integration Pattern**:
-```markdown
-Within implement command:
-
-1. Make changes for Phase 1
-2. Stage only Phase 1 files: `git add file1.ts file2.ts`
-3. Call commit logic with:
-   - context: "Phase 1: Backend Service"
-   - type: "feat"
-   - staged_only: true
-4. Repeat for each phase
+Initialize: git init
+Or navigate: cd <git-repo-path>
 ```
 
-### Case 2: Override with --message Flag
-
-If user provides `--message "custom message"`:
-
-**Behavior**:
-1. Skip all analysis phases
-2. Use provided message verbatim
-3. Still add Claude Code footer
-4. Still perform git state validation
-
-**Display**:
-```markdown
-╭─────────────────────────────────────────────╮
-│ 📝 USING CUSTOM MESSAGE                     │
-╰─────────────────────────────────────────────╯
-
-**User-provided message**:
+**Detached HEAD**:
 ```
-feat: Custom commit message
-```
+Detached HEAD state.
 
-Skipping analysis, using provided message...
-```
-
-### Case 3: Amending Last Commit
-
-If user provides `--amend` flag:
-
-**Validation**:
-1. Check last commit author: `git log -1 --format='%an %ae'`
-2. Check if commit is pushed: `git branch -r --contains HEAD`
-3. Only allow if:
-   - Last commit author is "Claude" or user
-   - Commit is not pushed to remote
-   - No merge commits involved
-
-**Behavior**:
-- Run same analysis
-- Generate new message or use existing
-- Execute: `git commit --amend -m "$(cat <<'EOF' ... EOF)"`
-
----
-
-## ERROR HANDLING
-
-### Common Errors
-
-**Error 1: Not a Git Repository**
-```markdown
-❌ **Not a Git Repository**
-
-Current directory is not a git repository.
-
-**Initialize**: `git init`
-**Or navigate**: `cd <git-repo-path>`
-```
-
-**Error 2: No Remote Repository**
-```markdown
-⚠️  **No Remote Repository**
-
-No git remote configured. Commits will be local only.
-
-**Add remote**: `git remote add origin <url>`
-```
-
-**Error 3: Detached HEAD State**
-```markdown
-❌ **Detached HEAD State**
-
-You are not on a branch. Commits may be lost.
-
-**Create branch**: `git checkout -b <branch-name>`
-```
-
-**Error 4: GPG Signing Required but Not Configured**
-```markdown
-❌ **GPG Signing Error**
-
-Repository requires GPG signing but GPG is not configured.
-
-**Configure**: `git config user.signingkey <key-id>`
-**Disable**: `git config commit.gpgsign false`
+Create branch: git checkout -b <branch-name>
 ```
 
 ---
 
-## COMPLETION
+## Implementation Notes
 
-### Success Summary
+1. **Diff Analysis**: Parse `git diff` to identify file types (controllers, models, tests, configs). Look for keywords to determine type.
 
-```markdown
-╭─────────────────────────────────────────────╮
-│ 🎉 COMMIT COMPLETE                          │
-╰─────────────────────────────────────────────╯
+2. **Type Detection Priority**: Use file paths first (test/ = test, docs/ = docs), then changed files (package.json = chore), then diff content keywords.
 
-**Summary**:
-- ✅ Commit created: a3b2c1d
-- ✅ Type: feat
-- ✅ Files changed: 5
-- ✅ Lines: +234, -45
+3. **Message Quality**: Title uses active voice, no period. Description explains "why" not just "what". Bullets are specific and technical.
 
-**Commit Message**:
-feat: Add JWT authentication to user login
+4. **Auto-Amend Safety**: Only amends unpushed commits. Never amends pushed commits. Requires file overlap to prevent unrelated commits from being combined.
 
-**What's Next?**:
-1. Continue development: Make more changes and commit again
-2. Review your changes: `git show` or `git log --stat`
-3. Push to remote: `git push` (or `git push -u origin <branch>` for first push)
-4. Create PR: Use `/schovi:analyze` for PR analysis
-
-Keep up the great work! 🚀
-```
-
----
-
-## IMPLEMENTATION NOTES
-
-**For Claude Code**:
-
-1. **Diff Analysis Intelligence**:
-   - Parse `git diff` to identify file types (controllers, models, tests, configs)
-   - Look for keywords in diff content (class, function, export, import, test, describe)
-   - Count additions vs deletions to gauge change magnitude
-
-2. **Commit Type Detection**:
-   - Use file paths first (test/ = test, docs/ = docs)
-   - Check changed files (package.json = chore)
-   - Parse diff content for semantic keywords
-   - Default to "chore" if uncertain
-
-3. **Message Quality**:
-   - Title: Clear, active voice, no period at end
-   - Description: Context-rich, explains "why" not just "what"
-   - Bullets: Specific, technical, file/function-level details
-   - Avoid vague terms like "update", "change", "modify" without specifics
-
-4. **Validation Strictness**:
-   - BLOCK: main/master commits, merge conflicts
-   - WARN: Branch name mismatch, no remote, GPG issues
-   - ALLOW: Everything else with appropriate messaging
-
-5. **Context Fetching Decision**:
-   - Prefer diff analysis (faster, no external dependencies)
-   - Fetch external context only when:
-     - Diff shows minimal changes (<20 lines)
-     - Changed files are unclear (generic names)
-     - Multiple unrelated changes detected
-     - User explicitly provided Jira/GitHub reference
-
-6. **Integration with Implement**:
-   - When called from implement, expect `--from-implement` flag
-   - Respect phase boundaries (only commit phase-specific changes)
-   - Use provided phase name in commit title
-   - Minimal output (implement will summarize)
-
+5. **Validation Strictness**: Block main/master commits and merge conflicts. Everything else proceeds with appropriate messaging.
