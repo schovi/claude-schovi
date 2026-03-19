@@ -1,7 +1,7 @@
 {
   "name": "schovi",
-  "version": "1.7.0",
-  "description": "Complete workflow automation for software engineering with unified commands: analyze (problem analysis), plan (specification), implement (autonomous execution), commit (structured commits), publish (GitHub PR with auto-push), Jira/GitHub/Datadog integration, intelligent code exploration",
+  "version": "1.12.0",
+  "description": "Workflow automation for software engineering: commit (structured commits), publish (GitHub PR), review, debug, ADR, Jira/GitHub/Datadog auto-detection",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com"

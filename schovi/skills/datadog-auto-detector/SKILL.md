@@ -1,6 +1,7 @@
 ---
 name: datadog-auto-detector
 description: Automatically detects Datadog resource mentions (URLs, service queries, natural language) and intelligently fetches condensed context via datadog-analyzer subagent when needed for the conversation (plugin:schovi@schovi-workflows)
+user-invocable: false
 ---
 
 # Datadog Auto-Detector Skill

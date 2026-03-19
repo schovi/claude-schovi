@@ -1,6 +1,7 @@
 ---
 name: jira-auto-detector
 description: Automatically detects Jira issue mentions (EC-1234, IS-8046, URLs) and intelligently fetches context via jira-analyzer subagent when needed for the conversation
+user-invocable: false
 ---
 
 # Jira Issue Auto-Detector Skill

@@ -1,25 +1,23 @@
 ---
-description: Create structured git commits with automatic analysis
-argument-hint: [context]
-allowed-tools: ["Bash", "Grep", "Read", "Task"]
+name: commit
+description: Create structured git commits with automatic analysis. Use when the user says "/schovi:commit", asks to "commit changes", "commit my work", or wants to create a git commit with auto-detected type and smart amend logic.
+disable-model-invocation: false
 ---
 
 # Git Commit Command
 
-Creates well-structured git commits with conventional format and automatic change analysis.
+Creates well-structured git commits with conventional format and automatic change analysis. Focused purely on curating real changes into clean commits.
 
 **Behavior**:
 - Always auto-stages all changes (`git add .`)
 - Auto-detects commit type from diff
 - Smart auto-amend for unpushed commits touching same files
-- Auto-detects Jira ID from branch name
+- Auto-creates feature branch when on main/master
 
 ## Usage
 
 ```bash
 /schovi:commit              # Auto-analyze diff
-/schovi:commit EC-1234      # Analyze diff + Jira context
-/schovi:commit #123         # Analyze diff + GitHub context
 /schovi:commit "some notes" # Analyze diff + use notes as context
 ```
 
@@ -27,36 +25,13 @@ Creates well-structured git commits with conventional format and automatic chang
 
 # EXECUTION FLOW
 
-## Phase 1: Input Detection & Validation
+## Phase 1: Validation & Branch Setup
 
 ### Step 1.1: Parse Input
 
-Parse single positional argument (or none). Detect input type in this order:
+Optional plain text argument used as additional context for the commit message. No Jira/GitHub fetching (that's handled by `/schovi:publish`).
 
-1. **Jira pattern**: Matches `[A-Z]{2,10}-\d{1,6}` (e.g., EC-1234, PROJ-567)
-2. **GitHub reference**: Matches `#\d+`, `owner/repo#\d+`, or GitHub URL
-3. **Plain text**: Everything else (used as context notes)
-4. **None**: No argument provided
-
-Store: `INPUT_TYPE` (jira|github|text|none) and `INPUT_VALUE`
-
-### Step 1.2: Auto-detect Jira ID from Branch
-
-If no Jira ID from input, extract from branch name:
-
-```bash
-git rev-parse --abbrev-ref HEAD
-```
-
-Extract pattern: `[A-Z]{2,10}-\d{1,6}` from branch name.
-
-Examples:
-- `EC-1234-add-auth` → EC-1234
-- `feature/IS-5678-fix-bug` → IS-5678
-
-Store: `JIRA_ID` (from input or branch, may be empty)
-
-### Step 1.3: Validate Git State
+### Step 1.2: Validate Git State
 
 Run these checks:
 
@@ -72,18 +47,8 @@ git status --porcelain
 ```
 
 **Block if**:
-- On main/master branch
 - Merge conflicts exist
 - No changes to commit (staged, unstaged, or untracked)
-
-**Error Display** (on main/master):
-```
-Cannot commit on main/master branch.
-
-Create a feature branch first:
-  git checkout -b feature/your-feature
-  git checkout -b EC-1234-description
-```
 
 **Error Display** (merge conflicts):
 ```
@@ -103,6 +68,33 @@ Resolve conflicts before committing:
 No changes to commit.
 
 Working directory is clean.
+```
+
+### Step 1.3: Auto-create Branch (if on main/master)
+
+If on main/master, auto-create a feature branch:
+
+```bash
+git rev-parse --abbrev-ref HEAD
+```
+
+If result is `main` or `master`:
+
+1. Analyze the staged changes (peek at `git diff` or `git status --porcelain`) to generate a short branch name
+2. Create and switch to the branch:
+
+```bash
+git checkout -b <generated-branch-name>
+```
+
+**Branch name rules**:
+- Lowercase, kebab-case
+- 2-4 words describing the change
+- Examples: `fix-token-expiration`, `add-user-auth`, `update-dependencies`
+
+**Display**:
+```
+On main branch, creating feature branch: <branch-name>
 ```
 
 ---
@@ -176,31 +168,9 @@ Store: `PRIMARY_CHANGE`, `KEY_CHANGES`
 
 ## Phase 3: Message Generation
 
-### Step 3.1: Fetch External Context (if provided)
+### Step 3.1: Generate Commit Message
 
-**Jira** (`INPUT_TYPE=jira`):
-Spawn jira-analyzer subagent:
-```
-prompt: "Fetch and summarize Jira issue [INPUT_VALUE]"
-subagent_type: "schovi:jira-auto-detector:jira-analyzer"
-description: "Fetching Jira issue"
-```
-
-**GitHub** (`INPUT_TYPE=github`):
-Spawn gh-pr-analyzer subagent:
-```
-prompt: "Fetch and summarize GitHub reference [INPUT_VALUE]"
-subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
-description: "Fetching GitHub context"
-```
-
-**Text** (`INPUT_TYPE=text`):
-Use `INPUT_VALUE` directly as additional context.
-
-**None** (`INPUT_TYPE=none`):
-Skip, use diff analysis only.
-
-### Step 3.2: Generate Commit Message
+Use only the diff analysis and optional plain text context from the user.
 
 **Title** (50-72 chars):
 ```
@@ -214,22 +184,13 @@ Examples:
 
 **Description** (2-3 sentences):
 Explain what changed and why. Use context from:
-- External source (Jira/GitHub/notes) if provided
+- User-provided notes (if any)
 - Diff analysis for technical details
 
 **Bullet Points** (2-5 items):
 List specific changes from `KEY_CHANGES`.
 
-**Related Reference** (if applicable):
-```
-Related to: EC-1234
-```
-or
-```
-Related to: owner/repo#123
-```
-
-### Step 3.3: Assemble Complete Message
+### Step 3.2: Assemble Complete Message
 
 **Format**:
 ```
@@ -240,8 +201,6 @@ Related to: owner/repo#123
 - <Bullet point 1>
 - <Bullet point 2>
 - <Bullet point 3>
-
-Related to: <Reference>
 ```
 
 **Display preview**:
@@ -373,4 +332,4 @@ Create branch: git checkout -b <branch-name>
 
 4. **Auto-Amend Safety**: Only amends unpushed commits. Never amends pushed commits. Requires file overlap to prevent unrelated commits from being combined.
 
-5. **Validation Strictness**: Block main/master commits and merge conflicts. Everything else proceeds with appropriate messaging.
+5. **No External Context**: Commit focuses purely on diff curation. Jira/GitHub context fetching happens in `/schovi:publish`.

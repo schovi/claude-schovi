@@ -1,7 +1,7 @@
 ---
-description: Comprehensive code review with issue detection and improvement suggestions
-argument-hint: [PR/Jira/issue/file] [--quick] [--keep-worktree]
-allowed-tools: ["Task", "Bash", "Read", "Write", "Grep", "Glob", "mcp__jetbrains__*"]
+name: review
+description: Comprehensive code review with issue detection and improvement suggestions. Use when the user says "/schovi:review", asks to "review a PR", "review this code", "code review", or provides a PR URL/number for review. Supports GitHub PRs, Jira tickets, GitHub issues, and local files.
+disable-model-invocation: false
 ---
 
 # Review Command
@@ -19,7 +19,6 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 
 **Flags**:
 - `--quick`: Perform quick review (lighter analysis, faster results)
-- `--keep-worktree`: Don't teardown worktree after review (for follow-up work)
 - Default: Deep review (comprehensive analysis with codebase exploration)
 
 ## Execution Workflow
@@ -67,71 +66,11 @@ Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub is
 
 **Wait for subagent completion before proceeding**.
 
-### Phase 2.5: Worktree Setup & Source Code Access
+### Phase 2.5: Source Code Fetching
 
-**For GitHub PRs, create an isolated worktree to review code without affecting current work**.
+**For GitHub PRs, fetch source code for analysis**.
 
-This phase ensures reviews run in parallel to any other work. The worktree provides a clean checkout of the PR branch.
-
-#### Step 1: Create Worktree (GitHub PRs only)
-
-**Follow lib/worktree.md to create isolated environment**:
-
-1. **Extract PR info from context**:
-   - Branch name: `headRefName` from gh-pr-reviewer
-   - Repository: `owner/repo` from PR URL
-   - PR number: for purpose tracking
-
-2. **Create worktree**:
-```bash
-# Detect project path from current repo
-remote_url=$(git remote get-url origin 2>/dev/null)
-# Parse to org/repo
-
-# Sanitize branch name
-sanitized=$(echo "$branch" | tr '/' '-')
-worktree_path=~/worktrees/$project_path/$sanitized
-
-# Create worktree if it doesn't exist
-if [ ! -d "$worktree_path" ]; then
-  # Ensure bare repo exists
-  if [ ! -d "~/worktrees/$project_path/.bare" ]; then
-    # Find source repo for --reference
-    source_repo=$(find ~/work ~/productboard -maxdepth 2 -name ".git" -exec dirname {} \; 2>/dev/null | while read dir; do
-      if git -C "$dir" remote get-url origin 2>/dev/null | grep -q "$project_path"; then
-        echo "$dir"
-        break
-      fi
-    done)
-
-    if [ -n "$source_repo" ]; then
-      git clone --bare --reference "$source_repo" "$remote_url" ~/worktrees/$project_path/.bare
-    else
-      git clone --bare "$remote_url" ~/worktrees/$project_path/.bare
-    fi
-  fi
-
-  # Create worktree
-  cd ~/worktrees/$project_path/.bare
-  git fetch origin
-  git worktree add ../$sanitized origin/$branch --checkout
-fi
-
-# Update metadata
-# Add entry to .meta.json with purpose "review: PR #123"
-```
-
-3. **Display worktree info**:
-```
-📂 Review worktree created
-   Path: ~/worktrees/org/repo/feature-branch
-   Branch: feature/branch
-   Purpose: review: PR #123
-```
-
-**Store `worktree_path` for use in subsequent phases**.
-
-#### Step 2: Identify Files to Review
+#### Step 1: Identify Files to Review
 
 **Extract file paths from PR context**:
 
@@ -145,16 +84,14 @@ fi
 - Test files related to changes
 - Exclude: package-lock.json, yarn.lock, generated files
 
-#### Step 3: Read Files from Worktree
+#### Step 2: Read Source Files
 
-**All file access uses the worktree path**:
+**Use local filesystem when in the same repo, otherwise fetch via GitHub API**:
 
 ```bash
-# Read files from worktree
-cd $worktree_path
-
-# Use Read tool with worktree-relative paths
-# Example: Read $worktree_path/src/api/controller.ts
+# For local repo - read files directly with Read tool
+# For remote repos - use gh api to fetch file contents
+gh api repos/OWNER/REPO/contents/PATH?ref=BRANCH
 ```
 
 **For deep reviews, also fetch**:
@@ -162,33 +99,11 @@ cd $worktree_path
 - Reverse dependencies (files importing changed files)
 - Test files for changed code
 
-Use Grep/Glob within worktree:
-```bash
-# Find related files in worktree
-cd $worktree_path
-grep -r "import.*from.*{filename}" --include="*.ts"
-```
-
-#### Step 4: Display Access Info
-
-```
-📥 Reviewing code in isolated worktree
-📂 Path: ~/worktrees/org/repo/feature-branch
-📄 Analyzing X files (Y lines changed)
-```
-
 #### For Non-PR Reviews (Jira, files, free-form)
 
-**Skip worktree creation**:
-- Jira/GitHub issues: Read files from current directory or JetBrains MCP
+- Jira/GitHub issues: Read files from current directory
 - File paths: Read directly
 - Free-form: Use current codebase context
-
-#### Error Handling
-
-- **Worktree creation fails**: Fall back to GitHub API fetch
-- **Branch not found**: Report error, suggest checking PR status
-- **Disk space issues**: Report error, suggest cleanup with `/schovi:worktree teardown --all`
 
 ### Phase 3: Review Analysis
 
@@ -240,7 +155,7 @@ grep -r "import.*from.*{filename}" --include="*.ts"
    **Performance**:
    - N+1 query problems (loops with database calls)
    - Memory leaks (event listeners, closures, cache)
-   - Inefficient algorithms (O(n²) when O(n) possible)
+   - Inefficient algorithms (O(n^2) when O(n) possible)
    - Unnecessary re-renders (React/Vue/Angular)
    - Resource handling (file handles, connections, streams)
 
@@ -255,12 +170,6 @@ grep -r "import.*from.*{filename}" --include="*.ts"
    - Coupling between modules (tight vs loose)
    - Cohesion within modules (single responsibility)
    - Separation of concerns (business logic, UI, data)
-
-   **Documentation**:
-   - Code comments for complex logic
-   - JSDoc/docstrings for public APIs
-   - README updates if needed
-   - Inline explanations for non-obvious code
 
 3. **Code-Specific Issue Detection**:
 
@@ -279,7 +188,6 @@ grep -r "import.*from.*{filename}" --include="*.ts"
 
 **Lighter analysis without full source code fetching**:
 
-**Skip Phase 2.5 or fetch minimal files only**:
 - For PRs: Use `gh pr diff` to get code changes without full file fetching
 - Limit to top 3 most important files if fetching
 - No dependency exploration
@@ -303,13 +211,13 @@ grep -r "import.*from.*{filename}" --include="*.ts"
 **Generate comprehensive review output** (no file output, terminal only):
 
 ```markdown
-# 🔍 Code Review: [Input Identifier]
+# Code Review: [Input Identifier]
 
-## 📝 Summary
+## Summary
 
 [2-3 sentence overview of what's being reviewed and overall assessment]
 
-## 🎯 Risk Assessment
+## Risk Assessment
 
 **Risk Level:** [Low / Low-Medium / Medium / Medium-High / High]
 
@@ -320,40 +228,35 @@ grep -r "import.*from.*{filename}" --include="*.ts"
 - [Dependencies: new dependencies, breaking changes, version updates]
 - [Deployment risk: can be deployed independently / requires coordination]
 
-## 🔒 Security Review
+## Security Review
 
 [Security assessment - always include even if no concerns]:
 
 **If concerns found**:
-⚠️ Security concerns identified:
 - [Specific security issue with file:line reference]
 - [Classification: SQL injection, XSS, auth bypass, data leak, etc.]
 - [Impact assessment and recommendation]
 
 **If no concerns**:
-✅ No security concerns identified
 - [Verified: appropriate auth/validation patterns]
 - [Data handling: proper sanitization/escaping]
 - [Access control: correct permissions/authorization]
 
-## ⚡ Performance Impact
+## Performance Impact
 
 [Performance assessment - always include]:
 
 **If concerns found**:
-⚠️ Performance concerns identified:
 - [Specific performance issue with file:line reference]
 - [Classification: N+1 queries, memory leak, inefficient algorithm, etc.]
 - [Expected impact and recommendation]
 
 **If no concerns**:
-✅ No performance concerns
 - [Database queries: optimized / no new queries / properly indexed]
 - [Memory handling: appropriate / no leaks detected]
 - [Algorithm efficiency: acceptable complexity / optimized]
-- [Processing: in-memory / batch processing / streaming where appropriate]
 
-## 🔍 Key Changes/Information
+## Key Changes
 
 [Bullet list where each item has a 2-5 word title and sub-bullets with details]
 
@@ -363,15 +266,12 @@ grep -r "import.*from.*{filename}" --include="*.ts"
 - **Another 2-5 word title**
   - Short detail
   - Short detail
-- **Third change title**
-  - Detail
-  - Detail
 
-## ⚠️ Issues Found
+## Issues Found
 
 [Identified problems, bugs, concerns - organized by priority and severity]
 
-### 🚨 Must Fix
+### Must Fix
 [Critical issues that MUST be addressed before merge]
 
 1. **Issue title** (file:line)
@@ -379,15 +279,15 @@ grep -r "import.*from.*{filename}" --include="*.ts"
    - Why it's critical (impact, risk, blockers)
    - **Action:** Specific fix recommendation
 
-### ⚠️ Should Fix
-[Important issues that SHOULD be addressed, may block merge depending on severity]
+### Should Fix
+[Important issues that SHOULD be addressed]
 
 2. **Issue title** (file:line)
    - Description of the issue
    - Why it's important (technical debt, maintainability, bugs)
    - **Action:** Specific fix recommendation
 
-### 💭 Consider
+### Consider
 [Minor issues or suggestions that can be addressed later]
 
 3. **Issue title** (file:line)
@@ -395,9 +295,9 @@ grep -r "import.*from.*{filename}" --include="*.ts"
    - Optional improvement or nice-to-have
    - **Action:** Suggestion for improvement
 
-[If no issues found: "✅ No significant issues identified"]
+[If no issues found: "No significant issues identified"]
 
-## 💡 Recommendations
+## Recommendations
 
 [2-5 actionable suggestions for improvement, can include code examples]
 
@@ -406,15 +306,9 @@ grep -r "import.*from.*{filename}" --include="*.ts"
    - Expected benefit
    - [Optional: Code example showing before/after]
 
-2. **Recommendation title**
-   - Explanation
-   - Benefit
+## Verdict
 
-[Continue for 2-5 recommendations]
-
-## 🎯 Verdict
-
-**[⚠️ Approve with changes / ✅ Approve / 🚫 Needs work / ❌ Blocked]**
+**[Approve with changes / Approve / Needs work / Blocked]**
 
 [1-2 sentences explaining verdict reasoning]
 
@@ -426,82 +320,50 @@ grep -r "import.*from.*{filename}" --include="*.ts"
 **Estimated Fix Time:** [X minutes/hours for addressing Must Fix + Should Fix items]
 ```
 
-### Phase 5: Worktree Cleanup
-
-**After review is complete, teardown the worktree** (unless `--keep-worktree` flag):
-
-```bash
-# Only for PR reviews with worktree
-if [ -n "$worktree_path" ] && [ "$keep_worktree" != "true" ]; then
-  cd ~/worktrees/$project_path/.bare
-  git worktree remove ../$sanitized --force
-
-  # Update .meta.json to remove entry
-fi
-```
-
-**If `--keep-worktree` flag is set**:
-```
-📂 Worktree kept for follow-up work
-   Path: ~/worktrees/org/repo/feature-branch
-
-   To continue working: cd ~/worktrees/org/repo/feature-branch
-   To remove later: /schovi:worktree teardown feature/branch
-```
-
 ---
 
 ## Quality Gates
 
 **Before presenting review, verify**:
 
-- ✅ Context successfully fetched via subagent
-- ✅ Worktree created for PR reviews (or reused existing)
-- ✅ Source code read from worktree (deep: 10 files, quick: 3 files)
-- ✅ Worktree path displayed to user
-- ✅ Analysis completed on actual source code
-- ✅ Summary section with 2-3 sentence overview
-- ✅ Risk Assessment section with risk level and 2-4 factors
-- ✅ Security Review section present (concerns found OR explicit "no concerns")
-- ✅ Performance Impact section present (concerns found OR explicit "no concerns")
-- ✅ At least 3 key changes/info points identified with specific code references
-- ✅ Issues section organized by priority (Must Fix / Should Fix / Consider)
-- ✅ Each issue includes file:line reference and Action recommendation
-- ✅ 2-5 recommendations provided with benefits
-- ✅ File references use `file:line` format for all code mentions
-- ✅ Verdict section with approval status
-- ✅ Merge Criteria checklist with specific requirements
-- ✅ Worktree cleaned up (unless `--keep-worktree`)
+- Context successfully fetched via subagent
+- Source code fetched (deep: up to 10 files, quick: up to 3 files)
+- Analysis completed on actual source code
+- Summary section with 2-3 sentence overview
+- Risk Assessment section with risk level and 2-4 factors
+- Security Review section present (concerns found OR explicit "no concerns")
+- Performance Impact section present (concerns found OR explicit "no concerns")
+- At least 3 key changes/info points identified with specific code references
+- Issues section organized by priority (Must Fix / Should Fix / Consider)
+- Each issue includes file:line reference and Action recommendation
+- 2-5 recommendations provided with benefits
+- File references use `file:line` format for all code mentions
+- Verdict section with approval status
+- Merge Criteria checklist with specific requirements
 
 ## Important Rules
 
-1. **Worktree Isolation**: PR reviews ALWAYS use isolated worktree (lib/worktree.md)
-2. **No File Output**: This command outputs to terminal ONLY, no file creation
-3. **No Work Folder Integration**: Does not use work folder system (unlike implement/debug)
-4. **Context Isolation**: Always use subagents for external data fetching
-5. **Holistic Assessment**: Always include Risk, Security, and Performance sections (even if no concerns)
-6. **Priority-Based Issues**: Organize issues by priority (Must Fix / Should Fix / Consider), not just severity
-7. **Actionable Feedback**: All issues and recommendations must include specific Action items
-8. **Clear Verdict**: Provide explicit merge decision with criteria checklist and estimated fix time
-9. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
-10. **File References**: Use `file:line` format for all code references
-11. **Cleanup**: Always teardown worktree after review unless `--keep-worktree`
+1. **No File Output**: This command outputs to terminal ONLY, no file creation
+2. **Context Isolation**: Always use subagents for external data fetching
+3. **Holistic Assessment**: Always include Risk, Security, and Performance sections (even if no concerns)
+4. **Priority-Based Issues**: Organize issues by priority (Must Fix / Should Fix / Consider)
+5. **Actionable Feedback**: All issues and recommendations must include specific Action items
+6. **Clear Verdict**: Provide explicit merge decision with criteria checklist and estimated fix time
+7. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
+8. **File References**: Use `file:line` format for all code references
 
 ## Example Usage
 
 ```bash
-# Review GitHub PR (deep) - creates isolated worktree
+# Review GitHub PR (deep)
 /schovi:review https://github.com/owner/repo/pull/123
 /schovi:review owner/repo#123
 /schovi:review #123
 
-# Quick review of PR (still uses worktree, fewer files)
+# Quick review of PR
 /schovi:review #123 --quick
 
-# Keep worktree for follow-up work
-/schovi:review #123 --keep-worktree
-
-# Review Jira ticket (no worktree, uses current codebase)
+# Review Jira ticket
 /schovi:review EC-1234
 
 # Review local file
@@ -511,68 +373,10 @@ fi
 /schovi:review https://github.com/owner/repo/issues/456
 ```
 
-## Execution Instructions
-
-**YOU MUST**:
-
-1. Parse input and classify type correctly
-2. Use appropriate subagent for context fetching (fully qualified names)
-3. Wait for subagent completion before analysis
-4. **For PR reviews - Create isolated worktree** (Phase 2.5):
-   - Follow lib/worktree.md to create worktree
-   - Use PR branch name from context
-   - Purpose: "review: PR #N"
-   - All file access happens in worktree path
-5. Read source files from worktree (up to 10 for deep, 3 for quick)
-6. Analyze **actual source code from worktree**, not just context summaries
-7. For deep review: Explore dependencies within worktree
-8. For quick review: Read top 3 files only
-9. **Generate all required sections**:
-   - Summary (2-3 sentences)
-   - Risk Assessment (risk level + 2-4 factors)
-   - Security Review (concerns OR explicit "no concerns")
-   - Performance Impact (concerns OR explicit "no concerns")
-   - Key Changes (3+ items with file:line)
-   - Issues Found (organized as Must Fix / Should Fix / Consider)
-   - Recommendations (2-5 actionable items)
-   - Verdict (approval status + merge criteria + fix time estimate)
-10. Always perform security analysis on code
-11. Provide specific file:line references
-12. Prioritize issues by urgency (Must/Should/Consider) with Action items
-13. Give 2-5 actionable recommendations
-14. Provide clear verdict with merge criteria checklist
-15. **Teardown worktree after review** (unless `--keep-worktree`)
-16. Output to terminal ONLY (no files)
-
-**YOU MUST NOT**:
-
-1. Create any files or use work folders
-2. Skip context fetching phase (Phase 2)
-3. Skip worktree creation for PR reviews
-4. Proceed without waiting for subagent completion
-5. Review PR without using worktree isolation
-6. Skip Risk Assessment, Security Review, or Performance Impact sections
-7. Give vague suggestions without specific file:line references
-8. Miss security vulnerability analysis
-9. Provide generic feedback without code-level specifics
-10. Skip priority classification for issues
-11. Omit Action items from issues or merge criteria from verdict
-12. Base review solely on PR descriptions without examining code
-13. Leave worktree behind without `--keep-worktree` flag
-
 ## Error Handling
 
 - **Invalid input**: Ask user to clarify or provide valid PR/Jira/file
 - **Context fetch failure**: Report error and suggest checking credentials/permissions
-- **Worktree creation failure**:
-  - Check if bare repo clone failed (network, permissions)
-  - Check if branch exists on remote
-  - Fall back to GitHub API if worktree fails
-  - Suggest: `gh auth login` or check network
-- **Branch not found on remote**: Report error, check PR is still open
-- **Disk space issues**: Suggest cleanup with `/schovi:worktree teardown --all`
-- **Worktree already exists**: Reuse existing worktree, run update first
 - **File too large**: Note in review, focus on changed sections
 - **Empty context**: Report that nothing was found to review
 - **Analysis timeout**: Fall back to quick review and notify user
-- **Teardown failure**: Warn user, suggest manual cleanup

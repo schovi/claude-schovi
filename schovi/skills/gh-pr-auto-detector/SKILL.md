@@ -1,6 +1,7 @@
 ---
 name: gh-pr-auto-detector
 description: Automatically detects GitHub PR mentions (URLs, #123, owner/repo#123) and intelligently fetches condensed context via gh-pr-analyzer subagent when needed for the conversation
+user-invocable: false
 ---
 
 # GitHub PR Auto-Detector Skill

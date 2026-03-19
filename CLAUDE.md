@@ -83,34 +83,33 @@ See `schovi/lib/README.md` for detailed documentation.
 |---------|---------|---------|
 | `/schovi:brainstorm` | Explore 3-5 solution options at conceptual level | [doc/commands/brainstorm.md](doc/commands/brainstorm.md) |
 | `/schovi:research` | Deep technical analysis of ONE specific approach | [doc/commands/research.md](doc/commands/research.md) |
-| `/schovi:debug` | Root cause analysis with fix proposal | [doc/commands/debug.md](doc/commands/debug.md) |
 | `/schovi:plan` | Generate implementation spec from research | [doc/commands/plan.md](doc/commands/plan.md) |
 | `/schovi:implement` | Execute implementation from spec | [doc/commands/implement.md](doc/commands/implement.md) |
-| `/schovi:commit` | Structured git commits with context | [doc/commands/commit.md](doc/commands/commit.md) |
-| `/schovi:publish` | Create/update GitHub PRs | [doc/commands/publish.md](doc/commands/publish.md) |
-| `/schovi:review` | Code review with issue detection | [doc/commands/review.md](doc/commands/review.md) |
-| `/schovi:worktree` | Manage git worktrees for isolated work | [schovi/commands/worktree.md](schovi/commands/worktree.md) |
+| `/schovi:spec` | Product discovery and specification generation | [doc/commands/spec.md](doc/commands/spec.md) |
 
 ## Subagents
 
-| Agent | Purpose | Max Tokens |
-|-------|---------|------------|
-| jira-analyzer | Fetch & summarize Jira issues | 1000 |
-| gh-pr-analyzer | Fetch PRs (compact mode for analysis) | 1200 |
-| gh-pr-reviewer | Fetch PRs (full mode for review) | 15000 |
-| gh-issue-analyzer | Fetch & summarize GitHub issues | 1000 |
-| spec-generator | Transform research into specs | 3000 |
-| brainstorm-executor | Execute brainstorm workflow | 4500 |
-| research-executor | Execute research workflow | 6500 |
-| debug-executor | Execute debug workflow | 2500 |
+All subagent types use **three-part format**: `plugin:parent:agent`. Always use the full identifier when spawning.
+
+| Agent (full subagent_type) | Purpose | Max Tokens |
+|---------------------------|---------|------------|
+| `schovi:jira-auto-detector:jira-analyzer` | Fetch & summarize Jira issues | 1000 |
+| `schovi:gh-pr-auto-detector:gh-pr-analyzer` | Fetch PRs (compact mode for analysis) | 1200 |
+| `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch PRs (full mode for review) | 15000 |
+| `schovi:gh-issue-analyzer:gh-issue-analyzer` | Fetch & summarize GitHub issues | 1000 |
+| `schovi:debug-executor:debug-executor` | Execute debug workflow | 2500 |
 
 ## Skills
 
-| Skill | Pattern | Purpose |
-|-------|---------|---------|
-| jira-auto-detector | `[A-Z]{2,10}-\d{1,6}` (EC-1234) | Auto-fetch Jira context when mentioned |
-| gh-pr-auto-detector | URLs, `owner/repo#123`, `#123` | Auto-fetch PR context when mentioned |
-| datadog-auto-detector | URLs, service queries | Auto-fetch Datadog context when mentioned |
+| Skill | Purpose |
+|-------|---------|
+| commit | Structured git commits with diff analysis |
+| publish | Create/update GitHub PRs with auto-commit |
+| review | Code review with issue detection |
+| debug | Root cause analysis with fix proposal |
+| jira-auto-detector | Auto-fetch Jira context when mentioned |
+| gh-pr-auto-detector | Auto-fetch PR context when mentioned |
+| datadog-auto-detector | Auto-fetch Datadog context when mentioned |
 
 ## Critical Patterns
 
