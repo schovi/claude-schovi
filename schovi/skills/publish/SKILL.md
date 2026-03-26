@@ -11,7 +11,7 @@ Creates or updates GitHub pull requests with automatic description generation.
 **Behavior**:
 - Auto-commits uncommitted changes via `/schovi:commit` before proceeding
 - Always creates draft PRs
-- Always targets `main` branch
+- Always targets the default branch (detected from `origin/HEAD`)
 - Always auto-pushes before creating PR
 - Auto-generates title from Jira ID or content
 
@@ -69,6 +69,9 @@ Store: `JIRA_ID` (from input or branch, may be empty)
 Run these checks:
 
 ```bash
+# Detect default branch from origin/HEAD
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+
 # Get current branch
 git rev-parse --abbrev-ref HEAD
 
@@ -80,7 +83,7 @@ gh auth status
 ```
 
 **Block if**:
-- On main/master branch
+- On default branch (`$DEFAULT_BRANCH`)
 - gh CLI not authenticated
 
 **Auto-commit if uncommitted changes exist**:
@@ -94,9 +97,9 @@ Uncommitted changes detected, committing first...
 
 Then invoke `/schovi:commit` and proceed after it completes.
 
-**Error Display** (on main/master):
+**Error Display** (on default branch):
 ```
-Cannot create PR from main/master branch.
+Cannot create PR from <DEFAULT_BRANCH> branch.
 
 Create a feature branch first:
   git checkout -b feature/your-feature
@@ -160,7 +163,7 @@ Push failed.
 Error: [git error message]
 
 Try:
-  git pull --rebase origin main
+  git pull --rebase origin $DEFAULT_BRANCH
   git push --force-with-lease
 ```
 
@@ -210,10 +213,10 @@ Use `INPUT_VALUE` directly as context.
 Analyze commit history:
 ```bash
 # Commits since divergence
-git log origin/main..HEAD --format="%s%n%b" --reverse
+git log origin/$DEFAULT_BRANCH..HEAD --format="%s%n%b" --reverse
 
 # Changed files
-git diff origin/main..HEAD --stat
+git diff origin/$DEFAULT_BRANCH..HEAD --stat
 ```
 
 ### Step 3.2: Generate Description
@@ -294,7 +297,7 @@ ALWAYS describe what the code DOES NOW, not how it evolved.
 ```bash
 gh pr create --draft \
     --title "[TITLE]" \
-    --base main \
+    --base $DEFAULT_BRANCH \
     --body "$(cat <<'EOF'
 [DESCRIPTION]
 EOF
@@ -317,7 +320,7 @@ EOF
 PR #123 created (draft)
 
 URL: https://github.com/owner/repo/pull/123
-Branch: feature/user-auth → main
+Branch: feature/user-auth → <DEFAULT_BRANCH>
 
 Next steps:
   gh pr edit 123 --add-reviewer @username
@@ -342,13 +345,13 @@ Description regenerated from: [source]
 ```
 No commits to create PR.
 
-Branch has no changes compared to main.
+Branch has no changes compared to default branch.
 Make changes and commit first.
 ```
 
 **Base branch doesn't exist**:
 ```
-Base branch 'main' not found on remote.
+Base branch '<DEFAULT_BRANCH>' not found on remote.
 
 Available branches:
 [list from git branch -r]

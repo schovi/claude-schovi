@@ -12,7 +12,7 @@ Creates well-structured git commits with conventional format and automatic chang
 - Always auto-stages all changes (`git add .`)
 - Auto-detects commit type from diff
 - Smart auto-amend for unpushed commits touching same files
-- Auto-creates feature branch when on main/master
+- Auto-creates feature branch when on default branch (detected from `origin/HEAD`)
 
 ## Usage
 
@@ -70,15 +70,19 @@ No changes to commit.
 Working directory is clean.
 ```
 
-### Step 1.3: Auto-create Branch (if on main/master)
+### Step 1.3: Auto-create Branch (if on default branch)
 
-If on main/master, auto-create a feature branch:
+Detect the default branch and check if we're on it:
 
 ```bash
+# Detect default branch from origin/HEAD
+DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+
+# Get current branch
 git rev-parse --abbrev-ref HEAD
 ```
 
-If result is `main` or `master`:
+If current branch matches `$DEFAULT_BRANCH`:
 
 1. Analyze the staged changes (peek at `git diff` or `git status --porcelain`) to generate a short branch name
 2. Create and switch to the branch:
@@ -94,7 +98,7 @@ git checkout -b <generated-branch-name>
 
 **Display**:
 ```
-On main branch, creating feature branch: <branch-name>
+On default branch (<DEFAULT_BRANCH>), creating feature branch: <branch-name>
 ```
 
 ---
