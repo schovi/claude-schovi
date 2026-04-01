@@ -28,8 +28,8 @@ All external integrations (Jira, GitHub PR, GitHub Issue, Datadog) follow this c
 │                                                                  │
 │  Examples:                                                       │
 │  - jira-auto-detector: Detects EC-1234, IS-8046                │
-│  - gh-pr-auto-detector: Detects URLs, #123, owner/repo#123     │
-│  - datadog-auto-detector: Detects URLs, natural language        │
+│  - review: Detects PR URLs, #123, owner/repo#123               │
+│  - debug: Detects Datadog URLs, natural language (dual-mode)    │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -64,9 +64,7 @@ All external integrations (Jira, GitHub PR, GitHub Issue, Datadog) follow this c
 │                                                                  │
 │  Examples:                                                       │
 │  - jira-analyzer: 10-15k → 800 tokens (75% savings)           │
-│  - gh-pr-analyzer: 20-50k → 1000 tokens (80-95% savings)      │
-│  - gh-pr-reviewer: Full PR data with diff (max 15k tokens)     │
-│  - gh-issue-analyzer: 10-20k → 800 tokens (75-90% savings)    │
+│  - gh-pr-reviewer: 20-50k → 2000-15000 tokens (25-95% savings)│
 │  - datadog-analyzer: 10-50k → 1200 tokens (75-95% savings)    │
 │  - brainstorm-generator: Generate 2-3 options (~3000 tokens)   │
 │  - research-generator: Deep analysis (~6000 tokens)            │
@@ -125,9 +123,7 @@ Main Context                    Isolated Subagent Context
 | Integration | Typical Payload | Summary Size | Savings |
 |-------------|----------------|--------------|---------|
 | Jira | 10-15k tokens | ~800 tokens | **~75%** |
-| GitHub PR (compact) | 20-50k tokens | ~800-1000 tokens | **~80-95%** |
-| GitHub PR (full review) | 20-50k tokens | ~10-15k tokens | **~25-50%** (still includes full diff) |
-| GitHub Issues | 10-20k tokens | ~800 tokens | **~75-90%** |
+| GitHub PR | 20-50k tokens | ~2000-15000 tokens | **~25-95%** (depends on PR size) |
 | Datadog | 10-50k tokens | ~800-1200 tokens | **~75-95%** |
 
 **Result**: Main context stays clean for codebase analysis, with 75-95% token reduction for external data.
@@ -452,9 +448,7 @@ Generates → Structured output following template
 | Component | Token Limit | Purpose |
 |-----------|------------|---------|
 | jira-analyzer | 1,000 | Jira issue summary |
-| gh-pr-analyzer | 1,200 | Compact PR summary |
-| gh-pr-reviewer | 15,000 (normal) / 3,000 (massive) | Full PR with diff |
-| gh-issue-analyzer | 1,000 | GitHub issue summary |
+| gh-pr-reviewer | 15,000 (normal) / 3,000 (massive) | PR summary with diff |
 | datadog-analyzer | 1,500 | Observability data summary |
 | brainstorm-generator | 3,500 | 2-3 solution options |
 | research-generator | 6,500 | Deep technical analysis |
@@ -480,13 +474,11 @@ schovi/
 │   └── review.md
 ├── skills/                      # Tier 1: Auto-detection layer
 │   ├── jira-auto-detector/
-│   ├── gh-pr-auto-detector/
-│   └── datadog-auto-detector/
+│   ├── review/
+│   └── debug/
 ├── agents/                      # Tier 3: Execution layer
 │   ├── jira-analyzer/
-│   ├── gh-pr-analyzer/
 │   ├── gh-pr-reviewer/
-│   ├── gh-issue-analyzer/
 │   ├── datadog-analyzer/
 │   ├── brainstorm-generator/
 │   ├── research-generator/

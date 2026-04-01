@@ -21,8 +21,8 @@ Provide comprehensive debugging for production issues with:
 ## Input Sources
 
 - Jira issues (via `jira-analyzer` subagent)
-- GitHub issues (via `gh-issue-analyzer` subagent)
-- GitHub PRs (via `gh-pr-analyzer` subagent)
+- GitHub issues (via `gh-pr-reviewer` subagent)
+- GitHub PRs (via `gh-pr-reviewer` subagent)
 - Datadog traces (via `datadog-analyzer` subagent when available)
 - Error messages, stack traces, logs (parsed directly)
 - Free-form problem descriptions
@@ -38,8 +38,7 @@ Provide comprehensive debugging for production issues with:
 
 ### Calls
 - `jira-analyzer` agent (for Jira input)
-- `gh-issue-analyzer` agent (for GitHub issue input)
-- `gh-pr-analyzer` agent (for GitHub PR input)
+- `gh-pr-reviewer` agent (for GitHub issue/PR input)
 - `datadog-analyzer` agent (for Datadog input)
 - `debug-fix-generator` agent (for generating fix proposal)
 - Explore subagent (via Task tool for debugging)

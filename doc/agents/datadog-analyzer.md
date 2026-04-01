@@ -38,8 +38,7 @@ Fetch Datadog observability data and condense to ~800-1200 token summary with:
 ## Dependencies
 
 ### Called By
-- `datadog-auto-detector` skill
-- `/schovi:debug` command (optional)
+- `/schovi:debug` skill/command (explicit debug + Datadog auto-detection)
 
 ### Calls
 - Datadog MCP tools only (no subagents)
@@ -56,7 +55,7 @@ Invoked via Task tool with fully qualified name:
 
 ```
 Task tool:
-  subagent_type: "schovi:datadog-auto-detector:datadog-analyzer"
+  subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
   prompt: "Fetch and summarize Datadog data: [query/URL]"
   description: "Fetching Datadog observability data"
 ```

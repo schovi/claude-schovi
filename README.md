@@ -25,7 +25,7 @@ User-invoked workflows for software engineering tasks.
 Explore 2-3 distinct solution options with broad feasibility analysis.
 
 **Dependencies:**
-- Calls: `jira-analyzer`, `gh-issue-analyzer`, `gh-pr-analyzer`, `brainstorm-generator`, Plan subagent
+- Calls: `jira-analyzer`, `gh-pr-reviewer`, `brainstorm-generator`, Plan subagent
 - Libraries: `argument-parser`, `input-processing`, `work-folder`
 
 **Example:** `/schovi:brainstorm EC-1234`
@@ -36,7 +36,7 @@ Explore 2-3 distinct solution options with broad feasibility analysis.
 Deep technical analysis of ONE specific approach with detailed file:line references.
 
 **Dependencies:**
-- Calls: `jira-analyzer`, `gh-issue-analyzer`, `gh-pr-analyzer`, `research-generator`, Plan subagent
+- Calls: `jira-analyzer`, `gh-pr-reviewer`, `research-generator`, Plan subagent
 - Libraries: `argument-parser`, `input-processing`, `work-folder`
 
 **Example:** `/schovi:research --input brainstorm-EC-1234.md --option 2`
@@ -55,10 +55,10 @@ Generate implementation specifications from research analysis (enforces research
 ---
 
 ### [`/schovi:debug`](doc/commands/debug.md)
-Deep debugging workflow with root cause analysis and single fix proposal.
+Deep debugging workflow with root cause analysis and single fix proposal. Includes Datadog auto-detection for observability context.
 
 **Dependencies:**
-- Calls: `jira-analyzer`, `gh-issue-analyzer`, `gh-pr-analyzer`, `datadog-analyzer`, `debug-fix-generator`, Explore subagent
+- Calls: `jira-analyzer`, `gh-pr-reviewer`, `datadog-analyzer`, `debug-fix-generator`, Explore subagent
 - Libraries: `argument-parser`, `input-processing`, `work-folder`
 
 **Example:** `/schovi:debug EC-1234`
@@ -80,7 +80,7 @@ Autonomous implementation execution with validation and phase-based commits.
 Create structured git commits with validation, smart analysis, and conventional format.
 
 **Dependencies:**
-- Calls: `jira-analyzer` (optional), `gh-issue-analyzer` (optional), `gh-pr-analyzer` (optional)
+- Calls: `jira-analyzer` (optional), `gh-pr-reviewer` (optional)
 - Libraries: `argument-parser`
 - Called by: `/schovi:implement`
 
@@ -100,13 +100,13 @@ Create or update GitHub pull requests with automated branch pushing and smart de
 ---
 
 ### [`/schovi:review`](doc/commands/review.md)
-Comprehensive code review with issue detection and improvement suggestions.
+Comprehensive code review + automatic GitHub PR context detection. Two modes: explicit `/review` for structured review, auto-detection for casual PR mentions.
 
 **Dependencies:**
-- Calls: `gh-pr-reviewer`, `jira-analyzer`, `gh-issue-analyzer`, Explore subagent (optional)
+- Calls: `gh-pr-reviewer`, `jira-analyzer`, Explore subagent (optional)
 - Libraries: `code-fetcher`
 
-**Example:** `/schovi:review #123`
+**Example:** `/schovi:review #123` or just mention `#123` in conversation
 
 ---
 
@@ -129,36 +129,14 @@ Fetch and summarize Jira issues (10-15k → 800 tokens, 75% savings).
 
 ---
 
-#### [`gh-pr-analyzer`](doc/agents/gh-pr-analyzer.md)
-Fetch and summarize GitHub PRs in compact mode (20-50k → 1000 tokens, 80-95% savings).
-
-**Dependencies:**
-- Called by: `gh-pr-auto-detector`, commands (brainstorm, research, debug, plan)
-- Uses: `gh` CLI
-
-**Example:** Spawned via `schovi:gh-pr-auto-detector:gh-pr-analyzer` when #123 detected
-
----
-
 #### [`gh-pr-reviewer`](doc/agents/gh-pr-reviewer.md)
-Fetch comprehensive GitHub PR data with full diff for code review (max 15k tokens).
+Fetch and summarize GitHub PRs with comprehensive data (max 15k tokens).
 
 **Dependencies:**
-- Called by: `/schovi:review` command only
+- Called by: All commands and skills that need GitHub PR/issue context
 - Uses: `gh` CLI, GitHub API
 
-**Example:** Spawned via `schovi:gh-pr-auto-detector:gh-pr-reviewer` for review
-
----
-
-#### [`gh-issue-analyzer`](doc/agents/gh-issue-analyzer.md)
-Fetch and summarize GitHub issues (10-20k → 800 tokens, 75-90% savings).
-
-**Dependencies:**
-- Called by: `gh-pr-auto-detector`, commands (brainstorm, research, debug, review)
-- Uses: `gh` CLI
-
-**Example:** Spawned when GitHub issue URL detected
+**Example:** Spawned via `schovi:gh-pr-reviewer:gh-pr-reviewer` when #123 detected
 
 ---
 
@@ -166,7 +144,7 @@ Fetch and summarize GitHub issues (10-20k → 800 tokens, 75-90% savings).
 Fetch and summarize Datadog observability data (10-50k → 1200 tokens, 75-95% savings).
 
 **Dependencies:**
-- Called by: `datadog-auto-detector`, `/schovi:debug` command
+- Called by: `/schovi:debug` skill/command
 - Uses: `mcp__datadog-mcp__*` tools
 
 **Example:** Spawned when Datadog URL or observability query detected
@@ -235,26 +213,6 @@ Automatically detect Jira issue mentions (EC-1234, IS-8046) and intelligently fe
 
 ---
 
-### [`gh-pr-auto-detector`](doc/skills/gh-pr-auto-detector.md)
-Automatically detect GitHub PR/issue mentions (URLs, #123, owner/repo#123) and fetch context.
-
-**Dependencies:**
-- Calls: `gh-pr-analyzer`, `gh-issue-analyzer`, `gh-pr-reviewer` agents
-
-**Example:** User mentions "#123" → Auto-fetches PR context
-
----
-
-### [`datadog-auto-detector`](doc/skills/datadog-auto-detector.md)
-Automatically detect Datadog URLs and observability queries and fetch context.
-
-**Dependencies:**
-- Calls: `datadog-analyzer` agent
-
-**Example:** User asks "What's the error rate?" → Auto-fetches Datadog metrics
-
----
-
 ## Libraries
 
 Shared code libraries that eliminate duplication across commands (77% code reduction).
@@ -276,7 +234,7 @@ Unified context fetching from external sources (~200 lines, saves ~150-200 lines
 - Called by: All commands with external input
 - Calls: Analyzer agents (jira, gh-pr, gh-issue, datadog)
 
-**Example:** Routes EC-1234 → jira-analyzer, #123 → gh-pr-analyzer
+**Example:** Routes EC-1234 → jira-analyzer, #123 → gh-pr-reviewer
 
 ---
 
@@ -466,18 +424,14 @@ Consistent architecture for all external integrations:
 │   │   └── review.md
 │   ├── agents/                        # Agent documentation
 │   │   ├── jira-analyzer.md
-│   │   ├── gh-pr-analyzer.md
 │   │   ├── gh-pr-reviewer.md
-│   │   ├── gh-issue-analyzer.md
 │   │   ├── datadog-analyzer.md
 │   │   ├── brainstorm-generator.md
 │   │   ├── research-generator.md
 │   │   ├── spec-generator.md
 │   │   └── debug-fix-generator.md
 │   ├── skills/                        # Skill documentation
-│   │   ├── jira-auto-detector.md
-│   │   ├── gh-pr-auto-detector.md
-│   │   └── datadog-auto-detector.md
+│   │   └── jira-auto-detector.md
 │   └── libraries/                     # Library documentation
 │       ├── argument-parser.md
 │       ├── input-processing.md

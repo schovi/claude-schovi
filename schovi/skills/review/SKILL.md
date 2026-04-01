@@ -1,382 +1,264 @@
 ---
 name: review
-description: Comprehensive code review with issue detection and improvement suggestions. Use when the user says "/schovi:review", asks to "review a PR", "review this code", "code review", or provides a PR URL/number for review. Supports GitHub PRs, Jira tickets, GitHub issues, and local files.
+description: "Code review and GitHub PR context. Two modes: (1) Explicit /schovi:review for structured code review of PRs, Jira tickets, or local files. (2) Auto-detection: when user mentions GitHub PRs (URLs, #123, owner/repo#123, 'PR #123') and needs context (asking questions, checking CI, requesting review), automatically fetches PR summary via gh-pr-reviewer subagent. Skips auto-fetch for past tense mentions, passive listings, or already-fetched PRs."
 disable-model-invocation: false
+user-invocable: true
 ---
 
-# Review Command
+# Review Skill
 
-Perform comprehensive code review focused on GitHub PRs, Jira tickets, GitHub issues, or documents. Provides summary, key analysis, potential issues, and improvement suggestions.
+Unified skill for GitHub PR context fetching and structured code review.
 
-## Command Arguments
+## Two Modes
+
+### Mode 1: Explicit Review (`/review <arg>`)
+
+Full structured code review with Risk, Security, Performance, Issues, and Verdict sections.
+
+### Mode 2: Auto-Detection (PR mentions in conversation)
+
+When user mentions a PR and needs context, fetch PR summary and integrate into response. No formal review output, just natural context integration.
+
+---
+
+## Mode Selection
+
+**Explicit review** when:
+- User invokes `/schovi:review <arg>`
+- User says "review this PR", "review #123", "code review"
+
+**Auto-detection** when:
+- User asks about a PR: "What is #123 about?", "What's in owner/repo#456?"
+- User checks status: "Did CI pass on #123?", "Is #456 approved?"
+- User needs context: "Apply changes from #123", "Why did #123 fail?"
+- User compares: "Compare #123 and #456"
+
+**Skip auto-detection** when:
+- Past tense: "I merged #123 yesterday", "Fixed in #456"
+- Passive listing: "Released with #123, #124, #125"
+- Technical identifier: "The PR-123 endpoint", "Variable pr_456_result"
+- Already fetched this session (check transcript for previous gh-pr-reviewer calls)
+
+---
+
+## PR Pattern Recognition
+
+Detect these patterns in user messages:
+
+- **Full URL**: `https://github.com/owner/repo/pull/123`
+- **Short form**: `owner/repo#123`
+- **Hash-only**: `#123` (resolve repo from `git remote get-url origin`)
+- **Explicit**: "PR #123", "pull request 123"
+
+**Repository resolution for #number only:**
+1. Check conversation history for previous repo context
+2. Check cwd: `git remote get-url origin` → parse owner/repo
+3. If neither works, ask user to clarify
+
+---
+
+## Mode 2: Auto-Detection Workflow
+
+### Step 1: Detect & Evaluate
+
+Scan message for PR patterns. For each match, evaluate whether context is genuinely needed (see selection rules above).
+
+### Step 2: Fetch PR Context
+
+Spawn gh-pr-reviewer subagent:
+
+```
+Tool: Agent
+Parameters:
+  subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
+  prompt: "Fetch and summarize GitHub PR: [owner/repo#number or URL]"
+  description: "Fetching GitHub PR context"
+```
+
+### Step 3: Integrate Naturally
+
+Use the summary to answer the user's question. Don't regurgitate the full summary, extract the relevant parts.
+
+**Multiple PRs:** Fetch max 3 per response. Launch in parallel when independent.
+
+**Session memory:** Don't re-fetch PRs already fetched in this conversation. Reuse previous context. Re-fetch only if user explicitly requests fresh data or needs different aspects.
+
+---
+
+## Mode 1: Explicit Review Workflow
+
+### Phase 1: Input Parsing & Classification
 
 **Input Types**:
 - GitHub PR: URL, `owner/repo#123`, or `#123`
 - Jira ID: `EC-1234`, `IS-8046`, etc.
-- GitHub Issue: URL or `owner/repo#123`
 - File path: `./path/to/file.md` or absolute path
-- Free-form: Description text
+- `this branch` / no arg: local diff review against base branch
+- Free-form: description text
 
 **Flags**:
-- `--quick`: Perform quick review (lighter analysis, faster results)
-- Default: Deep review (comprehensive analysis with codebase exploration)
-
-## Execution Workflow
-
-### Phase 1: Input Parsing & Classification
-
-1. **Parse Arguments**: Extract input and flags from command line
-2. **Classify Input Type**:
-   - GitHub PR: Contains "github.com/.../pull/", "owner/repo#", or "#\d+"
-   - Jira ID: Matches `[A-Z]{2,10}-\d{1,6}`
-   - GitHub Issue: Contains "github.com/.../issues/" or "owner/repo#" (not PR)
-   - File path: Starts with `.` or `/`, file exists
-   - Free-form: Everything else
-
-3. **Extract Review Mode**:
-   - `--quick` flag present → Quick review
-   - Default → Deep review
+- `--quick`: Lighter analysis, faster results
+- Default: Deep review
 
 ### Phase 2: Context Fetching
 
-**Fetch context based on input type using appropriate subagent**:
+**GitHub PR**:
+- Spawn `schovi:gh-pr-reviewer:gh-pr-reviewer` via Agent tool
+- Returns all changed files with stats, diff, reviews, CI checks
 
-1. **GitHub PR**:
-   - Use Task tool with subagent_type: `schovi:gh-pr-reviewer:gh-pr-reviewer`
-   - Prompt: "Fetch and summarize GitHub PR [input]"
-   - Description: "Fetching GitHub PR review data"
-   - **Important**: gh-pr-reviewer returns ALL changed files with stats and PR head SHA for code fetching
+**Jira Issue**:
+- Spawn `schovi:jira-auto-detector:jira-analyzer` via Agent tool
 
-2. **Jira Issue**:
-   - Use Task tool with subagent_type: `schovi:jira-auto-detector:jira-analyzer`
-   - Prompt: "Fetch and summarize Jira issue [input]"
-   - Description: "Fetching Jira issue summary"
+**Local branch** (`this branch` or no arg):
+- Run `git diff` against base branch
+- List changed files
 
-3. **GitHub Issue**:
-   - Use Task tool with subagent_type: `schovi:gh-issue-analyzer:gh-issue-analyzer`
-   - Prompt: "Fetch and summarize GitHub issue [input]"
-   - Description: "Fetching GitHub issue summary"
+**File Path**:
+- Read file directly
 
-4. **File Path**:
-   - Use Read tool to read file contents
-   - Store as context for review
+### Phase 2.5: Source Code Fetching (PRs only)
 
-5. **Free-form**:
-   - Use provided text as context directly
-
-**Wait for subagent completion before proceeding**.
-
-### Phase 2.5: Source Code Fetching
-
-**For GitHub PRs, fetch source code for analysis**.
-
-#### Step 1: Identify Files to Review
-
-**Extract file paths from PR context**:
-
-- gh-pr-reviewer returns **ALL changed files** with stats
-- Files include: additions, deletions, total changes, status
-- Files are sorted by changes (descending)
-
-**Prioritize files** (up to 10 for deep review, 3 for quick):
+**Prioritize files** (up to 10 for deep, 3 for quick):
 - Top files by total changes
-- Core logic files (controllers, services, models) over config/docs
-- Test files related to changes
-- Exclude: package-lock.json, yarn.lock, generated files
+- Core logic files over config/docs
+- Related test files
+- Exclude: lock files, generated files
 
-#### Step 2: Read Source Files
+**Fetch strategy:**
+- Local filesystem when in same repo (preferred)
+- GitHub API for remote repos: `gh api repos/OWNER/REPO/contents/PATH?ref=BRANCH`
 
-**Use local filesystem when in the same repo, otherwise fetch via GitHub API**:
-
-```bash
-# For local repo - read files directly with Read tool
-# For remote repos - use gh api to fetch file contents
-gh api repos/OWNER/REPO/contents/PATH?ref=BRANCH
-```
-
-**For deep reviews, also fetch**:
-- Related dependencies (imports/requires)
+**Deep review also fetches:**
+- Related dependencies (imports)
 - Reverse dependencies (files importing changed files)
-- Test files for changed code
-
-#### For Non-PR Reviews (Jira, files, free-form)
-
-- Jira/GitHub issues: Read files from current directory
-- File paths: Read directly
-- Free-form: Use current codebase context
 
 ### Phase 3: Review Analysis
 
 #### Deep Review (Default)
 
-**Comprehensive analysis using fetched source code**:
+**Direct code analysis on fetched files:**
+- Review changed sections with full file context
+- Cross-reference between related files
+- Verify imports/exports
 
-1. **Direct Code Analysis** (using Phase 2.5 fetched files):
+**Multi-dimensional analysis:**
 
-   **Analyze fetched source files directly**:
-   - Review each fetched file for code quality, patterns, and issues
-   - Focus on changed sections but consider full file context
-   - Cross-reference between related files
-   - Verify imports/exports are correct
-   - Check for unused code or imports
+- **Functionality**: Edge cases, error handling, return values
+- **Code Quality**: Readability, DRY, single responsibility, complexity
+- **Security** (CRITICAL): SQL injection, XSS, auth issues, data leaks, input validation, CSRF
+- **Performance**: N+1 queries, memory leaks, inefficient algorithms, unnecessary re-renders
+- **Testing**: Coverage for changed code, missing scenarios, test quality
+- **Architecture**: Design patterns, coupling, cohesion, separation of concerns
 
-   **Use Explore subagent for additional context** (if needed):
-   - Use Task tool with subagent_type: `Explore`
-   - Set thoroughness: `medium` (since we already have main files)
-   - Prompt: "Explore additional context for the review:
-     - Find additional related files not yet fetched
-     - Locate integration points and dependencies
-     - Search for similar patterns in codebase
-     - Context: [fetched code summary + file list]"
-   - Description: "Exploring additional codebase context"
+**Common issue scan:**
+- TODO/FIXME comments, console.log in production, commented-out code
+- Hardcoded values, magic numbers, inconsistent naming
+- Missing error handling in async code, race conditions, resource leaks
 
-2. **Multi-dimensional Analysis** (on fetched code):
+#### Quick Review (--quick)
 
-   **Functionality**:
-   - Does implementation match requirements from context?
-   - Are edge cases handled (null checks, empty arrays, boundary conditions)?
-   - Is error handling comprehensive?
-   - Are return values consistent?
-
-   **Code Quality**:
-   - Readability: Clear variable names, function names, code organization
-   - Maintainability: DRY principle, single responsibility, modularity
-   - Patterns: Appropriate design patterns, consistent style
-   - Complexity: Cyclomatic complexity, nesting depth
-
-   **Security** (CRITICAL):
-   - SQL injection risks (raw queries, string concatenation)
-   - XSS vulnerabilities (unescaped output, innerHTML usage)
-   - Authentication/Authorization issues (missing checks, hardcoded credentials)
-   - Data leaks (logging sensitive data, exposing internal details)
-   - Input validation (user input sanitization, type checking)
-   - CSRF protection (state-changing operations)
-
-   **Performance**:
-   - N+1 query problems (loops with database calls)
-   - Memory leaks (event listeners, closures, cache)
-   - Inefficient algorithms (O(n^2) when O(n) possible)
-   - Unnecessary re-renders (React/Vue/Angular)
-   - Resource handling (file handles, connections, streams)
-
-   **Testing**:
-   - Test coverage for changed code
-   - Test quality (unit vs integration, assertions)
-   - Missing test scenarios (edge cases, error paths)
-   - Test maintainability (mocks, fixtures)
-
-   **Architecture**:
-   - Design patterns appropriate for use case
-   - Coupling between modules (tight vs loose)
-   - Cohesion within modules (single responsibility)
-   - Separation of concerns (business logic, UI, data)
-
-3. **Code-Specific Issue Detection**:
-
-   **Scan fetched code for common issues**:
-   - TODO/FIXME comments left in code
-   - Console.log/debug statements in production code
-   - Commented-out code blocks
-   - Hardcoded values that should be constants/config
-   - Magic numbers without explanation
-   - Inconsistent naming conventions
-   - Missing error handling in async code
-   - Race conditions in concurrent code
-   - Resource leaks (unclosed files, connections)
-
-#### Quick Review (--quick flag)
-
-**Lighter analysis without full source code fetching**:
-
-- For PRs: Use `gh pr diff` to get code changes without full file fetching
-- Limit to top 3 most important files if fetching
+- Use diff only, limit to 3 most important files
 - No dependency exploration
-- No related file fetching
-
-1. **Context-based Analysis**:
-   - Review fetched context summary and diffs
-   - Limited file exploration (max 3 files)
-   - Focus on obvious issues and high-level patterns
-   - Fast turnaround (30-60 seconds)
-
-2. **Focus Areas**:
-   - Summary of changes/content
-   - Obvious code quality issues from diff
-   - Critical security concerns (if visible in diff)
-   - High-level improvement suggestions
-   - Surface-level pattern detection
+- Focus on obvious issues and high-level patterns
 
 ### Phase 4: Structured Output
 
-**Generate comprehensive review output** (no file output, terminal only):
+Terminal only, no file creation.
 
 ```markdown
 # Code Review: [Input Identifier]
 
 ## Summary
 
-[2-3 sentence overview of what's being reviewed and overall assessment]
+[2-3 sentence overview and overall assessment]
 
 ## Risk Assessment
 
 **Risk Level:** [Low / Low-Medium / Medium / Medium-High / High]
 
-[2-4 bullet points explaining risk factors]:
-- [Technical risk factors: complexity, scope, affected systems]
-- [Test coverage status: comprehensive/partial/missing]
-- [Data/schema changes: yes/no and impact]
-- [Dependencies: new dependencies, breaking changes, version updates]
-- [Deployment risk: can be deployed independently / requires coordination]
+- [Technical risk factors]
+- [Test coverage status]
+- [Data/schema changes]
+- [Dependencies / deployment risk]
 
 ## Security Review
 
-[Security assessment - always include even if no concerns]:
+[Security assessment, always include even if no concerns]
 
-**If concerns found**:
-- [Specific security issue with file:line reference]
-- [Classification: SQL injection, XSS, auth bypass, data leak, etc.]
-- [Impact assessment and recommendation]
-
-**If no concerns**:
-- [Verified: appropriate auth/validation patterns]
-- [Data handling: proper sanitization/escaping]
-- [Access control: correct permissions/authorization]
+**If concerns:** Specific issue with file:line, classification, impact, recommendation
+**If none:** Verified auth/validation patterns, proper sanitization, correct permissions
 
 ## Performance Impact
 
-[Performance assessment - always include]:
+[Performance assessment, always include]
 
-**If concerns found**:
-- [Specific performance issue with file:line reference]
-- [Classification: N+1 queries, memory leak, inefficient algorithm, etc.]
-- [Expected impact and recommendation]
-
-**If no concerns**:
-- [Database queries: optimized / no new queries / properly indexed]
-- [Memory handling: appropriate / no leaks detected]
-- [Algorithm efficiency: acceptable complexity / optimized]
+**If concerns:** Specific issue with file:line, classification, expected impact
+**If none:** Queries optimized, no leaks, acceptable complexity
 
 ## Key Changes
 
-[Bullet list where each item has a 2-5 word title and sub-bullets with details]
-
 - **2-5 word title**
-  - Short detail with file:line reference
-  - Short detail with file:line reference
-- **Another 2-5 word title**
-  - Short detail
-  - Short detail
+  - Detail with file:line reference
+- **Another title**
+  - Detail with file:line reference
 
 ## Issues Found
 
-[Identified problems, bugs, concerns - organized by priority and severity]
-
 ### Must Fix
-[Critical issues that MUST be addressed before merge]
+[Critical issues that block merge]
 
 1. **Issue title** (file:line)
-   - Description of the issue with code evidence
-   - Why it's critical (impact, risk, blockers)
-   - **Action:** Specific fix recommendation
+   - Description with code evidence
+   - Why it's critical
+   - **Action:** Specific fix
 
 ### Should Fix
-[Important issues that SHOULD be addressed]
-
-2. **Issue title** (file:line)
-   - Description of the issue
-   - Why it's important (technical debt, maintainability, bugs)
-   - **Action:** Specific fix recommendation
+[Important but not blocking]
 
 ### Consider
-[Minor issues or suggestions that can be addressed later]
-
-3. **Issue title** (file:line)
-   - Description of the concern
-   - Optional improvement or nice-to-have
-   - **Action:** Suggestion for improvement
-
-[If no issues found: "No significant issues identified"]
+[Minor suggestions for later]
 
 ## Recommendations
 
-[2-5 actionable suggestions for improvement, can include code examples]
-
-1. **Recommendation title** (file:line if applicable)
-   - Explanation of improvement
-   - Expected benefit
-   - [Optional: Code example showing before/after]
+1. **Title** (file:line if applicable)
+   - Explanation and expected benefit
 
 ## Verdict
 
-**[Approve with changes / Approve / Needs work / Blocked]**
+**[Approve / Approve with changes / Needs work / Blocked]**
 
-[1-2 sentences explaining verdict reasoning]
+[1-2 sentences reasoning]
 
 **Merge Criteria:**
-- [ ] [Specific requirement from Must Fix items]
-- [ ] [Specific requirement from Should Fix items]
-- [ ] [Optional: Additional verification or testing needed]
-
-**Estimated Fix Time:** [X minutes/hours for addressing Must Fix + Should Fix items]
+- [ ] [From Must Fix items]
+- [ ] [From Should Fix items]
 ```
 
 ---
 
-## Quality Gates
+## Error Handling
 
-**Before presenting review, verify**:
-
-- Context successfully fetched via subagent
-- Source code fetched (deep: up to 10 files, quick: up to 3 files)
-- Analysis completed on actual source code
-- Summary section with 2-3 sentence overview
-- Risk Assessment section with risk level and 2-4 factors
-- Security Review section present (concerns found OR explicit "no concerns")
-- Performance Impact section present (concerns found OR explicit "no concerns")
-- At least 3 key changes/info points identified with specific code references
-- Issues section organized by priority (Must Fix / Should Fix / Consider)
-- Each issue includes file:line reference and Action recommendation
-- 2-5 recommendations provided with benefits
-- File references use `file:line` format for all code mentions
-- Verdict section with approval status
-- Merge Criteria checklist with specific requirements
-
-## Important Rules
-
-1. **No File Output**: This command outputs to terminal ONLY, no file creation
-2. **Context Isolation**: Always use subagents for external data fetching
-3. **Holistic Assessment**: Always include Risk, Security, and Performance sections (even if no concerns)
-4. **Priority-Based Issues**: Organize issues by priority (Must Fix / Should Fix / Consider)
-5. **Actionable Feedback**: All issues and recommendations must include specific Action items
-6. **Clear Verdict**: Provide explicit merge decision with criteria checklist and estimated fix time
-7. **Security Focus**: Always check for common vulnerabilities (injection, XSS, auth issues, data leaks)
-8. **File References**: Use `file:line` format for all code references
+- **PR not found**: Report error, suggest checking PR number and repository
+- **Auth failure**: Suggest `gh auth login`
+- **Missing repo context**: Ask user to specify as `owner/repo#123`
+- **Fetch timeout**: Fall back to quick review, notify user
+- **Empty context**: Report nothing found to review
 
 ## Example Usage
 
 ```bash
-# Review GitHub PR (deep)
+# Explicit review
 /schovi:review https://github.com/owner/repo/pull/123
 /schovi:review owner/repo#123
 /schovi:review #123
-
-# Quick review of PR
 /schovi:review #123 --quick
-
-# Review Jira ticket
 /schovi:review EC-1234
+/schovi:review ./spec.md
+/schovi:review this branch
 
-# Review local file
-/schovi:review ./spec-EC-1234.md
-
-# Review GitHub issue
-/schovi:review https://github.com/owner/repo/issues/456
+# Auto-detection (no /review needed)
+"What is #123 about?"          → fetches PR context
+"Did CI pass on #456?"         → fetches CI status
+"Compare #123 and #456"        → fetches both PRs
+"I merged #123 yesterday"      → skips (past tense)
 ```
-
-## Error Handling
-
-- **Invalid input**: Ask user to clarify or provide valid PR/Jira/file
-- **Context fetch failure**: Report error and suggest checking credentials/permissions
-- **File too large**: Note in review, focus on changed sections
-- **Empty context**: Report that nothing was found to review
-- **Analysis timeout**: Fall back to quick review and notify user

@@ -8,7 +8,7 @@ Unified context fetching library for external data sources. Provides consistent 
 
 Eliminate input fetching duplication by providing:
 - Unified fetching from Jira, GitHub PR, GitHub issue, Datadog
-- Automatic subagent selection (jira-analyzer, gh-pr-analyzer, etc.)
+- Automatic subagent selection (jira-analyzer, gh-pr-reviewer, etc.)
 - Context isolation (all fetching via subagents)
 - Standardized output format
 - Error handling
@@ -44,9 +44,7 @@ Use lib/input-processing.md with configuration:
 | Input Type | Subagent | Token Limit | Usage |
 |------------|---------|------------|-------|
 | Jira ID | jira-analyzer | 1000 | All commands |
-| GitHub PR | gh-pr-analyzer | 1200 | Brainstorm, research, debug, plan |
-| GitHub PR (review) | gh-pr-reviewer | 15000 | Review command only |
-| GitHub Issue | gh-issue-analyzer | 1000 | All commands |
+| GitHub PR | gh-pr-reviewer | 15000 | All commands |
 | Datadog URL | datadog-analyzer | 1500 | Debug command |
 | File | Read tool | N/A | Direct read |
 | Text | None | N/A | Pass through |
@@ -58,9 +56,7 @@ Use lib/input-processing.md with configuration:
 
 ### Calls
 - `jira-analyzer` agent (via Task tool)
-- `gh-pr-analyzer` agent (via Task tool)
 - `gh-pr-reviewer` agent (via Task tool)
-- `gh-issue-analyzer` agent (via Task tool)
 - `datadog-analyzer` agent (via Task tool)
 - Read tool (for files)
 
@@ -85,7 +81,7 @@ Configuration:
 
 Processing:
   1. Detect input type: GitHub PR (owner/repo#123)
-  2. Select subagent: gh-pr-analyzer
+  2. Select subagent: gh-pr-reviewer
   3. Spawn via Task tool with fully qualified name
   4. Receive ~800 token summary
   5. Store in prContext variable
@@ -96,8 +92,7 @@ Processing:
 
 All external fetching happens in isolated subagent contexts:
 - Jira: 10-15k → 800 tokens (75% savings)
-- GitHub PR: 20-50k → 800-1000 tokens (80-95% savings)
-- GitHub Issue: 10-20k → 800 tokens (75-90% savings)
+- GitHub PR: 20-50k → 2000-15000 tokens (25-95% savings)
 - Datadog: 10-50k → 800-1200 tokens (75-95% savings)
 
 Main context stays clean for codebase analysis.

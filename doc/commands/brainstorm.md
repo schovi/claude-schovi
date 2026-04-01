@@ -18,8 +18,8 @@ Generate multiple solution approaches with comprehensive analysis of pros, cons,
 ## Input Sources
 
 - Jira issues (via `jira-analyzer` subagent)
-- GitHub issues (via `gh-issue-analyzer` subagent)
-- GitHub PRs (via `gh-pr-analyzer` subagent)
+- GitHub issues (via `gh-pr-reviewer` subagent)
+- GitHub PRs (via `gh-pr-reviewer` subagent)
 - Files or free-form descriptions
 
 ## Output
@@ -37,8 +37,7 @@ Saved as: `brainstorm-[id].md`
 
 ### Calls
 - `jira-analyzer` agent (for Jira input)
-- `gh-issue-analyzer` agent (for GitHub issue input)
-- `gh-pr-analyzer` agent (for GitHub PR input)
+- `gh-pr-reviewer` agent (for GitHub issue/PR input)
 - `brainstorm-generator` agent (for generating options)
 - Plan subagent (via Task tool for codebase exploration)
 - `argument-parser` library

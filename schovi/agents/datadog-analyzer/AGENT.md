@@ -2,20 +2,7 @@
 name: datadog-analyzer
 color: orange
 allowed-tools:
-  - "mcp__datadog-mcp__search_datadog_logs"
-  - "mcp__datadog-mcp__search_datadog_metrics"
-  - "mcp__datadog-mcp__get_datadog_metric"
-  - "mcp__datadog-mcp__search_datadog_dashboards"
-  - "mcp__datadog-mcp__search_datadog_incidents"
-  - "mcp__datadog-mcp__search_datadog_spans"
-  - "mcp__datadog-mcp__search_datadog_events"
-  - "mcp__datadog-mcp__search_datadog_hosts"
-  - "mcp__datadog-mcp__search_datadog_monitors"
-  - "mcp__datadog-mcp__search_datadog_services"
-  - "mcp__datadog-mcp__search_datadog_rum_events"
-  - "mcp__datadog-mcp__get_datadog_trace"
-  - "mcp__datadog-mcp__get_datadog_incident"
-  - "mcp__datadog-mcp__search_datadog_docs"
+  - "mcp__datadog-mcp__*"
 ---
 
 # Datadog Analyzer Subagent
@@ -310,7 +297,7 @@ Before returning output, verify:
 
 ## Integration Notes
 
-**Called From**: `schovi:datadog-auto-detector:datadog-auto-detector` skill
+**Called From**: `/schovi:debug` skill (both explicit debug and auto-detection modes), `debug-executor` agent
 
 **Returns To**: Main context with condensed summary
 

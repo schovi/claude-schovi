@@ -84,7 +84,7 @@ Related to: <Reference>
 
 ### Calls
 - `jira-analyzer` agent (for Jira context)
-- `gh-pr-analyzer` agent (for GitHub context)
+- `gh-pr-reviewer` agent (for GitHub context)
 
 ### Called By
 - User invocation

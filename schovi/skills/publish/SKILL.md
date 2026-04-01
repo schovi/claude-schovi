@@ -184,10 +184,10 @@ description: "Fetching Jira issue"
 ```
 
 **GitHub** (`INPUT_TYPE=github`):
-Spawn gh-pr-analyzer subagent:
+Spawn gh-pr-reviewer subagent:
 ```
 prompt: "Fetch and summarize GitHub reference [INPUT_VALUE]"
-subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
+subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
 description: "Fetching GitHub context"
 ```
 

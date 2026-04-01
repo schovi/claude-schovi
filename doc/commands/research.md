@@ -43,8 +43,7 @@ Saved as: `research-[id].md` or `research-[id]-option[N].md`
 
 ### Calls
 - `jira-analyzer` agent (for Jira input)
-- `gh-issue-analyzer` agent (for GitHub issue input)
-- `gh-pr-analyzer` agent (for GitHub PR input)
+- `gh-pr-reviewer` agent (for GitHub issue/PR input)
 - `research-generator` agent (for generating analysis)
 - Plan subagent (via Task tool for deep codebase exploration)
 - `argument-parser` library

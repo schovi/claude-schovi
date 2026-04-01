@@ -1,6 +1,6 @@
 ---
 name: jira-auto-detector
-description: Automatically detects Jira issue mentions (EC-1234, IS-8046, URLs) and intelligently fetches context via jira-analyzer subagent when needed for the conversation
+description: "Auto-detection: when user mentions Jira issues (EC-1234, IS-8046, PROJ-567, Atlassian URLs) and needs context (asking about issue, requesting implementation, analyzing, comparing), automatically fetches condensed summary via jira-analyzer subagent. Skips auto-fetch for past tense mentions ('I fixed EC-1234'), passive listings, technical identifiers (endpoint names), already-fetched issues, or casual references."
 user-invocable: false
 ---
 
@@ -132,7 +132,7 @@ When you determine context IS needed:
 Tool: Task
 Parameters:
   prompt: "Fetch and summarize https://productboard.atlassian.net/browse/[ISSUE-KEY]"
-  subagent_type: "schovi:jira-auto-detector:jira-analyzer"
+  subagent_type: "schovi:jira-analyzer:jira-analyzer"
   description: "Fetching Jira issue context"
 ```
 

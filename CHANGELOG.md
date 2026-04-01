@@ -5,6 +5,25 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-04-01
+
+### Changed
+- **Consolidated skills**: Merged `gh-pr-auto-detector` into `review` skill (dual-mode: explicit review + auto PR detection)
+- **Consolidated skills**: Merged `datadog-auto-detector` into `debug` skill (dual-mode: explicit debug + auto Datadog detection)
+- **Removed `adr` skill** and its template
+- **Removed deprecated agents**: `gh-issue-analyzer` and `gh-pr-analyzer` (replaced by `gh-pr-reviewer`)
+- **Fixed subagent_type references**: Corrected `jira-analyzer` from `schovi:jira-auto-detector:jira-analyzer` to `schovi:jira-analyzer:jira-analyzer`
+- **Improved jira-auto-detector description**: Added explicit skip conditions for better auto-detection accuracy
+- Updated documentation across CLAUDE.md, README.md, architecture docs, and agent/skill references
+
+### Removed
+- `schovi/skills/gh-pr-auto-detector/` (absorbed into review skill)
+- `schovi/skills/datadog-auto-detector/` (absorbed into debug skill)
+- `schovi/skills/adr/` and `schovi/templates/adr/`
+- `schovi/agents/gh-issue-analyzer/` and `schovi/agents/gh-pr-analyzer/`
+- `doc/skills/gh-pr-auto-detector.md` and `doc/skills/datadog-auto-detector.md`
+- `doc/agents/gh-issue-analyzer.md` and `doc/agents/gh-pr-analyzer.md`
+
 ## [1.6.0] - 2025-01-04
 
 ### Added

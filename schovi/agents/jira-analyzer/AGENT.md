@@ -1,7 +1,7 @@
 ---
 name: jira-analyzer
 description: Fetches and summarizes Jira issues without polluting parent context. Extracts only essential information for problem analysis.
-allowed-tools: ["mcp__jira__*"]
+allowed-tools: ["mcp__jira__*", "mcp__claude_ai_Atlassian__*"]
 color: blue
 ---
 

@@ -42,7 +42,7 @@ Main Context (CLEAN):
 Spawn executor subagent with problem reference only
   ↓
 Isolated Context (executor subagent):
-  ├─ Phase 1: Fetch external context (spawn jira-analyzer/gh-pr-analyzer)
+  ├─ Phase 1: Fetch external context (spawn jira-analyzer/gh-pr-reviewer)
   ├─ Phase 2: Explore codebase (spawn Plan/Explore subagent)
   ├─ Phase 3: Generate formatted output (read template, format)
   └─ Return clean result (2-6k tokens)
@@ -54,7 +54,7 @@ Main Context receives clean output only
 
 | Type | Purpose | Input | Output | Examples |
 |------|---------|-------|--------|----------|
-| **Analyzer** | Fetch & condense external data | URL/ID | ~800-1200 tokens | jira-analyzer, gh-pr-analyzer |
+| **Analyzer** | Fetch & condense external data | URL/ID | ~800-15000 tokens | jira-analyzer, gh-pr-reviewer |
 | **Executor** | Complete workflow in isolation | Problem reference | ~2000-6500 tokens | brainstorm-executor, research-executor, debug-executor |
 
 **Executor Pattern Rules**:
@@ -93,10 +93,8 @@ All subagent types use **three-part format**: `plugin:parent:agent`. Always use 
 
 | Agent (full subagent_type) | Purpose | Max Tokens |
 |---------------------------|---------|------------|
-| `schovi:jira-auto-detector:jira-analyzer` | Fetch & summarize Jira issues | 1000 |
-| `schovi:gh-pr-auto-detector:gh-pr-analyzer` | Fetch PRs (compact mode for analysis) | 1200 |
-| `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch PRs (full mode for review) | 15000 |
-| `schovi:gh-issue-analyzer:gh-issue-analyzer` | Fetch & summarize GitHub issues | 1000 |
+| `schovi:jira-analyzer:jira-analyzer` | Fetch & summarize Jira issues | 1000 |
+| `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch & summarize GitHub PRs | 15000 |
 | `schovi:debug-executor:debug-executor` | Execute debug workflow | 2500 |
 
 ## Skills
@@ -105,11 +103,9 @@ All subagent types use **three-part format**: `plugin:parent:agent`. Always use 
 |-------|---------|
 | commit | Structured git commits with diff analysis |
 | publish | Create/update GitHub PRs with auto-commit |
-| review | Code review with issue detection |
-| debug | Root cause analysis with fix proposal |
+| review | Code review + auto-detect PR mentions and fetch context |
+| debug | Debugging + Datadog auto-detect observability mentions and fetch context |
 | jira-auto-detector | Auto-fetch Jira context when mentioned |
-| gh-pr-auto-detector | Auto-fetch PR context when mentioned |
-| datadog-auto-detector | Auto-fetch Datadog context when mentioned |
 
 ## Critical Patterns
 
@@ -118,7 +114,7 @@ All subagent types use **three-part format**: `plugin:parent:agent`. Always use 
 All subagent types MUST use **three-part format**:
 
 1. **Skill-based agents** (under `skills/`): `plugin:skill:agent`
-   - Example: `schovi:jira-auto-detector:jira-analyzer`
+   - Example: `schovi:jira-auto-detector:jira-analyzer` (jira-analyzer called from jira-auto-detector skill)
 
 2. **Standalone agents** (under `agents/`): `plugin:agent:agent` (repeat agent name)
    - Example: `schovi:brainstorm-executor:brainstorm-executor`
@@ -129,8 +125,7 @@ All subagent types MUST use **three-part format**:
 ### Token Budgets (Strict)
 
 - Jira summaries: **Max 1000 tokens**
-- PR summaries (compact): **Max 1200 tokens**
-- PR summaries (full): **Max 15000 tokens**
+- PR summaries: **Max 15000 tokens** (2000-15000 depending on PR size)
 - Always condense, never return raw payloads to main context
 
 ### Code References

@@ -1,38 +1,129 @@
 ---
 name: debug
-description: Deep debugging with root cause analysis and fix proposal. Use when the user says "/schovi:debug", asks to "debug this issue", "find the root cause", "investigate this bug", or provides a Jira ID, GitHub issue, or error description for debugging.
+description: "Debugging and Datadog observability. Two modes: (1) Explicit /schovi:debug for deep root cause analysis with fix proposals from Jira IDs, GitHub issues, Datadog URLs, or error descriptions. (2) Auto-detection: when user mentions Datadog resources (URLs, 'error rate of service X', 'check logs for Y', observability queries) and needs data, automatically fetches condensed summary via datadog-analyzer subagent. Skips auto-fetch for past tense mentions, already-fetched data, or informational discussions."
 disable-model-invocation: false
+user-invocable: true
 ---
 
-# Problem Debugger Workflow
+# Debug Skill
 
-Perform **deep debugging and root cause analysis** for a bug or production issue using the **executor pattern**. Follow this structured workflow to identify the problematic flow and propose a single, targeted fix.
+Unified skill for deep debugging workflows and Datadog observability context fetching.
 
-**Key Innovation**: The debug-executor subagent performs ALL work (context fetching, debugging, fix generation) in isolated context, keeping main context clean.
+## Two Modes
+
+### Mode 1: Explicit Debug (`/debug <arg>`)
+
+Full structured debugging with root cause analysis and fix proposal via debug-executor subagent.
+
+### Mode 2: Auto-Detection (Datadog mentions in conversation)
+
+When user mentions Datadog resources or asks observability questions, fetch data via datadog-analyzer and integrate into response. No formal debug output, just natural context integration.
 
 ---
 
-## PHASE 1: ARGUMENT PARSING
+## Mode Selection
+
+**Explicit debug** when:
+- User invokes `/schovi:debug <arg>`
+- User says "debug this issue", "find the root cause", "investigate this bug"
+
+**Auto-detection** when:
+- User provides Datadog URL: `https://app.datadoghq.com/...`
+- User asks observability questions: "What's the error rate?", "Show me logs for service X"
+- User checks status: "Is pb-backend-web healthy?", "Check monitors"
+- User investigates: "Users report 500 errors, can you check Datadog?"
+
+**Skip auto-detection** when:
+- Past tense: "I checked the error rate yesterday", "Datadog showed high latency"
+- Already fetched: Same resource fetched in recent conversation
+- Informational: "Datadog is our monitoring tool", "We use Datadog for observability"
+- Too vague: "Something in Datadog" (ask for clarification instead)
+
+---
+
+## Datadog Pattern Recognition
+
+Detect these patterns in user messages:
+
+### URL Patterns
+- **Logs**: `https://app.datadoghq.com/.../logs?query=...`
+- **APM/Traces**: `https://app.datadoghq.com/.../apm/traces?...`, `.../apm/trace/[trace-id]`
+- **Metrics**: `https://app.datadoghq.com/.../metric/explorer?...`
+- **Dashboards**: `https://app.datadoghq.com/.../dashboard/[id]`
+- **Monitors**: `https://app.datadoghq.com/.../monitors/[id]`
+- **Incidents**: `https://app.datadoghq.com/.../incidents/[id]`
+- **Services**: `https://app.datadoghq.com/.../services/[name]`
+- **RUM**: `https://app.datadoghq.com/.../rum/...`
+
+### Natural Language Patterns
+- **Metrics**: "error rate of [service]", "latency of [service]", "CPU usage", "throughput"
+- **Logs**: "logs for [service]", "error logs", "check [service] logs"
+- **Traces**: "traces for [service]", "slow requests in [service]", "APM data"
+- **Incidents**: "active incidents", "SEV-1 incidents", "current incidents"
+- **Monitors**: "alerting monitors", "triggered monitors", "check monitors for [service]"
+- **Service health**: "status of [service]", "health of [service]", "is [service] healthy?"
+
+---
+
+## Mode 2: Auto-Detection Workflow
+
+### Step 1: Detect & Evaluate
+
+Scan message for Datadog URLs and observability keywords. Evaluate whether fetching is genuinely needed (see selection rules above).
+
+### Step 2: Classify Intent
+
+- **Full Context**: User wants comprehensive analysis ("Analyze error rate of pb-backend-web")
+- **Specific Query**: User wants specific metric/log/trace ("Show error logs in last hour")
+- **Quick Status**: User wants high-level status ("Is pb-backend-web healthy?")
+- **Investigation**: User is debugging ("Users report 500 errors, investigate")
+- **Comparison**: User wants to compare ("Compare error rates of service A and B")
+
+### Step 3: Fetch Datadog Context
+
+Spawn datadog-analyzer subagent:
+
+```
+Tool: Agent
+Parameters:
+  subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
+  prompt: |
+    Fetch and summarize [resource type] for [context].
+    [If URL]: Datadog URL: [url]
+    [If query]: Service: [name], Query Type: [type], Time Range: [range]
+    Intent: [classified intent]
+    Focus on: [specific aspects user cares about]
+  description: "Fetching Datadog observability data"
+```
+
+### Step 4: Integrate Naturally
+
+Use the summary to answer the user's question. Extract the relevant parts, don't regurgitate the full summary.
+
+**Session memory:** Don't re-fetch resources already fetched in this conversation. Re-fetch only if user explicitly requests fresh data.
+
+---
+
+## Mode 1: Explicit Debug Workflow
+
+### Phase 1: Argument Parsing
 
 Parse single positional argument (or none). Detect input type in this order:
 
 1. **Jira pattern**: Matches `[A-Z]{2,10}-\d{1,6}` (e.g., EC-1234, PROJ-567)
-2. **GitHub PR**: URL, `owner/repo#123`, or `#123` containing "pull"
-3. **GitHub Issue**: URL or `owner/repo#123` containing "issues"
-4. **File path**: Path exists and is a file (error log, stack trace)
-5. **Plain text**: Everything else (error description)
+2. **Datadog URL**: Contains `datadoghq.com` (logs, traces, metrics, etc.)
+3. **GitHub PR**: URL, `owner/repo#123`, or `#123` containing "pull"
+4. **GitHub Issue**: URL or `owner/repo#123` containing "issues"
+5. **File path**: Path exists and is a file (error log, stack trace)
+6. **Plain text**: Everything else (error description)
 
 Store: `INPUT_TYPE` and `INPUT_VALUE`
 
 **At least one input source required.**
 
----
+### Phase 2: Execute Debug (Isolated Context)
 
-## PHASE 2: EXECUTE DEBUG (Isolated Context)
-
-**Objective**: Spawn debug-executor subagent to perform ALL debugging work in isolated context.
-
-**Use Task tool with debug-executor**:
+Spawn debug-executor subagent to perform ALL debugging work in isolated context.
 
 ```
 Task tool configuration:
@@ -44,26 +135,19 @@ Task tool configuration:
     CONFIGURATION:
     - identifier: [auto-detect from INPUT_VALUE or generate slug]
     - severity: [auto-detect or "Medium"]
+    - input_type: [INPUT_TYPE]
 
     Execute complete debugging workflow:
-    1. Fetch external context (Jira/GitHub if applicable)
+    1. Fetch external context (Jira/GitHub/Datadog if applicable)
     2. Deep debugging & root cause analysis (Explore subagent, very thorough mode)
     3. Generate fix proposal (location, code changes, testing, rollout)
 
     Return structured fix proposal (~1500-2500 tokens).
 ```
 
-**Expected output from executor**:
-- Complete structured fix proposal markdown (~1500-2500 tokens)
-- Includes: problem summary, root cause with execution flow, fix proposal with code changes, testing strategy, rollout plan
-- All file references in file:line format
-- Already formatted
+**Expected output**: Complete structured fix proposal markdown (~1500-2500 tokens) with problem summary, root cause with execution flow, fix proposal with code changes, testing strategy, rollout plan. All file references in file:line format.
 
-**Store executor output as `fix_proposal_output`**.
-
----
-
-## PHASE 3: TERMINAL OUTPUT
+### Phase 3: Terminal Output
 
 Display the fix proposal directly in terminal:
 
@@ -74,11 +158,11 @@ Root cause analysis and fix proposal ready.
 
 ## Root Cause
 
-[Extract root cause summary from fix_proposal_output - 2-3 sentences]
+[Extract root cause summary - 2-3 sentences]
 
 ## Fix Location
 
-[Extract fix location from output - file:line]
+[Extract fix location - file:line]
 
 ## Fix Proposal
 
@@ -90,68 +174,50 @@ Ready to implement the fix:
   /schovi:implement   # implement from this debug output
 ```
 
-**Command complete.**
-
 ---
 
-## ERROR HANDLING
+## Error Handling
 
-### Input Processing Errors
-- **No input provided**: Ask user for Jira ID, GitHub URL, or error description
+- **No input provided**: Ask user for Jira ID, GitHub URL, Datadog URL, or error description
 - **Invalid format**: Report error, show format examples
 - **File not found**: Report error, ask for correct path
-
-### Executor Errors
 - **Executor failed**: Report error with details from subagent
-- **Validation failed**: Check fix_proposal_output has required sections
+- **Datadog fetch failed**: Report error, suggest checking MCP server config
+- **Ambiguous service name**: Ask user to clarify which service
 
----
-
-## QUALITY GATES
+## Quality Gates
 
 Before completing, verify:
 
 - [ ] Input processed successfully with clear problem reference
-- [ ] Executor invoked and completed successfully
-- [ ] Fix proposal output received (~1500-2500 tokens)
-- [ ] Root cause identified with execution flow
-- [ ] Fix location specified with file:line
-- [ ] Code changes provided (before/after)
-- [ ] Testing strategy included
-- [ ] All file references use file:line format
+- [ ] Correct mode selected (explicit debug vs auto-detection)
+- [ ] Appropriate subagent invoked (debug-executor or datadog-analyzer)
+- [ ] Output received within token budget
+- [ ] All file references use file:line format (explicit mode)
 - [ ] Terminal output displayed
-
----
-
-## NOTES
-
-**Design Philosophy**:
-- **Executor pattern**: ALL work (fetch + debug + generate) happens in isolated context
-- **Main context stays clean**: Only sees final formatted output (~1.5-2.5k tokens)
-- **Token efficiency**: 96% reduction in main context (from ~63k to ~2.5k tokens)
-
-**Integration**:
-- Input from: Jira, GitHub issues/PRs, error descriptions, stack traces
-- Next command: `/schovi:implement` for applying the fix
-
-**Executor Capabilities**:
-- Spawns jira-analyzer, gh-issue-analyzer for external context
-- Spawns Explore subagent for very thorough debugging
-- Generates fix proposal with code changes
-- All in isolated context, returns clean result
 
 ## Example Usage
 
 ```bash
-# Debug from Jira issue
+# Explicit debug from Jira issue
 /schovi:debug EC-1234
 
-# Debug from GitHub issue
+# Explicit debug from Datadog trace URL
+/schovi:debug https://app.datadoghq.com/apm/trace/abc123
+
+# Explicit debug from GitHub issue
 /schovi:debug https://github.com/owner/repo/issues/456
 
-# Debug from error description
+# Explicit debug from error description
 /schovi:debug "NullPointerException in UserService.authenticate at line 123"
 
-# Debug from stack trace file
+# Explicit debug from stack trace file
 /schovi:debug ./error.log
+
+# Auto-detection (no /debug needed)
+"What's the error rate of pb-backend-web?"     → fetches Datadog metrics
+"Show me logs for authentication errors"        → fetches Datadog logs
+"Check this trace: https://app.datadoghq.com/..." → fetches trace data
+"Is pb-backend-web healthy?"                    → fetches service status
+"I checked the error rate yesterday"            → skips (past tense)
 ```

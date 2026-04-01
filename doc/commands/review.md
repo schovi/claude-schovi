@@ -16,7 +16,7 @@ Provide thorough code review with:
 ## Workflow
 
 1. **Phase 1: Input Parsing & Classification** - Parse and classify input (PR, Jira, issue, file, free-form)
-2. **Phase 2: Context Fetching** - Use appropriate subagent to fetch context (gh-pr-reviewer, jira-analyzer, gh-issue-analyzer)
+2. **Phase 2: Context Fetching** - Use appropriate subagent to fetch context (gh-pr-reviewer, jira-analyzer)
 3. **Phase 2.5: Source Code Fetching** - Fetch actual source files for code-level analysis (local filesystem, JetBrains MCP, or GitHub API)
 4. **Phase 3: Review Analysis** - Direct code analysis on fetched files with deep exploration (default) or quick review (--quick flag)
 5. **Phase 4: Structured Output** - Terminal-only output with summary, key changes, issues, improvements
@@ -25,7 +25,7 @@ Provide thorough code review with:
 
 - GitHub PRs (via `gh-pr-reviewer` subagent for full diff)
 - Jira issues (via `jira-analyzer` subagent)
-- GitHub issues (via `gh-issue-analyzer` subagent)
+- GitHub issues (via `gh-pr-reviewer` subagent)
 - File paths (via Read tool)
 - Free-form descriptions
 
@@ -115,7 +115,7 @@ Lighter analysis with minimal file fetching:
 ### Calls
 - `gh-pr-reviewer` agent (for GitHub PR input with full diff)
 - `jira-analyzer` agent (for Jira input)
-- `gh-issue-analyzer` agent (for GitHub issue input)
+- `gh-pr-reviewer` agent (for GitHub issue input)
 - Explore subagent (optional, for additional context)
 - Read tool (for local file fetching)
 - JetBrains MCP tools (optional, for IDE integration)

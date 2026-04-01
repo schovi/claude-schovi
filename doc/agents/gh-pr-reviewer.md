@@ -47,7 +47,7 @@ File stats only without diff (max 3000 tokens):
 
 **Full only** - For comprehensive code review with actual source code
 
-For concise PR context in general analysis, see `gh-pr-analyzer` agent.
+This is the sole PR-fetching agent for all commands and skills.
 
 ## Tools Used
 
@@ -58,7 +58,7 @@ For concise PR context in general analysis, see `gh-pr-analyzer` agent.
 ## Dependencies
 
 ### Called By
-- `/schovi:review` command only
+- All commands and skills that need GitHub PR/issue context
 
 ### Calls
 - GitHub CLI and API tools only (no subagents)
@@ -81,9 +81,9 @@ Invoked via Task tool with fully qualified name:
 
 ```
 Task tool:
-  subagent_type: "schovi:gh-pr-auto-detector:gh-pr-reviewer"
-  prompt: "Fetch and summarize GitHub PR owner/repo#123 in full mode with complete diff"
-  description: "Fetching PR for review"
+  subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
+  prompt: "Fetch and summarize GitHub PR owner/repo#123"
+  description: "Fetching PR context"
 ```
 
 ## Quality Requirements
@@ -96,18 +96,6 @@ Task tool:
 - For massive PRs, return file stats but omit diff
 - Never exceed token budgets
 - Clearly indicate when diff is omitted
-
-## Difference from gh-pr-analyzer
-
-| Feature | gh-pr-analyzer (compact) | gh-pr-reviewer (full) |
-|---------|-------------------------|---------------------|
-| Purpose | General analysis | Code review |
-| Files | Top 20 | ALL files |
-| Reviews | Max 3 critical | ALL reviews |
-| CI Checks | Failed only | ALL checks |
-| Diff | Compact summary | Complete diff |
-| Token Budget | Max 1200 | Max 15000 |
-| Used By | brainstorm, research, debug, plan | review command only |
 
 ## Location
 

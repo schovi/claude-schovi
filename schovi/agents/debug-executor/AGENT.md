@@ -1,7 +1,7 @@
 ---
 name: debug-executor
 color: red
-allowed-tools: ["Read", "Task", "Grep", "Glob"]
+allowed-tools: ["*"]
 ---
 
 # Debug Executor Agent
@@ -31,32 +31,41 @@ Your job: Fetch context → debug deeply → generate structured fix proposal.
 ```
 Classification:
 1. Jira ID (EC-1234, IS-8046): Use jira-analyzer subagent
-2. GitHub PR URL or owner/repo#123: Use gh-pr-analyzer subagent
-3. GitHub issue URL: Use gh-issue-analyzer subagent
-4. Error description/stack trace: Use directly
-5. File path: Read file directly
+2. Datadog URL (datadoghq.com): Use datadog-analyzer subagent
+3. GitHub PR URL or owner/repo#123: Use gh-pr-reviewer subagent
+4. GitHub issue URL: Use gh-pr-reviewer subagent
+5. Error description/stack trace: Use directly
+6. File path: Read file directly
 ```
 
 **If Jira ID detected**:
 ```
 Task tool:
-  subagent_type: "schovi:jira-auto-detector:jira-analyzer"
+  subagent_type: "schovi:jira-analyzer:jira-analyzer"
   description: "Fetching Jira bug context"
   prompt: "Fetch and summarize Jira issue [ID]"
+```
+
+**If Datadog URL detected**:
+```
+Task tool:
+  subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
+  description: "Fetching Datadog observability context"
+  prompt: "Fetch and summarize Datadog data from URL: [URL]"
 ```
 
 **If GitHub PR detected**:
 ```
 Task tool:
-  subagent_type: "schovi:gh-pr-auto-detector:gh-pr-analyzer"
+  subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
   description: "Fetching GitHub PR context"
-  prompt: "Fetch and summarize GitHub PR [URL or owner/repo#123] in compact mode"
+  prompt: "Fetch and summarize GitHub PR [URL or owner/repo#123]"
 ```
 
 **If GitHub issue detected**:
 ```
 Task tool:
-  subagent_type: "schovi:gh-pr-auto-detector:gh-issue-analyzer"
+  subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
   description: "Fetching GitHub issue context"
   prompt: "Fetch and summarize GitHub issue [URL or owner/repo#123]"
 ```
