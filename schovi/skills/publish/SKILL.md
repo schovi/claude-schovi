@@ -135,18 +135,31 @@ URL: https://github.com/owner/repo/pull/123
 
 ### Step 2.1: Push Branch
 
-Check upstream and push if needed:
+Ensure the local branch name and remote branch name always match. This is a critical invariant: `git branch --show-current` must equal the PR's `headRefName` on GitHub.
 
 ```bash
-# Check upstream
-git rev-parse --abbrev-ref @{u} 2>/dev/null
+LOCAL_BRANCH=$(git branch --show-current)
 
-# Push with upstream tracking
-git push -u origin $(git branch --show-current)
+# Check if upstream exists and where it points
+UPSTREAM=$(git rev-parse --abbrev-ref @{u} 2>/dev/null)
+
+if [ -n "$UPSTREAM" ]; then
+  # Extract the remote branch name (strip "origin/" prefix)
+  UPSTREAM_BRANCH=${UPSTREAM#origin/}
+
+  # If upstream points to a different branch name (e.g., main, or a merge queue branch),
+  # unset it so the push creates a correctly-named remote branch
+  if [ "$UPSTREAM_BRANCH" != "$LOCAL_BRANCH" ]; then
+    git branch --unset-upstream
+  fi
+fi
+
+# Push local branch to a remote branch with the same name
+git push -u origin "$LOCAL_BRANCH"
 ```
 
 **Display**:
-- No upstream: `Pushing branch and setting upstream...`
+- No upstream or mismatched upstream: `Pushing branch and setting upstream...`
 - Has unpushed commits: `Pushing N commits to origin...`
 - Already synced: `Branch already pushed`
 
@@ -377,7 +390,7 @@ Check:
 
 3. **Final State Language**: Always describe current behavior. "The API returns paginated results" not "Changed the API to return paginated results".
 
-4. **Push Strategy**: Always push before PR creation. Use `-u` flag to set upstream tracking.
+4. **Push Strategy**: Always push before PR creation. Use `-u` flag to set upstream tracking. **Critical invariant**: the local branch name must always match the remote branch name (and therefore the PR's `headRefName`). Before pushing, unset any upstream that points to a different branch name (e.g., `origin/main` from a merge queue). Never push with `local:different-remote` refspec.
 
 5. **Draft Default**: All PRs start as drafts. Use `gh pr ready` to mark ready for review.
 
