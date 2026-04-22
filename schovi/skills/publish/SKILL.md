@@ -254,20 +254,15 @@ ALWAYS describe what the code DOES NOW, not how it evolved.
 ```markdown
 ## [Bug | New Feature | Enhancement | Chore]
 
-[2-3 sentences: What problem this solves and why it matters]
+[1-2 sentences in spec form: the problem or feature. If a spec/Jira/doc exists, link to it instead of restating.]
 
 ## Solution
 
-[Single paragraph: How the code now works]
+[Single paragraph focused on the technical approach: what was built/changed at an architectural level and WHY this approach was chosen over alternatives (performance, simplicity, constraints, tradeoffs).]
 
-## Changes
+## Review Notes (only if applicable)
 
-**[Area 1]** (e.g., API, Core Logic, Configuration):
-- Change description
-- Change description
-
-**[Area 2]**:
-- Change description
+[Bullet points calling out parts that need human attention: non-obvious decisions, risky areas, things a reviewer might miss by just reading the diff, required follow-ups, deployment caveats. Skip entirely if the diff speaks for itself.]
 
 ## Notes (only if applicable)
 
@@ -279,10 +274,10 @@ ALWAYS describe what the code DOES NOW, not how it evolved.
 ```
 
 **Guidelines**:
-- Target 150-250 words
-- Header: 2-3 sentences max
-- Solution: Single paragraph, no subsections
-- Changes: Group by logical area, simple bullets
+- Target 100-180 words total
+- Header: 1-2 sentences. Prefer linking to spec/Jira/design doc over re-describing. If no external spec, write in spec form (problem statement or feature statement), not narrative.
+- Solution: Single paragraph, technical focus. Explain the chosen approach and why it was picked (tradeoffs, constraints, alternatives considered). Avoid restating what files changed.
+- Review Notes: Do NOT enumerate changes the reviewer can see in the diff. Only call out what requires human attention: subtle correctness concerns, intentional-but-surprising choices, migration ordering, config that must land together, etc. Omit the section if nothing qualifies.
 - Notes: Only include subsections with actual content
 
 ### Step 3.3: Generate Title
