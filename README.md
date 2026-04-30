@@ -1,4 +1,4 @@
-# Schovi Workflow Plugin for Claude Code
+# Schovi Workflow Plugin for Codex and Claude Code
 
 Personal workflow automation and tools for software engineering. Includes problem analysis, Jira integration, intelligent code exploration, and more.
 
@@ -304,7 +304,40 @@ Comprehensive guide to the plugin's architecture:
 
 ## Installation
 
-### Prerequisites
+### Codex CLI
+
+This repository is installable as a local Codex plugin marketplace.
+
+1. Add the marketplace:
+
+```bash
+codex plugin marketplace add /Users/schovi/work/claude-schovi
+```
+
+2. Enable the plugin if Codex does not prompt you automatically:
+
+```toml
+# ~/.codex/config.toml
+[plugins."schovi@schovi-workflows"]
+enabled = true
+```
+
+3. Start a new Codex session and invoke skills naturally:
+
+```text
+use $commit to commit my work
+use $review to review this branch
+use $publish to create a draft PR
+use $debug to investigate EC-1234
+```
+
+Notes:
+- The `/schovi:*` examples below are Claude Code command syntax. In Codex, use natural language or `$skill` mentions.
+- Claude-style custom subagents in `schovi/agents/*/AGENT.md` are reference material for Codex. Codex skills should adapt those instructions to available Codex tools and built-in subagents.
+
+### Claude Code
+
+#### Prerequisites
 
 - Claude Code CLI installed
 - **MCP Server: Jira** (required for Jira integration)
@@ -312,7 +345,7 @@ Comprehensive guide to the plugin's architecture:
 - MCP Server: Datadog (optional, for observability integration)
 - MCP Server: JetBrains (optional, for enhanced IDE integration)
 
-### Install Plugin
+#### Install Plugin
 
 1. Add the marketplace:
 ```bash

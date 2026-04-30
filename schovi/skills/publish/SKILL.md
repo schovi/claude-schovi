@@ -8,6 +8,10 @@ disable-model-invocation: false
 
 Creates or updates GitHub pull requests with automatic description generation.
 
+## Codex Compatibility
+
+If `/schovi:commit` or Claude-style custom subagents are unavailable, perform the commit workflow from `schovi/skills/commit/SKILL.md` inline, then use available Codex tools for Jira, GitHub, file, folder, or URL context. For GitHub references, prefer the `gh` CLI workflow described in `schovi/agents/gh-pr-reviewer/AGENT.md`.
+
 **Behavior**:
 - Auto-commits uncommitted changes via `/schovi:commit` before proceeding
 - Always creates draft PRs

@@ -8,6 +8,10 @@ user-invocable: false
 
 You have access to a skill that seamlessly integrates Jira issue context into conversations without polluting the main context window.
 
+## Codex Compatibility
+
+If a Claude-style `Task` tool or custom `subagent_type` is unavailable, use the configured Jira MCP tools directly and return the same condensed summary shape described below. Keep the main response concise and never paste raw Jira payloads.
+
 ## Mission
 
 Enhance user conversations by:
