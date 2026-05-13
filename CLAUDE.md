@@ -14,9 +14,8 @@ This is a **Claude Code plugin** providing workflow automation for software engi
 
 The plugin uses a three-tier architecture for external integrations:
 
-1. **Skills** (Auto-detection, `schovi/skills/`): Automatically detect mentions and intelligently decide when to fetch context
-2. **Commands** (Explicit, `schovi/commands/`): User-invoked workflows like `/schovi:brainstorm`, `/schovi:research`, `/schovi:plan`
-3. **Subagents** (Execution, `schovi/agents/`): Execute in isolated context windows to fetch and summarize external data
+1. **Skills** (Auto-detection + explicit, `schovi/skills/`): Automatically detect mentions and intelligently decide when to fetch context, or are invoked explicitly (`/schovi:publish`, `/schovi:review`, `/schovi:debug`)
+2. **Subagents** (Execution, `schovi/agents/`): Execute in isolated context windows to fetch and summarize external data
 
 ### Context Isolation Architecture
 
@@ -77,16 +76,6 @@ Common operations are extracted into reusable libraries in `schovi/lib/`:
 
 See `schovi/lib/README.md` for detailed documentation.
 
-## Commands
-
-| Command | Purpose | Details |
-|---------|---------|---------|
-| `/schovi:brainstorm` | Explore 3-5 solution options at conceptual level | [doc/commands/brainstorm.md](doc/commands/brainstorm.md) |
-| `/schovi:research` | Deep technical analysis of ONE specific approach | [doc/commands/research.md](doc/commands/research.md) |
-| `/schovi:plan` | Generate implementation spec from research | [doc/commands/plan.md](doc/commands/plan.md) |
-| `/schovi:implement` | Execute implementation from spec | [doc/commands/implement.md](doc/commands/implement.md) |
-| `/schovi:spec` | Product discovery and specification generation | [doc/commands/spec.md](doc/commands/spec.md) |
-
 ## Subagents
 
 All subagent types use **three-part format**: `plugin:parent:agent`. Always use the full identifier when spawning.
@@ -101,7 +90,6 @@ All subagent types use **three-part format**: `plugin:parent:agent`. Always use 
 
 | Skill | Purpose |
 |-------|---------|
-| commit | Structured git commits with diff analysis |
 | publish | Create/update GitHub PRs with auto-commit |
 | review | Code review + auto-detect PR mentions and fetch context |
 | debug | Debugging + Datadog auto-detect observability mentions and fetch context |
@@ -117,10 +105,10 @@ All subagent types MUST use **three-part format**:
    - Example: `schovi:jira-auto-detector:jira-analyzer` (jira-analyzer called from jira-auto-detector skill)
 
 2. **Standalone agents** (under `agents/`): `plugin:agent:agent` (repeat agent name)
-   - Example: `schovi:brainstorm-executor:brainstorm-executor`
+   - Example: `schovi:debug-executor:debug-executor`
 
-**Wrong**: `schovi:brainstorm-executor` (two-part)
-**Correct**: `schovi:brainstorm-executor:brainstorm-executor` (three-part)
+**Wrong**: `schovi:debug-executor` (two-part)
+**Correct**: `schovi:debug-executor:debug-executor` (three-part)
 
 ### Token Budgets (Strict)
 
@@ -142,7 +130,7 @@ Always use `file:line` format for specificity:
 /plugin install schovi@schovi-workflows
 
 # Changes take effect immediately - no build needed
-# Test via command invocation: /schovi:brainstorm test-input
+# Test via command invocation: /schovi:publish or /schovi:review
 ```
 
 **After changing plugin logic**: Evaluate whether changes affect the architecture or patterns documented here. If so, update CLAUDE.md to keep it in sync. This file should reflect current behavior, not become stale documentation.
@@ -157,10 +145,8 @@ Always use `file:line` format for specificity:
 
 | Category | Path |
 |----------|------|
-| Commands | `schovi/commands/*.md` |
-| Agents | `schovi/agents/*/AGENT.md` |
 | Skills | `schovi/skills/*/SKILL.md` |
-| Libraries | `schovi/lib/*.md` |
+| Agents | `schovi/agents/*/AGENT.md` |
 | Templates | `schovi/templates/` |
 | Documentation | `doc/` |
 

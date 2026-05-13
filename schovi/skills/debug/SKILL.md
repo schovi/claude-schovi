@@ -174,8 +174,7 @@ Root cause analysis and fix proposal ready.
 
 ## Next Steps
 
-Ready to implement the fix:
-  /schovi:implement   # implement from this debug output
+Ready to implement the fix.
 ```
 
 ---

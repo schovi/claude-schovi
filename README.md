@@ -21,39 +21,6 @@ Personal workflow automation and tools for software engineering. Includes proble
 
 User-invoked workflows for software engineering tasks.
 
-### [`/schovi:brainstorm`](doc/commands/brainstorm.md)
-Explore 2-3 distinct solution options with broad feasibility analysis.
-
-**Dependencies:**
-- Calls: `jira-analyzer`, `gh-pr-reviewer`, `brainstorm-generator`, Plan subagent
-- Libraries: `argument-parser`, `input-processing`, `work-folder`
-
-**Example:** `/schovi:brainstorm EC-1234`
-
----
-
-### [`/schovi:research`](doc/commands/research.md)
-Deep technical analysis of ONE specific approach with detailed file:line references.
-
-**Dependencies:**
-- Calls: `jira-analyzer`, `gh-pr-reviewer`, `research-generator`, Plan subagent
-- Libraries: `argument-parser`, `input-processing`, `work-folder`
-
-**Example:** `/schovi:research --input brainstorm-EC-1234.md --option 2`
-
----
-
-### [`/schovi:plan`](doc/commands/plan.md)
-Generate implementation specifications from research analysis (enforces research-first workflow).
-
-**Dependencies:**
-- Calls: `spec-generator`, Explore subagent (optional)
-- Libraries: `argument-parser`, `input-processing`, `work-folder`
-
-**Example:** `/schovi:plan --input research-EC-1234-option2.md`
-
----
-
 ### [`/schovi:debug`](doc/commands/debug.md)
 Deep debugging workflow with root cause analysis and single fix proposal. Includes Datadog auto-detection for observability context.
 
@@ -62,29 +29,6 @@ Deep debugging workflow with root cause analysis and single fix proposal. Includ
 - Libraries: `argument-parser`, `input-processing`, `work-folder`
 
 **Example:** `/schovi:debug EC-1234`
-
----
-
-### [`/schovi:implement`](doc/commands/implement.md)
-Autonomous implementation execution with validation and phase-based commits.
-
-**Dependencies:**
-- Calls: `/schovi:commit` command
-- Libraries: `argument-parser`, `input-processing`, `completion-handler`
-
-**Example:** `/schovi:implement ./spec-EC-1234.md --verbose`
-
----
-
-### [`/schovi:commit`](doc/commands/commit.md)
-Create structured git commits with validation, smart analysis, and conventional format.
-
-**Dependencies:**
-- Calls: `jira-analyzer` (optional), `gh-pr-reviewer` (optional)
-- Libraries: `argument-parser`
-- Called by: `/schovi:implement`
-
-**Example:** `/schovi:commit EC-1234`
 
 ---
 
@@ -359,31 +303,12 @@ Notes:
 
 3. Verify installation:
 ```bash
-/schovi:brainstorm --help
+/schovi:publish --help
 ```
 
 ---
 
 ## Workflow Examples
-
-### Complete Workflow: Jira Issue to PR
-
-```bash
-# 1. Explore solution options
-/schovi:brainstorm EC-1234
-
-# 2. Deep technical analysis of chosen option
-/schovi:research --input brainstorm-EC-1234.md --option 2
-
-# 3. Generate implementation specification
-/schovi:plan --input research-EC-1234-option2.md
-
-# 4. Execute implementation autonomously
-/schovi:implement ./spec-EC-1234.md --verbose
-
-# 5. Create pull request
-/schovi:publish
-```
 
 ### Debugging Workflow
 
@@ -447,12 +372,7 @@ Consistent architecture for all external integrations:
 ├── doc/
 │   ├── architecture.md                # Architecture overview
 │   ├── commands/                      # Command documentation
-│   │   ├── brainstorm.md
-│   │   ├── research.md
-│   │   ├── plan.md
 │   │   ├── debug.md
-│   │   ├── implement.md
-│   │   ├── commit.md
 │   │   ├── publish.md
 │   │   └── review.md
 │   ├── agents/                        # Agent documentation

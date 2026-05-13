@@ -10,10 +10,10 @@ Creates or updates GitHub pull requests with automatic description generation.
 
 ## Codex Compatibility
 
-If `/schovi:commit` or Claude-style custom subagents are unavailable, perform the commit workflow from `schovi/skills/commit/SKILL.md` inline, then use available Codex tools for Jira, GitHub, file, folder, or URL context. For GitHub references, prefer the `gh` CLI workflow described in `schovi/agents/gh-pr-reviewer/AGENT.md`.
+If Claude-style custom subagents are unavailable, commit any pending changes inline, then use available Codex tools for Jira, GitHub, file, folder, or URL context. For GitHub references, prefer the `gh` CLI workflow described in `schovi/agents/gh-pr-reviewer/AGENT.md`.
 
 **Behavior**:
-- Auto-commits uncommitted changes via `/schovi:commit` before proceeding
+- Auto-commits uncommitted changes before proceeding
 - Always creates draft PRs
 - Always targets the default branch (detected from `origin/HEAD`)
 - Always auto-pushes before creating PR
@@ -92,14 +92,14 @@ gh auth status
 
 **Auto-commit if uncommitted changes exist**:
 
-If `git status --porcelain` shows changes (staged, unstaged, or untracked), automatically trigger `/schovi:commit` first. Wait for the commit to complete, then continue with the publish flow.
+If `git status --porcelain` shows changes (staged, unstaged, or untracked), commit them first. Wait for the commit to complete, then continue with the publish flow.
 
 **Display**:
 ```
 Uncommitted changes detected, committing first...
 ```
 
-Then invoke `/schovi:commit` and proceed after it completes.
+Then commit the pending changes and proceed.
 
 **Error Display** (on default branch):
 ```
@@ -393,4 +393,4 @@ Check:
 
 5. **Draft Default**: All PRs start as drafts. Use `gh pr ready` to mark ready for review.
 
-6. **Auto-commit Flow**: Publish owns the full "changes to PR" pipeline. If there are uncommitted changes, it delegates to `/schovi:commit` first, then continues. This makes `/schovi:publish` the single command for "I'm done, ship it".
+6. **Auto-commit Flow**: Publish owns the full "changes to PR" pipeline. If there are uncommitted changes, commit them first, then continue. This makes `/schovi:publish` the single command for "I'm done, ship it".

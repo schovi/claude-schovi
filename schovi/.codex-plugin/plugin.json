@@ -1,7 +1,7 @@
 {
   "name": "schovi",
-  "version": "1.15.1",
-  "description": "Personal software engineering workflows for structured commits, PR publishing, review, debugging, and Jira context detection.",
+  "version": "1.16.1",
+  "description": "Personal software engineering workflows for PR publishing, review, debugging, and Jira context detection.",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com",
@@ -34,7 +34,6 @@
     "privacyPolicyURL": "https://github.com/schovi/claude-schovi",
     "termsOfServiceURL": "https://github.com/schovi/claude-schovi",
     "defaultPrompt": [
-      "Use $commit to create a structured commit.",
       "Use $review to review this branch or PR.",
       "Use $publish to create or update a draft PR."
     ],
