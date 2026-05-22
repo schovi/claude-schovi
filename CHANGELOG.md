@@ -5,6 +5,11 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2] - 2026-05-22
+
+### Changed
+- Moved subagent scaffold out of `schovi/agents/` so the harness no longer surfaces it as a real agent type. The file is now at `schovi/templates/agent-template.md` and is documentation-only (no `name:` frontmatter), saving the tokens that `schovi:template-agent` was spending in every session's agent listing.
+
 ## [1.7.0] - 2026-04-01
 
 ### Changed

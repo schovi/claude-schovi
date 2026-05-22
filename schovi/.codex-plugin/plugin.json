@@ -1,6 +1,6 @@
 {
   "name": "schovi",
-  "version": "1.16.1",
+  "version": "1.16.2",
   "description": "Personal software engineering workflows for PR publishing, review, debugging, and Jira context detection.",
   "author": {
     "name": "David Schovanec",

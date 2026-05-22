@@ -1,8 +1,17 @@
----
-name: template-agent
-description: [One-line purpose: what this agent fetches/generates and why]
-allowed-tools: ["Tool1", "Tool2", "Tool3"]
----
+# Subagent template
+
+> Scaffold for new condenser subagents under `schovi/agents/`. This file is **not**
+> an agent itself — it lives in `schovi/templates/` so the harness doesn't surface
+> it. To create a new agent, copy this file to `schovi/agents/<agent-name>/AGENT.md`,
+> restore the YAML frontmatter shown below, and replace every `[bracketed]` placeholder.
+>
+> ```yaml
+> ---
+> name: <agent-name>
+> description: [One-line purpose: what this agent fetches/generates and why]
+> allowed-tools: ["Tool1", "Tool2", "Tool3"]
+> ---
+> ```
 
 # [Agent Name] Subagent
 
