@@ -236,6 +236,23 @@ git log origin/$DEFAULT_BRANCH..HEAD --format="%s%n%b" --reverse
 git diff origin/$DEFAULT_BRANCH..HEAD --stat
 ```
 
+### Step 3.1.5: Ensure Relevant Context
+
+The Context section needs at least one real reference link. Collect candidates from:
+- The input source (Jira URL, GitHub PR/issue URL, the URL argument)
+- `JIRA_ID` extracted from the branch name
+- Links mentioned in commit messages or fetched content (Datadog, Productboard, related PRs, design docs)
+
+If no reference link is found, ask the user before generating the description:
+
+```
+No source link found for this change. Paste a relevant link (Jira, Datadog,
+related PR, Productboard, design doc) so reviewers have context — or reply
+"skip" to publish without one.
+```
+
+If the user replies "skip" (or no link exists and they decline), omit the Context section. Never fabricate a link.
+
 ### Step 3.2: Generate Description
 
 **CRITICAL**: When updating an existing PR, completely rewrite the description to describe the FINAL state of the code.
@@ -253,20 +270,35 @@ ALWAYS describe what the code DOES NOW, not how it evolved.
 - **Enhancement**: Improvements, performance, refactoring
 - **Chore**: Dependencies, CI/CD, tooling, docs
 
+**Core principle**: The reviewer reads the code. The description does NOT explain HOW the code works or WHAT files changed. It explains the decisions a reader can't recover from the diff: what was decided and why.
+
+**Never include agent-process content.** The description is about the change, not about how you (the agent) produced it. Exclude:
+- TODO / checklist / task-tracking lists ("- [x] add endpoint", "- [ ] write tests")
+- Validation narration ("ran the tests", "lint passes", "build is green", "verified locally")
+- Workflow/phase narration ("first I explored the codebase", "next steps", "then I refactored")
+- Self-referential commentary ("I changed", "I decided", "as requested")
+
+State the change and its decisions directly. If validation or follow-ups matter to a reviewer, they go in Review Notes as facts, not as a status report on your work.
+
 **Generate using template**:
 
 ```markdown
 ## [Bug | New Feature | Enhancement | Chore]
 
-[1-2 sentences in spec form: the problem or feature. If a spec/Jira/doc exists, link to it instead of restating.]
+[1-2 sentences: the problem or feature. If a spec/Jira/doc exists, link to it instead of restating.]
 
-## Solution
+## Context
 
-[Single paragraph focused on the technical approach: what was built/changed at an architectural level and WHY this approach was chosen over alternatives (performance, simplicity, constraints, tradeoffs).]
+[Links to the source of the problem and anything that gives a reviewer the full picture: Jira issue, Datadog dashboard/log/trace, related PRs, Productboard entity, design doc, spec, Slack thread. One link per line with a short label. Omit the section only if there is genuinely no reference and the user declined to add one (Step 3.1.5).]
+
+## Decisions (only if applicable)
+
+- [Decision] — [why: solves X / improves Y / necessary because Z]
+- [Decision] — [why]
 
 ## Review Notes (only if applicable)
 
-[Bullet points calling out parts that need human attention: non-obvious decisions, risky areas, things a reviewer might miss by just reading the diff, required follow-ups, deployment caveats. Skip entirely if the diff speaks for itself.]
+[Bullet points calling out parts that need human attention: risky areas, things a reviewer might miss, required follow-ups, deployment caveats. Skip entirely if the diff speaks for itself.]
 
 ## Notes (only if applicable)
 
@@ -278,11 +310,18 @@ ALWAYS describe what the code DOES NOW, not how it evolved.
 ```
 
 **Guidelines**:
-- Target 100-180 words total
-- Header: 1-2 sentences. Prefer linking to spec/Jira/design doc over re-describing. If no external spec, write in spec form (problem statement or feature statement), not narrative.
-- Solution: Single paragraph, technical focus. Explain the chosen approach and why it was picked (tradeoffs, constraints, alternatives considered). Avoid restating what files changed.
-- Review Notes: Do NOT enumerate changes the reviewer can see in the diff. Only call out what requires human attention: subtle correctness concerns, intentional-but-surprising choices, migration ordering, config that must land together, etc. Omit the section if nothing qualifies.
-- Notes: Only include subsections with actual content
+- Be short. People are lazy to read. No filler, no wasted words. Cut anything the diff already shows.
+- Header: 1-2 sentences. Prefer linking to spec/Jira/design doc over re-describing.
+- Context: Links that point a reviewer to the source of the problem. Auto-populate from the input source and what you already gathered:
+  - `INPUT_TYPE=jira` → the Jira issue URL
+  - `INPUT_TYPE=github` → the referenced PR/issue URL
+  - `INPUT_TYPE=url` → that URL
+  - `JIRA_ID` from branch → the Jira issue URL
+  - Plus any Datadog / Productboard / related-PR / doc links found in the commits, branch, or fetched content.
+  - If after this you have no real reference link, ask the user for one (see Step 3.1.5). Do not invent links.
+- Decisions: The heart of the description. List only the meaningful choices made and the reason for each. One line each: `decision — why`. The "why" must add information the code can't (it solves a problem, improves something, was forced by a constraint, was picked over an alternative). Do NOT describe implementation, file changes, or how it works. Omit the section if there were no real decisions.
+- Review Notes: Do NOT enumerate changes the reviewer can see in the diff. Only what needs human attention. Omit if nothing qualifies.
+- Notes: Only include subsections with actual content.
 
 ### Step 3.3: Generate Title
 
@@ -385,7 +424,7 @@ Check:
 
 1. **Input Detection Order**: Jira pattern first (most specific), then GitHub reference, then file existence, then folder, then URL prefix, then plain text, finally none.
 
-2. **Description Quality**: Focus on WHAT and WHY, not implementation details. Readers should understand the change without reading code.
+2. **Description Quality**: The reviewer reads the code, so never explain HOW it works or WHAT files changed. Surface only the decisions and their reasoning (what was decided and why it solves/improves/was necessary). Keep it short and skimmable.
 
 3. **Final State Language**: Always describe current behavior. "The API returns paginated results" not "Changed the API to return paginated results".
 
