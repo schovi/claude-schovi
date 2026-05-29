@@ -272,6 +272,8 @@ ALWAYS describe what the code DOES NOW, not how it evolved.
 
 **Core principle**: The reviewer reads the code. The description does NOT explain HOW the code works or WHAT files changed. It explains the decisions a reader can't recover from the diff: what was decided and why.
 
+**Describe presence, never assert absence.** Drop blanket negatives like "no schema change", "no logic change", "no behavior change", "nothing else touched" unless you have actually read the diff and confirmed it. The generation context (commit messages, file stats, fetched issues) does not prove a negative. An unverified absence claim is worse than silence: it waves the reviewer off the exact place they should look.
+
 **Never include agent-process content.** The description is about the change, not about how you (the agent) produced it. Exclude:
 - TODO / checklist / task-tracking lists ("- [x] add endpoint", "- [ ] write tests")
 - Validation narration ("ran the tests", "lint passes", "build is green", "verified locally")
@@ -298,7 +300,7 @@ State the change and its decisions directly. If validation or follow-ups matter 
 
 ## Review Notes (only if applicable)
 
-[Bullet points calling out parts that need human attention: risky areas, things a reviewer might miss, required follow-ups, deployment caveats. Skip entirely if the diff speaks for itself.]
+[Only what the reviewer must DO or WATCH for that is not in the diff and not already said above. Omit if nothing qualifies.]
 
 ## Notes (only if applicable)
 
@@ -306,7 +308,7 @@ State the change and its decisions directly. If validation or follow-ups matter 
 [If any breaking changes]
 
 ### Migration
-[Steps users need when upgrading]
+[Steps consumers of the merged code need when upgrading. Actions for the reviewer/merger go in Review Notes, not here.]
 ```
 
 **Guidelines**:
@@ -320,8 +322,8 @@ State the change and its decisions directly. If validation or follow-ups matter 
   - Plus any Datadog / Productboard / related-PR / doc links found in the commits, branch, or fetched content.
   - If after this you have no real reference link, ask the user for one (see Step 3.1.5). Do not invent links.
 - Decisions: The heart of the description. List only the meaningful choices made and the reason for each. One line each: `decision — why`. The "why" must add information the code can't (it solves a problem, improves something, was forced by a constraint, was picked over an alternative). Do NOT describe implementation, file changes, or how it works. Omit the section if there were no real decisions.
-- Review Notes: Do NOT enumerate changes the reviewer can see in the diff. Only what needs human attention. Omit if nothing qualifies.
-- Notes: Only include subsections with actual content.
+- Review Notes: Addressed to the reviewer about reviewing and merging, not about the change. Test every bullet: "could the reviewer get this from the diff or the sections above?" If yes, cut it. Keep only required actions or merge sequencing, follow-ups, the single riskiest spot to look at, and looks-wrong-but-intentional gotchas. Never restate Context or Decisions, never narrate the diff. Migration steps for consumers of the merged code belong in Notes > Migration, not here. Omit the section if nothing qualifies.
+- Notes: Only include subsections with actual content. Migration holds actions for consumers of the merged code (upgrade steps, breaking-change handling); actions for the reviewer/merger belong in Review Notes.
 
 ### Step 3.3: Generate Title
 
