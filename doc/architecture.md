@@ -401,7 +401,7 @@ Use the `COMMAND-TEMPLATE` library:
 
 ```bash
 # 1. Copy template
-cp schovi/lib/COMMAND-TEMPLATE.md schovi/commands/new-command.md
+cp plugins/schovi/lib/COMMAND-TEMPLATE.md plugins/schovi/commands/new-command.md
 
 # 2. Configure frontmatter
 # Edit: description, argument-hint, model, allowed-tools
@@ -460,7 +460,7 @@ Generates → Structured output following template
 ## File Structure
 
 ```
-schovi/
+plugins/schovi/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin metadata
 ├── commands/                    # Tier 2: Workflow layer

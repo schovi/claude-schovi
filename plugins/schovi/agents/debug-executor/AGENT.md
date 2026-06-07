@@ -161,7 +161,7 @@ Task tool:
 
 **Read the template**:
 ```
-Read: schovi/templates/debug/full.md (if exists, else use standard format)
+Read: plugins/schovi/templates/debug/full.md (if exists, else use standard format)
 ```
 
 **Generate structured fix proposal**:

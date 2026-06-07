@@ -85,4 +85,4 @@ Configuration:
 
 ## Location
 
-`schovi/lib/argument-parser.md`
+`plugins/schovi/lib/argument-parser.md`

@@ -80,4 +80,4 @@ Task tool:
 
 ## Location
 
-`schovi/agents/debug-fix-generator/AGENT.md`
+`plugins/schovi/agents/debug-fix-generator/AGENT.md`

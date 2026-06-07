@@ -75,4 +75,4 @@ Task tool:
 
 ## Location
 
-`schovi/agents/jira-analyzer/AGENT.md`
+`plugins/schovi/agents/jira-analyzer/AGENT.md`

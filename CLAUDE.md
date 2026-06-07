@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a **Claude Code plugin** providing workflow automation for software engineering tasks. It integrates Jira and GitHub PR analysis with deep codebase exploration capabilities.
+This is a **dual plugin for Claude Code and Codex** providing workflow automation for software engineering tasks. It integrates Jira and GitHub PR analysis with deep codebase exploration capabilities. Both runtimes share the same skills (`plugins/schovi/skills/`); each has its own manifest and marketplace (see [Dual Plugin: Claude Code + Codex](#dual-plugin-claude-code--codex)).
 
 **Key Innovation**: Context isolation architecture that reduces token consumption by 75-80% when fetching external data.
 
@@ -14,8 +14,8 @@ This is a **Claude Code plugin** providing workflow automation for software engi
 
 The plugin uses a three-tier architecture for external integrations:
 
-1. **Skills** (Auto-detection + explicit, `schovi/skills/`): Automatically detect mentions and intelligently decide when to fetch context, or are invoked explicitly (`/schovi:publish`, `/schovi:review`, `/schovi:debug`)
-2. **Subagents** (Execution, `schovi/agents/`): Execute in isolated context windows to fetch and summarize external data
+1. **Skills** (Auto-detection + explicit, `plugins/schovi/skills/`): Automatically detect mentions and intelligently decide when to fetch context, or are invoked explicitly (`/schovi:publish`, `/schovi:review`, `/schovi:debug`)
+2. **Subagents** (Execution, `plugins/schovi/agents/`): Execute in isolated context windows to fetch and summarize external data
 
 ### Context Isolation Architecture
 
@@ -68,13 +68,13 @@ Main Context receives clean output only
 
 ### Shared Libraries
 
-Common operations are extracted into reusable libraries in `schovi/lib/`:
+Common operations are extracted into reusable libraries in `plugins/schovi/lib/`:
 - **argument-parser.md**: Standardized argument parsing
 - **input-processing.md**: Unified context fetching from Jira/GitHub/Datadog
 - **work-folder.md**: Work folder resolution and metadata
 - **subagent-invoker.md**: Subagent invocation patterns
 
-See `schovi/lib/README.md` for detailed documentation.
+See `plugins/schovi/lib/README.md` for detailed documentation.
 
 ## Subagents
 
@@ -96,6 +96,32 @@ All subagent types use **three-part format**: `plugin:parent:agent`. Always use 
 | jira-auto-detector | Auto-fetch Jira context when mentioned |
 
 ## Critical Patterns
+
+### Dual Plugin: Claude Code + Codex
+
+This repo ships the same plugin for two runtimes. **Every change must keep both in sync** — never update one side and leave the other stale.
+
+| Artifact | Claude Code | Codex |
+|----------|-------------|-------|
+| Plugin manifest | `plugins/schovi/.claude-plugin/plugin.json` | `plugins/schovi/.codex-plugin/plugin.json` |
+| Marketplace | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json` |
+| Skills | `plugins/schovi/skills/*/SKILL.md` (shared) | same files, invoked as `use $<skill>` |
+| Subagents | `plugins/schovi/agents/*/AGENT.md` | reference material only, not registered agents |
+
+Rules:
+
+1. **Manifests stay in sync**: version bumps, skill additions/removals, and description changes apply to BOTH `plugin.json` files
+2. **Skills serve both runtimes**: `/schovi:*` syntax and `Task` tool / `subagent_type` references are Claude-native. When adding or changing a skill, make sure it degrades gracefully in Codex (trigger text works, subagent steps have a Codex-compatible path or are clearly Claude-only)
+3. **Validate JSON after manifest changes**:
+   ```bash
+   python3 -m json.tool plugins/schovi/.claude-plugin/plugin.json >/dev/null
+   python3 -m json.tool plugins/schovi/.codex-plugin/plugin.json >/dev/null
+   python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
+   python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+   ```
+4. **Docs cover both**: CLAUDE.md documents Claude-side behavior, AGENTS.md documents Codex-side behavior. Update whichever is affected
+
+See [AGENTS.md](AGENTS.md) for Codex specifics (installation, invocation, validation).
 
 ### Subagent Naming Convention
 
@@ -125,15 +151,19 @@ Always use `file:line` format for specificity:
 ## Development
 
 ```bash
-# Install
+# Install (Claude Code)
 /plugin marketplace add ~/work/claude-schovi
 /plugin install schovi@schovi-workflows
 
+# Install (Codex)
+codex plugin marketplace add ~/work/claude-schovi
+
 # Changes take effect immediately - no build needed
-# Test via command invocation: /schovi:publish or /schovi:review
+# Test via command invocation: /schovi:publish or /schovi:review (Claude)
+# or `use $publish` / `use $review` (Codex)
 ```
 
-**After changing plugin logic**: Evaluate whether changes affect the architecture or patterns documented here. If so, update CLAUDE.md to keep it in sync. This file should reflect current behavior, not become stale documentation.
+**After changing plugin logic**: Evaluate whether changes affect the architecture or patterns documented here. If so, update CLAUDE.md to keep it in sync. This file should reflect current behavior, not become stale documentation. Apply the same check to AGENTS.md for Codex-facing changes.
 
 ## External Dependencies
 
@@ -145,9 +175,9 @@ Always use `file:line` format for specificity:
 
 | Category | Path |
 |----------|------|
-| Skills | `schovi/skills/*/SKILL.md` |
-| Agents | `schovi/agents/*/AGENT.md` |
-| Templates | `schovi/templates/` |
+| Skills | `plugins/schovi/skills/*/SKILL.md` |
+| Agents | `plugins/schovi/agents/*/AGENT.md` |
+| Templates | `plugins/schovi/templates/` |
 | Documentation | `doc/` |
 
 For detailed documentation, see the [doc/](doc/) directory.

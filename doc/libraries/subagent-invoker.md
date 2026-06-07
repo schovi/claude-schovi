@@ -127,4 +127,4 @@ Processing:
 
 ## Location
 
-`schovi/lib/subagent-invoker.md`
+`plugins/schovi/lib/subagent-invoker.md`

@@ -144,4 +144,4 @@ Always report to user which method was used:
 
 ## Location
 
-`schovi/lib/code-fetcher.md`
+`plugins/schovi/lib/code-fetcher.md`

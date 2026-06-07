@@ -11,7 +11,7 @@
       "name": "schovi",
       "description": "Complete workflow automation for software engineering - problem analysis, specification generation, autonomous implementation, Jira and GitHub PR integration",
       "version": "1.4.0",
-      "source": "./schovi"
+      "source": "./plugins/schovi"
     }
   ]
 }

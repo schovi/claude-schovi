@@ -94,4 +94,4 @@ User: "Still working on EC-1234"
 
 ## Location
 
-`schovi/skills/jira-auto-detector/SKILL.md`
+`plugins/schovi/skills/jira-auto-detector/SKILL.md`

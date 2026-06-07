@@ -182,4 +182,4 @@ Quality Gate:
 
 ## Location
 
-`schovi/lib/phase-template.md`
+`plugins/schovi/lib/phase-template.md`

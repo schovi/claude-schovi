@@ -8,7 +8,7 @@
       "name": "schovi",
       "source": {
         "source": "local",
-        "path": "./schovi"
+        "path": "./plugins/schovi"
       },
       "policy": {
         "installation": "AVAILABLE",

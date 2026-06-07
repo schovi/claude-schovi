@@ -11,7 +11,7 @@ Unified skill for deep debugging workflows and Datadog observability context fet
 
 ## Codex Compatibility
 
-If a Claude-style custom subagent is unavailable, execute the referenced analyzer or executor workflow directly with available Codex tools. Use `schovi/agents/debug-executor/AGENT.md`, `schovi/agents/datadog-analyzer/AGENT.md`, and `schovi/agents/jira-analyzer/AGENT.md` as reference instructions. For codebase exploration, use Codex's available exploration tools or built-in subagents.
+If a Claude-style custom subagent is unavailable, execute the referenced analyzer or executor workflow directly with available Codex tools. Use `plugins/schovi/agents/debug-executor/AGENT.md`, `plugins/schovi/agents/datadog-analyzer/AGENT.md`, and `plugins/schovi/agents/jira-analyzer/AGENT.md` as reference instructions. For codebase exploration, use Codex's available exploration tools or built-in subagents.
 
 ## Two Modes
 

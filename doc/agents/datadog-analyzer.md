@@ -70,4 +70,4 @@ Task tool:
 
 ## Location
 
-`schovi/agents/datadog-analyzer/AGENT.md`
+`plugins/schovi/agents/datadog-analyzer/AGENT.md`

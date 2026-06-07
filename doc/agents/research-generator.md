@@ -81,8 +81,8 @@ Task tool:
 ## Template Integration
 
 Reads and follows structure from:
-- `schovi/templates/research/full.md` - Deep technical analysis structure
+- `plugins/schovi/templates/research/full.md` - Deep technical analysis structure
 
 ## Location
 
-`schovi/agents/research-generator/AGENT.md`
+`plugins/schovi/agents/research-generator/AGENT.md`

@@ -99,4 +99,4 @@ Task tool:
 
 ## Location
 
-`schovi/agents/gh-pr-reviewer/AGENT.md`
+`plugins/schovi/agents/gh-pr-reviewer/AGENT.md`

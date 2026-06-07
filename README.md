@@ -277,7 +277,7 @@ use $debug to investigate EC-1234
 
 Notes:
 - The `/schovi:*` examples below are Claude Code command syntax. In Codex, use natural language or `$skill` mentions.
-- Claude-style custom subagents in `schovi/agents/*/AGENT.md` are reference material for Codex. Codex skills should adapt those instructions to available Codex tools and built-in subagents.
+- Claude-style custom subagents in `plugins/schovi/agents/*/AGENT.md` are reference material for Codex. Codex skills should adapt those instructions to available Codex tools and built-in subagents.
 
 ### Claude Code
 
@@ -393,7 +393,7 @@ Consistent architecture for all external integrations:
 │       ├── code-fetcher.md
 │       ├── phase-template.md
 │       └── command-template.md
-└── schovi/                            # Plugin implementation
+└── plugins/schovi/                            # Plugin implementation
     ├── commands/                      # Command implementations
     ├── agents/                        # Agent implementations
     ├── skills/                        # Skill implementations
@@ -407,12 +407,12 @@ Consistent architecture for all external integrations:
 
 To enhance this plugin:
 
-1. Edit files in `schovi/` directory
+1. Edit files in `plugins/schovi/` directory
 2. Test changes by running commands
 3. Commit and push changes
 4. Share improvements with your team
 
-For new commands, use the `COMMAND-TEMPLATE` library in `schovi/lib/`.
+For new commands, use the `COMMAND-TEMPLATE` library in `plugins/schovi/lib/`.
 
 ---
 

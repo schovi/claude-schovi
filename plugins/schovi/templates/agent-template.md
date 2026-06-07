@@ -1,8 +1,8 @@
 # Subagent template
 
-> Scaffold for new condenser subagents under `schovi/agents/`. This file is **not**
-> an agent itself — it lives in `schovi/templates/` so the harness doesn't surface
-> it. To create a new agent, copy this file to `schovi/agents/<agent-name>/AGENT.md`,
+> Scaffold for new condenser subagents under `plugins/schovi/agents/`. This file is **not**
+> an agent itself — it lives in `plugins/schovi/templates/` so the harness doesn't surface
+> it. To create a new agent, copy this file to `plugins/schovi/agents/<agent-name>/AGENT.md`,
 > restore the YAML frontmatter shown below, and replace every `[bracketed]` placeholder.
 >
 > ```yaml
@@ -321,7 +321,7 @@ Good luck! 🚀
 
 **When creating a new subagent**:
 
-1. **Copy this template** to `schovi/agents/[agent-name]/AGENT.md`
+1. **Copy this template** to `plugins/schovi/agents/[agent-name]/AGENT.md`
 2. **Replace all placeholders** in brackets with specific values
 3. **Define token budget** based on use case:
    - Fetcher agents: 800-1200 tokens (compact), 2000-15000 (full)

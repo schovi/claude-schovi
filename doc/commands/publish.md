@@ -149,4 +149,4 @@ gh pr checks 123 --watch
 
 ## Location
 
-`schovi/commands/publish.md`
+`plugins/schovi/commands/publish.md`

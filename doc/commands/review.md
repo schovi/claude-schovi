@@ -165,4 +165,4 @@ Standalone command (not integrated with implement/debug workflows).
 
 ## Location
 
-`schovi/commands/review.md`
+`plugins/schovi/commands/review.md`

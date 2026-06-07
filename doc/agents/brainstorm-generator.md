@@ -77,8 +77,8 @@ Task tool:
 ## Template Integration
 
 Reads and follows structure from:
-- `schovi/templates/brainstorm/full.md` - Solution options structure
+- `plugins/schovi/templates/brainstorm/full.md` - Solution options structure
 
 ## Location
 
-`schovi/agents/brainstorm-generator/AGENT.md`
+`plugins/schovi/agents/brainstorm-generator/AGENT.md`

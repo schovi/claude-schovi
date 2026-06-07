@@ -78,8 +78,8 @@ Task tool:
 ## Template Integration
 
 Reads and follows structure from:
-- `schovi/templates/spec/full.md` - Implementation spec structure
+- `plugins/schovi/templates/spec/full.md` - Implementation spec structure
 
 ## Location
 
-`schovi/agents/spec-generator/AGENT.md`
+`plugins/schovi/agents/spec-generator/AGENT.md`

@@ -11,7 +11,7 @@ Unified skill for GitHub PR context fetching and structured code review.
 
 ## Codex Compatibility
 
-If a Claude-style custom subagent is unavailable, execute the referenced reviewer workflow directly with available Codex tools. For GitHub PRs, prefer the `gh` CLI commands described in `schovi/agents/gh-pr-reviewer/AGENT.md`, then condense the result before continuing the review.
+If a Claude-style custom subagent is unavailable, execute the referenced reviewer workflow directly with available Codex tools. For GitHub PRs, prefer the `gh` CLI commands described in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md`, then condense the result before continuing the review.
 
 ## Two Modes
 

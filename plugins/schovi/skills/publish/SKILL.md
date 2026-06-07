@@ -10,7 +10,7 @@ Creates or updates GitHub pull requests with automatic description generation.
 
 ## Codex Compatibility
 
-If Claude-style custom subagents are unavailable, commit any pending changes inline, then use available Codex tools for Jira, GitHub, file, folder, or URL context. For GitHub references, prefer the `gh` CLI workflow described in `schovi/agents/gh-pr-reviewer/AGENT.md`.
+If Claude-style custom subagents are unavailable, commit any pending changes inline, then use available Codex tools for Jira, GitHub, file, folder, or URL context. For GitHub references, prefer the `gh` CLI workflow described in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md`.
 
 **Behavior**:
 - Auto-commits uncommitted changes before proceeding

@@ -92,4 +92,4 @@ All must be met before output:
 
 ## Location
 
-`schovi/commands/debug.md`
+`plugins/schovi/commands/debug.md`

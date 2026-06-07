@@ -107,4 +107,4 @@ Main context stays clean for codebase analysis.
 
 ## Location
 
-`schovi/lib/input-processing.md`
+`plugins/schovi/lib/input-processing.md`

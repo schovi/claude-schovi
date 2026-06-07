@@ -68,7 +68,7 @@ Use lib/work-folder.md with configuration:
 
 ### 1. Copy Template
 ```bash
-cp schovi/lib/COMMAND-TEMPLATE.md schovi/commands/new-command.md
+cp plugins/schovi/lib/COMMAND-TEMPLATE.md plugins/schovi/commands/new-command.md
 ```
 
 ### 2. Configure Frontmatter
@@ -190,4 +190,4 @@ Display in terminal (or use work-folder for --output flag)
 
 ## Location
 
-`schovi/lib/COMMAND-TEMPLATE.md`
+`plugins/schovi/lib/COMMAND-TEMPLATE.md`

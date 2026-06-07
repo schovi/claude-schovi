@@ -126,4 +126,4 @@ Processing:
 
 ## Location
 
-`schovi/lib/work-folder.md`
+`plugins/schovi/lib/work-folder.md`
