@@ -1,0 +1,9 @@
+{
+  "name": "homebrew",
+  "version": "1.0.0",
+  "description": "CI-gated GitHub release workflow for Homebrew-distributed projects: SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification",
+  "author": {
+    "name": "David Schovanec",
+    "email": "david.schovanec@productboard.com"
+  }
+}

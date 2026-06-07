@@ -12,6 +12,12 @@
       "description": "Complete workflow automation for software engineering - problem analysis, specification generation, autonomous implementation, Jira and GitHub PR integration",
       "version": "1.4.0",
       "source": "./plugins/schovi"
+    },
+    {
+      "name": "homebrew",
+      "description": "CI-gated GitHub release workflow for Homebrew-distributed projects - SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification",
+      "version": "1.0.0",
+      "source": "./plugins/homebrew"
     }
   ]
 }

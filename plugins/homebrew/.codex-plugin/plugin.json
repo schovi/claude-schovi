@@ -1,0 +1,40 @@
+{
+  "name": "homebrew",
+  "version": "1.0.0",
+  "description": "CI-gated GitHub release workflow for Homebrew-distributed projects: SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification.",
+  "author": {
+    "name": "David Schovanec",
+    "email": "david.schovanec@productboard.com",
+    "url": "https://github.com/schovi"
+  },
+  "homepage": "https://github.com/schovi/claude-schovi",
+  "repository": "https://github.com/schovi/claude-schovi",
+  "license": "MIT",
+  "keywords": [
+    "homebrew",
+    "release",
+    "github",
+    "goreleaser",
+    "semver"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Homebrew Release",
+    "shortDescription": "CI-gated GitHub releases for Homebrew-distributed projects",
+    "longDescription": "Release workflow for GitHub projects distributed through Homebrew. Gates releases on green main CI, selects the next SemVer version from app-visible changes, writes release notes, publishes annotated tags, drives optional GoReleaser automation, and verifies the resulting GitHub Release and Homebrew tap.",
+    "developerName": "David Schovanec",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/schovi/claude-schovi",
+    "privacyPolicyURL": "https://github.com/schovi/claude-schovi",
+    "termsOfServiceURL": "https://github.com/schovi/claude-schovi",
+    "defaultPrompt": [
+      "Use $release to cut a CI-gated GitHub release from main."
+    ],
+    "brandColor": "#F9A03F",
+    "screenshots": []
+  }
+}
