@@ -22,7 +22,7 @@ Core design: **context isolation**. External data (Jira issues ~10-15k tokens, G
 | Skills | `plugins/<name>/skills/*/SKILL.md` | same files, invoked as `use $<skill>` |
 | Subagents | `plugins/schovi/agents/*/AGENT.md` | reference material only, not registered agents |
 | Templates | `plugins/schovi/templates/` | shared |
-| Detailed docs | `doc/` (architecture, commands, agents, libraries) | shared |
+| Human-facing overview | `README.md` | shared |
 
 ## Dual-Runtime Sync Rules
 
@@ -32,6 +32,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 2. **Skills serve both runtimes**: `/<plugin>:<skill>` syntax and `Task` tool / `subagent_type` references are Claude-native. When adding or changing a skill, make sure it degrades gracefully in Codex (trigger text works, subagent steps have a Codex-compatible path or are clearly Claude-only)
 3. **Validate JSON after manifest changes**: see [Validation](#validation)
 4. **Docs stay in sync**: this file is the single instructions source for both runtimes. When plugin logic changes affect the architecture or patterns documented here, update this file in the same change
+5. **README.md stays current**: it is the only human-facing overview (plugins, skills, subagents, installation). Whenever a plugin, skill, or subagent is added, removed, or renamed, update README.md in the same change. Keep it a simple overview; detailed behavior belongs in the SKILL.md/AGENT.md files themselves
 
 ### Codex Notes
 
