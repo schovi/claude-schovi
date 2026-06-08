@@ -45,11 +45,15 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 
 | Skill | Plugin | Invocation | Purpose |
 |-------|--------|------------|---------|
-| publish | schovi | `/schovi:publish` + auto-detect | Create/update GitHub PRs with auto-commit |
-| review | schovi | `/schovi:review` + auto-detect | Code review + fetch context when PRs are mentioned |
-| debug | schovi | `/schovi:debug` + auto-detect | Debugging + fetch Datadog context when observability is mentioned |
+| publish | schovi | `/schovi:publish` | Create/update GitHub PRs with auto-commit. Jira integration loads conditionally from `references/jira.md` |
+| review | schovi | `/schovi:review` | Structured code review of PRs, Jira tickets, branches, or local files |
+| debug | schovi | `/schovi:debug` | Root cause analysis with fix proposal via debug-executor |
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
+| datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
+| gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects (`disable-model-invocation: true`) |
+
+Description discipline: a skill description states WHEN to trigger (and when to skip), one concern per skill. The body states HOW. Agent descriptions state the contract (what it fetches, input, output budget) because that is what spawners route on.
 
 ## Subagents
 
@@ -77,16 +81,17 @@ Always condense; never return raw payloads to the main context.
 
 Subagent types use **three-part format** `plugin:parent:agent`:
 
-- Skill-based agents (under `skills/`): `plugin:skill:agent`, e.g. `schovi:jira-auto-detector:jira-analyzer`
-- Standalone agents (under `agents/`): `plugin:agent:agent` (name repeated), e.g. `schovi:debug-executor:debug-executor`
+- All current agents live under `agents/`, so the parent segment repeats the agent name: `plugin:agent:agent`, e.g. `schovi:jira-analyzer:jira-analyzer`, `schovi:debug-executor:debug-executor`
+- An agent bundled inside a skill folder (none today) would register as `plugin:skill:agent`
 
-`schovi:debug-executor` (two-part) is wrong. Always spawn with the full three-part identifier.
+`schovi:debug-executor` (two-part) and `schovi:jira-auto-detector:jira-analyzer` (skill-based name for a standalone agent) are both wrong and fail to spawn. Always use the registered three-part identifier.
 
 ## Conventions
 
 - Code references use `file:line` format: `src/api/controller.ts:123`, not just the path
 - New workflows go in `plugins/<name>/skills/<skill>/SKILL.md`; new data fetchers in `plugins/schovi/agents/<agent>/AGENT.md`
-- Naming: `-analyzer` suffix for data fetchers, `-executor` suffix for workflow executors
+- Naming: `-analyzer` suffix for data fetchers, `-executor` suffix for workflow executors, `-auto-detector` suffix for auto-detection skills
+- Source-specific integration steps inside a generic skill live in `references/*.md` within the skill folder, read only when that input type is detected. Each reference file must include a graceful-degradation path so the skill never blocks when the integration is unavailable
 
 ## Development
 

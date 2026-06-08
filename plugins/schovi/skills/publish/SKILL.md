@@ -193,12 +193,7 @@ Try:
 Based on `INPUT_TYPE`:
 
 **Jira** (`INPUT_TYPE=jira`):
-Spawn jira-analyzer subagent:
-```
-prompt: "Fetch and summarize Jira issue [INPUT_VALUE]"
-subagent_type: "schovi:jira-auto-detector:jira-analyzer"
-description: "Fetching Jira issue"
-```
+Read `references/jira.md` in this skill's folder and follow it. It holds the Jira-specific integration (subagent spawn, summary usage, fallbacks) so the rest of this flow stays generic.
 
 **GitHub** (`INPUT_TYPE=github`):
 Spawn gh-pr-reviewer subagent:

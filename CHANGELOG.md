@@ -5,6 +5,23 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2026-06-07
+
+### Added
+- `datadog-auto-detector` skill: Datadog auto-detection extracted from `debug` (restores the pre-1.7.0 standalone detector in a slimmer structure)
+- `gh-pr-auto-detector` skill: GitHub PR auto-detection extracted from `review`
+- `publish` conditional reference `references/jira.md`: Jira integration (analyzer spawn, summary usage, graceful degradation) is read only when a Jira reference is present, keeping the main flow generic for repos without Jira
+- Frontmatter descriptions for `datadog-analyzer` and `debug-executor` agents (previously surfaced as "Agent from schovi plugin" in agent listings)
+
+### Changed
+- `debug` and `review` are single-mode explicit skills; auto-detection moved to the dedicated detector skills and their descriptions describe one concern each
+- `jira-auto-detector` rewritten to the shared detector structure (505 → ~110 lines); stale `/analyze-problem` integration section removed
+- Subagent naming docs corrected: all agents live under `agents/` and register as `plugin:agent:agent`
+
+### Fixed
+- `publish` and `review` spawned non-existent `schovi:jira-auto-detector:jira-analyzer`; corrected to `schovi:jira-analyzer:jira-analyzer` (regression of the 1.7.0 fix)
+- Claude plugin manifest description still mentioned the removed `adr` skill; marketplace entry description was stale (referred to problem analysis / specification / autonomous implementation)
+
 ## [1.16.2] - 2026-05-22
 
 ### Changed

@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "schovi",
-      "description": "Complete workflow automation for software engineering - problem analysis, specification generation, autonomous implementation, Jira and GitHub PR integration",
-      "version": "1.4.0",
+      "description": "Workflow automation for software engineering: publish (GitHub PR), review, debug, Jira/GitHub/Datadog auto-detection",
+      "version": "1.17.0",
       "source": "./plugins/schovi"
     },
     {

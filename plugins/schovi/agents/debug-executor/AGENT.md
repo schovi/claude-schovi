@@ -1,5 +1,6 @@
 ---
 name: debug-executor
+description: Executes the complete debug workflow in isolated context - fetches external context (Jira, GitHub, Datadog), performs deep root cause analysis with codebase exploration, and returns a structured fix proposal. Input: problem reference. Output: max 2500 tokens.
 color: red
 allowed-tools: ["*"]
 ---

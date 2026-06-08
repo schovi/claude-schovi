@@ -1,95 +1,28 @@
 ---
 name: review
-description: "Code review and GitHub PR context. Two modes: (1) Explicit /schovi:review for structured code review of PRs, Jira tickets, or local files. (2) Auto-detection: when user mentions GitHub PRs (URLs, #123, owner/repo#123, 'PR #123') and needs context (asking questions, checking CI, requesting review), automatically fetches PR summary via gh-pr-reviewer subagent. Skips auto-fetch for past tense mentions, passive listings, or already-fetched PRs."
+description: "Structured code review with risk, security, and performance assessment. Use when the user says \"/schovi:review\", \"review this PR\", \"review #123\", \"code review\", or asks for a review of a GitHub PR, Jira ticket, branch, or local files."
 disable-model-invocation: false
 user-invocable: true
 ---
 
 # Review Skill
 
-Unified skill for GitHub PR context fetching and structured code review.
+Structured code review with Risk, Security, Performance, Issues, and Verdict sections.
+
+Casual PR mentions in conversation ("what is #123 about?") belong to the `gh-pr-auto-detector` skill, not this one.
 
 ## Codex Compatibility
 
 If a Claude-style custom subagent is unavailable, execute the referenced reviewer workflow directly with available Codex tools. For GitHub PRs, prefer the `gh` CLI commands described in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md`, then condense the result before continuing the review.
 
-## Two Modes
+## Trigger
 
-### Mode 1: Explicit Review (`/review <arg>`)
-
-Full structured code review with Risk, Security, Performance, Issues, and Verdict sections.
-
-### Mode 2: Auto-Detection (PR mentions in conversation)
-
-When user mentions a PR and needs context, fetch PR summary and integrate into response. No formal review output, just natural context integration.
-
----
-
-## Mode Selection
-
-**Explicit review** when:
 - User invokes `/schovi:review <arg>`
 - User says "review this PR", "review #123", "code review"
 
-**Auto-detection** when:
-- User asks about a PR: "What is #123 about?", "What's in owner/repo#456?"
-- User checks status: "Did CI pass on #123?", "Is #456 approved?"
-- User needs context: "Apply changes from #123", "Why did #123 fail?"
-- User compares: "Compare #123 and #456"
-
-**Skip auto-detection** when:
-- Past tense: "I merged #123 yesterday", "Fixed in #456"
-- Passive listing: "Released with #123, #124, #125"
-- Technical identifier: "The PR-123 endpoint", "Variable pr_456_result"
-- Already fetched this session (check transcript for previous gh-pr-reviewer calls)
-
 ---
 
-## PR Pattern Recognition
-
-Detect these patterns in user messages:
-
-- **Full URL**: `https://github.com/owner/repo/pull/123`
-- **Short form**: `owner/repo#123`
-- **Hash-only**: `#123` (resolve repo from `git remote get-url origin`)
-- **Explicit**: "PR #123", "pull request 123"
-
-**Repository resolution for #number only:**
-1. Check conversation history for previous repo context
-2. Check cwd: `git remote get-url origin` → parse owner/repo
-3. If neither works, ask user to clarify
-
----
-
-## Mode 2: Auto-Detection Workflow
-
-### Step 1: Detect & Evaluate
-
-Scan message for PR patterns. For each match, evaluate whether context is genuinely needed (see selection rules above).
-
-### Step 2: Fetch PR Context
-
-Spawn gh-pr-reviewer subagent:
-
-```
-Tool: Agent
-Parameters:
-  subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
-  prompt: "Fetch and summarize GitHub PR: [owner/repo#number or URL]"
-  description: "Fetching GitHub PR context"
-```
-
-### Step 3: Integrate Naturally
-
-Use the summary to answer the user's question. Don't regurgitate the full summary, extract the relevant parts.
-
-**Multiple PRs:** Fetch max 3 per response. Launch in parallel when independent.
-
-**Session memory:** Don't re-fetch PRs already fetched in this conversation. Reuse previous context. Re-fetch only if user explicitly requests fresh data or needs different aspects.
-
----
-
-## Mode 1: Explicit Review Workflow
+## Workflow
 
 ### Phase 1: Input Parsing & Classification
 
@@ -99,6 +32,11 @@ Use the summary to answer the user's question. Don't regurgitate the full summar
 - File path: `./path/to/file.md` or absolute path
 - `this branch` / no arg: local diff review against base branch
 - Free-form: description text
+
+**Repository resolution for bare `#123`:**
+1. Check conversation history for previous repo context
+2. Check cwd: `git remote get-url origin`, parse owner/repo
+3. If neither works, ask user to clarify
 
 **Flags**:
 - `--quick`: Lighter analysis, faster results
@@ -111,7 +49,7 @@ Use the summary to answer the user's question. Don't regurgitate the full summar
 - Returns all changed files with stats, diff, reviews, CI checks
 
 **Jira Issue**:
-- Spawn `schovi:jira-auto-detector:jira-analyzer` via Agent tool
+- Spawn `schovi:jira-analyzer:jira-analyzer` via Agent tool
 
 **Local branch** (`this branch` or no arg):
 - Run `git diff` against base branch
@@ -251,7 +189,6 @@ Terminal only, no file creation.
 ## Example Usage
 
 ```bash
-# Explicit review
 /schovi:review https://github.com/owner/repo/pull/123
 /schovi:review owner/repo#123
 /schovi:review #123
@@ -259,10 +196,4 @@ Terminal only, no file creation.
 /schovi:review EC-1234
 /schovi:review ./spec.md
 /schovi:review this branch
-
-# Auto-detection (no /review needed)
-"What is #123 about?"          → fetches PR context
-"Did CI pass on #456?"         → fetches CI status
-"Compare #123 and #456"        → fetches both PRs
-"I merged #123 yesterday"      → skips (past tense)
 ```

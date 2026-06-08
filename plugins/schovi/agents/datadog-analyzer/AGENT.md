@@ -1,5 +1,6 @@
 ---
 name: datadog-analyzer
+description: Fetches and summarizes Datadog observability data (logs, metrics, traces, monitors, incidents, dashboards, service health) in isolated context. Input: Datadog URL or service/query description. Output: condensed summary, max 1200 tokens.
 color: orange
 allowed-tools:
   - "mcp__datadog-mcp__*"

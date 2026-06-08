@@ -16,9 +16,11 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | Skill | Plugin | Invocation | What it does |
 |-------|--------|------------|--------------|
 | `publish` | schovi | `/schovi:publish` or "create a PR" | Auto-commits, pushes, and creates/updates a GitHub PR with a generated description |
-| `review` | schovi | `/schovi:review #123` or PR mention | Structured code review; auto-fetches PR context when PRs come up in conversation |
-| `debug` | schovi | `/schovi:debug EC-1234` or Datadog mention | Root cause analysis with fix proposal; auto-fetches Datadog observability context |
+| `review` | schovi | `/schovi:review #123` | Structured code review of PRs, Jira tickets, branches, or local files |
+| `debug` | schovi | `/schovi:debug EC-1234` | Root cause analysis with fix proposal from Jira, GitHub, Datadog, or error text |
 | `jira-auto-detector` | schovi | automatic | Fetches condensed Jira context when issues (EC-1234, URLs) are mentioned |
+| `datadog-auto-detector` | schovi | automatic | Fetches condensed Datadog context when observability resources are mentioned |
+| `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, tagging, optional GoReleaser, verification |
 
 In Codex, invoke skills as `use $publish`, `use $review`, `use $debug`, `use $release`.

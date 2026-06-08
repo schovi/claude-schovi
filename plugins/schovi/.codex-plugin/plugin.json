@@ -1,7 +1,7 @@
 {
   "name": "schovi",
-  "version": "1.16.4",
-  "description": "Personal software engineering workflows for PR publishing, review, debugging, and Jira context detection.",
+  "version": "1.17.0",
+  "description": "Personal software engineering workflows for PR publishing, review, debugging, and Jira/GitHub/Datadog context detection.",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com",
@@ -23,7 +23,7 @@
   "interface": {
     "displayName": "Schovi Workflows",
     "shortDescription": "Engineering workflows for Git, GitHub, Jira, and debugging",
-    "longDescription": "Personal workflow automation for software engineering tasks. Includes structured commits, pull request publishing, code review, debugging workflows, and Jira issue context detection.",
+    "longDescription": "Personal workflow automation for software engineering tasks. Includes pull request publishing, code review, debugging workflows, and Jira, GitHub PR, and Datadog context detection.",
     "developerName": "David Schovanec",
     "category": "Coding",
     "capabilities": [

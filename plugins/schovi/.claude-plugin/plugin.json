@@ -1,7 +1,7 @@
 {
   "name": "schovi",
-  "version": "1.16.4",
-  "description": "Workflow automation for software engineering: publish (GitHub PR), review, debug, ADR, Jira/GitHub/Datadog auto-detection",
+  "version": "1.17.0",
+  "description": "Workflow automation for software engineering: publish (GitHub PR), review, debug, Jira/GitHub/Datadog auto-detection",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com"
