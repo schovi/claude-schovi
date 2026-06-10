@@ -1,7 +1,7 @@
 {
   "name": "homebrew",
-  "version": "1.0.0",
-  "description": "CI-gated GitHub release workflow for Homebrew-distributed projects: SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification.",
+  "version": "1.1.0",
+  "description": "CI-gated GitHub release workflow for Homebrew-distributed projects: SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification, and a follow-up documentation-sync pull request.",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "Homebrew Release",
     "shortDescription": "CI-gated GitHub releases for Homebrew-distributed projects",
-    "longDescription": "Release workflow for GitHub projects distributed through Homebrew. Gates releases on green main CI, selects the next SemVer version from app-visible changes, writes release notes, publishes annotated tags, drives optional GoReleaser automation, and verifies the resulting GitHub Release and Homebrew tap.",
+    "longDescription": "Release workflow for GitHub projects distributed through Homebrew. Gates releases on green main CI, selects the next SemVer version from app-visible changes, writes release notes, publishes annotated tags, drives optional GoReleaser automation, and verifies the resulting GitHub Release and Homebrew tap. After publishing, it opens a follow-up documentation-sync pull request when README or other docs need updating and asks the user to verify it.",
     "developerName": "David Schovanec",
     "category": "Coding",
     "capabilities": [

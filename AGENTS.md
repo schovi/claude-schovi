@@ -51,7 +51,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
-| release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects (`disable-model-invocation: true`) |
+| release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
 
 Description discipline: a skill description states WHEN to trigger (and when to skip), one concern per skill. The body states HOW. Agent descriptions state the contract (what it fetches, input, output budget) because that is what spawners route on.
 

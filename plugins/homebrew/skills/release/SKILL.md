@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a CI-gated GitHub release for projects distributed through Homebrew, GoReleaser, GitHub Releases, casks, formulae, or SemVer tags. Handles version selection, CI gating, release notes, optional GoReleaser automation, tag publishing, and release verification. Explicit invocation only (/homebrew:release in Claude Code, `use $release` in Codex).
+description: Cut a CI-gated GitHub release for projects distributed through Homebrew, GoReleaser, GitHub Releases, casks, formulae, or SemVer tags. Handles version selection, CI gating, release notes, optional GoReleaser automation, tag publishing, release verification, and a follow-up documentation-sync pull request. Explicit invocation only (/homebrew:release in Claude Code, `use $release` in Codex).
 disable-model-invocation: true
 ---
 
@@ -242,6 +242,53 @@ Confirm:
 
 If Homebrew publishing is configured, verify the generated cask or formula version and hashes in the tap. If GoReleaser handles Homebrew, spot-check the tap after the release workflow succeeds.
 
+## Documentation Sync
+
+Only after the GitHub Release is confirmed (the verification above passed), check whether the user-visible changes in this release are reflected in the project's documentation, and open a follow-up pull request when they are not.
+
+Documentation never blocks or gates the release. The release is already published at this point. This step is a best-effort follow-up.
+
+1. Identify the docs to check. Start with `README.md`, then any docs the changed code clearly maps to: a `docs/` directory, `CHANGELOG.md`, usage/man pages, `--help` text fixtures, config references, or files the release commits already touched.
+
+2. Compare against the user-visible changes from `Decide Version` and `Release Notes`. For each new feature, new command, new flag, changed behavior, or removed capability, confirm the docs describe the current behavior. Treat a `CHANGELOG.md`, if present, as expecting a `$next_tag` entry.
+
+3. If everything is already accurate, skip the rest of this section and note in the final response that no documentation changes were needed.
+
+4. If docs are stale or missing the new behavior, create a branch off the release commit and apply the doc edits there. Never commit documentation directly to `main`.
+
+   ```sh
+   docs_branch="docs/release-$next_tag"
+   git switch -c "$docs_branch" "$release_sha"
+   ```
+
+   Make only documentation edits. Match the bump scope: document what shipped in this release, do not refactor unrelated docs (Boy Scout edits only when the user asks).
+
+5. Commit and push the branch, then open a pull request targeting `main`:
+
+   ```sh
+   git add -A
+   git commit -m "docs: update for $next_tag"
+   git push -u origin "$docs_branch"
+   gh pr create --base main --head "$docs_branch" \
+     --title "docs: update for $next_tag" \
+     --body "$(cat <<'EOF'
+   Documentation updates for release <next_tag>.
+
+   <bullet list of what changed and why, mapped to the release notes>
+   EOF
+   )"
+   ```
+
+6. Return to `main` so the worktree is left clean:
+
+   ```sh
+   git switch main
+   ```
+
+7. Do not merge the pull request. Surface its URL in the final response and ask the user to review and verify it before merging. List exactly which docs were changed and what was updated.
+
+If no documentation is discoverable, or the changes are purely internal with no user-facing surface, skip this section and say so in the final response.
+
 ## Final Response
 
 Report:
@@ -253,3 +300,4 @@ Report:
 - whether GoReleaser was used
 - Homebrew tap/cask/formula status when applicable
 - any ignored non-app changes that were present
+- documentation-sync outcome: the doc PR URL with a request for the user to review and verify it, or a statement that no documentation changes were needed
