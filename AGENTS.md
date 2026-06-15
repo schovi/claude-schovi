@@ -36,7 +36,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 
 ### Codex Notes
 
-- Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $debug`, `use $release`
+- Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`
 - Documented `/<plugin>:<skill>` commands are Claude-native syntax. In Codex they work as trigger text for the skills, not as shell or TUI slash commands
 - When a workflow references Claude's `Task` tool or a custom `subagent_type`, adapt it to Codex's available tools and built-in subagents
 - `plugins/schovi/agents/*/AGENT.md` files are not Codex custom agent registrations; treat them as reference material
@@ -47,6 +47,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 |-------|--------|------------|---------|
 | publish | schovi | `/schovi:publish` | Create/update GitHub PRs with auto-commit. Jira integration loads conditionally from `references/jira.md` |
 | review | schovi | `/schovi:review` | Structured code review of PRs, Jira tickets, branches, or local files |
+| feedback | schovi | `/schovi:feedback` | Post feedback to a PR as reviewer (findings/comments inline + general, optional verdict) or as author (reply to change-request threads with what changed, evidence-gated, never resolves). Previews before posting; outputs as text when no PR link is given |
 | debug | schovi | `/schovi:debug` | Root cause analysis with fix proposal via debug-executor |
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
@@ -107,7 +108,7 @@ Changes take effect immediately; no build step.
 codex plugin marketplace add ~/work/claude-schovi
 ```
 
-Test by invoking: `/schovi:publish`, `/schovi:review`, `/homebrew:release` (Claude) or `use $publish`, `use $release` (Codex).
+Test by invoking: `/schovi:publish`, `/schovi:review`, `/schovi:feedback`, `/homebrew:release` (Claude) or `use $publish`, `use $feedback`, `use $release` (Codex).
 
 ### Validation
 

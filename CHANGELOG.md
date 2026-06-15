@@ -5,6 +5,11 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-06-15
+
+### Added
+- `feedback` skill: posts feedback to a GitHub PR in two directions. **Reviewer mode** turns review findings (or dictated comments) into inline + general comments with an optional Approve / Comment / Request-changes verdict; anchors inline comments from review context first and only re-fetches the diff when ambiguous. **Author mode** replies to open change-request threads on your own PR, drafting each reply from the commits/diff since that review (evidence-gated — never claims a fix that isn't in the diff) and never resolving threads. Both always preview before posting and fall back to text output when no PR link is given. Pairs with `/schovi:review`
+
 ## [1.17.0] - 2026-06-07
 
 ### Added

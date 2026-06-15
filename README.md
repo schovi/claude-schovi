@@ -17,13 +17,14 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 |-------|--------|------------|--------------|
 | `publish` | schovi | `/schovi:publish` or "create a PR" | Auto-commits, pushes, and creates/updates a GitHub PR with a generated description |
 | `review` | schovi | `/schovi:review #123` | Structured code review of PRs, Jira tickets, branches, or local files |
+| `feedback` | schovi | `/schovi:feedback #123` | Posts feedback to a PR both ways: as reviewer (inline + general comments, optional verdict) or as author replying to change-request threads with what you changed; previews before posting |
 | `debug` | schovi | `/schovi:debug EC-1234` | Root cause analysis with fix proposal from Jira, GitHub, Datadog, or error text |
 | `jira-auto-detector` | schovi | automatic | Fetches condensed Jira context when issues (EC-1234, URLs) are mentioned |
 | `datadog-auto-detector` | schovi | automatic | Fetches condensed Datadog context when observability resources are mentioned |
 | `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
 
-In Codex, invoke skills as `use $publish`, `use $review`, `use $debug`, `use $release`.
+In Codex, invoke skills as `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`.
 
 ### Subagents (schovi)
 
