@@ -12,7 +12,7 @@ For explicit debugging requests (`/schovi:debug`, "find the root cause"), the `d
 
 ## Codex Compatibility
 
-If a Claude-style `Task` tool or custom `subagent_type` is unavailable, use the Datadog MCP tools directly and return the same condensed summary shape (max ~1200 tokens). Never paste raw Datadog payloads. Use `plugins/schovi/agents/datadog-analyzer/AGENT.md` as reference instructions.
+If a Claude-style `Agent` tool or custom `subagent_type` is unavailable, use the Datadog MCP tools directly and return the same condensed summary shape (max ~1200 tokens). Never paste raw Datadog payloads. Use `plugins/schovi/agents/datadog-analyzer/AGENT.md` as reference instructions.
 
 ## Pattern Recognition
 
@@ -61,7 +61,7 @@ Full context | specific query | quick status | investigation | comparison. The i
 ### Step 3: Fetch
 
 ```
-Tool: Task
+Tool: Agent
 Parameters:
   subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
   prompt: |

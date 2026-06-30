@@ -29,7 +29,7 @@ Core design: **context isolation**. External data (Jira issues ~10-15k tokens, G
 Every change must keep both runtimes in sync. Never update one side and leave the other stale.
 
 1. **Manifests stay in sync**: version bumps, skill additions/removals, and description changes apply to BOTH `plugin.json` files of the affected plugin
-2. **Skills serve both runtimes**: `/<plugin>:<skill>` syntax and `Task` tool / `subagent_type` references are Claude-native. When adding or changing a skill, make sure it degrades gracefully in Codex (trigger text works, subagent steps have a Codex-compatible path or are clearly Claude-only)
+2. **Skills serve both runtimes**: `/<plugin>:<skill>` syntax and `Agent` tool / `subagent_type` references are Claude-native. When adding or changing a skill, make sure it degrades gracefully in Codex (trigger text works, subagent steps have a Codex-compatible path or are clearly Claude-only)
 3. **Validate JSON after manifest changes**: see [Validation](#validation)
 4. **Docs stay in sync**: this file is the single instructions source for both runtimes. When plugin logic changes affect the architecture or patterns documented here, update this file in the same change
 5. **README.md stays current**: it is the only human-facing overview (plugins, skills, subagents, installation). Whenever a plugin, skill, or subagent is added, removed, or renamed, update README.md in the same change. Keep it a simple overview; detailed behavior belongs in the SKILL.md/AGENT.md files themselves
@@ -38,7 +38,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 
 - Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`
 - Documented `/<plugin>:<skill>` commands are Claude-native syntax. In Codex they work as trigger text for the skills, not as shell or TUI slash commands
-- When a workflow references Claude's `Task` tool or a custom `subagent_type`, adapt it to Codex's available tools and built-in subagents
+- When a workflow references Claude's `Agent` tool or a custom `subagent_type`, adapt it to Codex's available tools and built-in subagents
 - `plugins/schovi/agents/*/AGENT.md` files are not Codex custom agent registrations; treat them as reference material
 
 ## Skills

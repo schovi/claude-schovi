@@ -12,7 +12,7 @@ For explicit review requests ("review #123", `/schovi:review`), the `review` ski
 
 ## Codex Compatibility
 
-If a Claude-style `Task` tool or custom `subagent_type` is unavailable, use the `gh` CLI commands described in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md` directly, then condense the result. Never paste raw PR payloads.
+If a Claude-style `Agent` tool or custom `subagent_type` is unavailable, use the `gh` CLI commands described in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md` directly, then condense the result. Never paste raw PR payloads.
 
 ## Pattern Recognition
 
@@ -49,7 +49,7 @@ Scan the message for PR patterns. For each match, apply the fetch/skip rules abo
 ### Step 2: Fetch
 
 ```
-Tool: Task
+Tool: Agent
 Parameters:
   subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
   prompt: "Fetch and summarize GitHub PR: [owner/repo#number or URL]"

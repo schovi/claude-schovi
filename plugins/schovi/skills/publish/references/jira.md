@@ -7,7 +7,7 @@ Read this file only when `INPUT_TYPE=jira`. It isolates the Jira integration so 
 Spawn the jira-analyzer subagent:
 
 ```
-Tool: Task
+Tool: Agent
 Parameters:
   subagent_type: "schovi:jira-analyzer:jira-analyzer"
   prompt: "Fetch and summarize Jira issue [INPUT_VALUE]"
@@ -30,4 +30,4 @@ Expected output: condensed summary (~800-1000 tokens) with core info (type, stat
 
 ## Codex
 
-No `Task` tool: use Jira MCP tools directly and condense per `plugins/schovi/agents/jira-analyzer/AGENT.md`.
+No `Agent` tool: use Jira MCP tools directly and condense per `plugins/schovi/agents/jira-analyzer/AGENT.md`.

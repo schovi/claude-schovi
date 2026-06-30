@@ -44,7 +44,7 @@ Store: `INPUT_TYPE` and `INPUT_VALUE`
 Spawn debug-executor subagent to perform ALL debugging work in isolated context.
 
 ```
-Task tool configuration:
+Agent tool configuration:
   subagent_type: "schovi:debug-executor:debug-executor"
   description: "Execute debug workflow"
   prompt: |

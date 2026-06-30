@@ -41,7 +41,7 @@ Classification:
 
 **If Jira ID detected**:
 ```
-Task tool:
+Agent tool:
   subagent_type: "schovi:jira-analyzer:jira-analyzer"
   description: "Fetching Jira bug context"
   prompt: "Fetch and summarize Jira issue [ID]"
@@ -49,7 +49,7 @@ Task tool:
 
 **If Datadog URL detected**:
 ```
-Task tool:
+Agent tool:
   subagent_type: "schovi:datadog-analyzer:datadog-analyzer"
   description: "Fetching Datadog observability context"
   prompt: "Fetch and summarize Datadog data from URL: [URL]"
@@ -57,7 +57,7 @@ Task tool:
 
 **If GitHub PR detected**:
 ```
-Task tool:
+Agent tool:
   subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
   description: "Fetching GitHub PR context"
   prompt: "Fetch and summarize GitHub PR [URL or owner/repo#123]"
@@ -65,7 +65,7 @@ Task tool:
 
 **If GitHub issue detected**:
 ```
-Task tool:
+Agent tool:
   subagent_type: "schovi:gh-pr-reviewer:gh-pr-reviewer"
   description: "Fetching GitHub issue context"
   prompt: "Fetch and summarize GitHub issue [URL or owner/repo#123]"
@@ -86,7 +86,7 @@ Task tool:
 **Use Explore subagent in very thorough mode**:
 
 ```
-Task tool:
+Agent tool:
   subagent_type: "Explore"
   description: "Deep debugging and root cause analysis"
   prompt: |

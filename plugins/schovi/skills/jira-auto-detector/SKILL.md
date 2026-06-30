@@ -12,7 +12,7 @@ When an explicit skill is invoked with a Jira ID as argument (`/schovi:publish E
 
 ## Codex Compatibility
 
-If a Claude-style `Task` tool or custom `subagent_type` is unavailable, use the configured Jira MCP tools directly and return the same condensed summary shape. Keep the main response concise and never paste raw Jira payloads.
+If a Claude-style `Agent` tool or custom `subagent_type` is unavailable, use the configured Jira MCP tools directly and return the same condensed summary shape. Keep the main response concise and never paste raw Jira payloads.
 
 ## Pattern Recognition
 
@@ -54,7 +54,7 @@ Acknowledge detection first:
 Then spawn the subagent:
 
 ```
-Tool: Task
+Tool: Agent
 Parameters:
   subagent_type: "schovi:jira-analyzer:jira-analyzer"
   prompt: "Fetch and summarize https://productboard.atlassian.net/browse/[ISSUE-KEY]"
