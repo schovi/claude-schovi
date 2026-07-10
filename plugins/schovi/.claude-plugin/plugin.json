@@ -1,6 +1,6 @@
 {
   "name": "schovi",
-  "version": "1.18.1",
+  "version": "1.19.0",
   "description": "Workflow automation for software engineering: publish (GitHub PR), review, feedback, debug, Jira/GitHub/Datadog auto-detection",
   "author": {
     "name": "David Schovanec",

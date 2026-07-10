@@ -5,6 +5,36 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## schovi [1.19.0] - 2026-07-10
+
+### Added
+- Codex agent registration: each `AGENT.md` now has a generated `agent.toml` twin (`plugins/schovi/agents/*/agent.toml`) so jira-analyzer, gh-pr-reviewer, datadog-analyzer, and debug-executor are spawnable in Codex sessions, not just reference material. `scripts/sync-codex-agents.py` regenerates the twins from the AGENT.md source of truth (verbatim prompt, MCP-only tools → `read-only` sandbox, Bash/full access → `workspace-write` + network) and symlinks them into `~/.codex/agents/` — Codex plugins cannot ship registered agents natively yet, so global registration bridges the gap. `--check` mode validates without writing. Retire the script when Codex plugin manifests gain an `agents` key
+
+## workflow [2.0.0] - 2026-07-10
+
+### Changed
+- **Folder-based board** replaces the markdown board: tasks are single `NNN-slug.md` files in `workflow/{draft,ready,in-progress,blocked,done}/` — the folder IS the status, so every transition is one `git mv` (cheaper and less error-prone than board-line edits, no board merge-conflict hotspot, and the board↔task-file consistency class of bugs disappears). The two card shapes (inline board line vs task file) collapse into one: every task is a file, tiny ones are tiny files. `done/` replaces the separate archive
+- Task-file format: first line `# NNN — Title`, then metadata lines — sparse `priority: N` orders ready (lowest = next, insert-between without renames), `gate:` explains blocked, `done: YYYY-MM-DD` dates done. Status is never written inside the file
+- Board view: shipped `./workflow/status` script (zero-dependency python3, installed by framework-init with `.gitkeep`s for the empty status folders) prints In progress / Ready (priority order) / Draft / Blocked / Done; `--done N|all` controls history depth. `/workflow:status` uses it per repo for the cross-repo table
+- Validator rewritten for the folder model (simpler: no link/board cross-checks) and framework-check migration extended: board cards become files in status folders (Ready order → sparse priorities), interim `workflow/board.md` layouts are detected and migrated the same way
+
+## workflow [1.1.0] - 2026-07-10
+
+### Added
+- `acceptance-verifier` subagent: fresh-context adversarial gate before the completion commit. Receives the task's acceptance criteria and diff scope, tries to falsify each criterion (observation over inference, evidence per verdict, ambiguity → fail/unverifiable), returns per-criterion PASS/FAIL/UNVERIFIABLE plus a ready/not-ready verdict, max 800 tokens, report-only. `work` gains an acceptance-gate step (only `ready` proceeds to the completion commit; skipped for ad-hoc asks without written criteria; Codex runs the pass inline); `batch-work` requires the verdict in each task's return. Registered for Codex via `scripts/sync-codex-agents.py`
+
+## workflow [1.0.0] - 2026-07-10
+
+### Added
+- New `workflow` plugin unifying the groom/work/board framework previously duplicated across photo-deduplicator, rift-drifter, and warpiq. The unit of work is a **task**; each repo keeps a markdown kanban (`workflow/board.md`, section = status), optional task files (`workflow/tasks/`), archive, reports, and an ID counter under `workflow/`. Repo-specific facts (project one-liner, validation commands, verify-skill mapping, doc routing, decision log) live in a `workflow/AGENTS.md` contract the skills read first
+- `groom`: one read pass, one question round, one rewrite; ≤15-line specs fold into the board line, larger ones get a task file; one groom commit per session
+- `work`: minimal loop (routed docs → plan in chat → implement → validate → verify → doc sync). Reduced commit ceremony: In progress board move stays uncommitted and rides in the atomic completion commit; all task commits prefixed `task NNN:`; no git tags
+- `batch-work` (renamed from batch-run): sequential isolated subagents over Ready tasks, clean-tree gate between tasks, stop-on-failure with preserved state, report in `workflow/reports/`
+- `status`: read-only cross-repo board overview (scans `~/work/*/workflow/board.md`)
+- `decision`: append-only `D<N>` decision records
+- `framework-init`: scaffolds `workflow/` from bundled templates, writes the contract (pre-filled by repo inspection), optional docs skeleton, routes root AGENTS.md to the plugin
+- `framework-check`: bundled zero-dependency `validate_workflow.py` (exit 0 valid / 1 issues / 2 legacy-or-missing) plus guided migration: moves `docs/board.md` and task files into `workflow/`, renumbers active M-ID cards only (archives/tags untouched), switches milestone/card vocabulary to task, deletes superseded repo skills (groom/work/batch-run) and scout agents, ensures Codex parity for kept repo agents (generates missing `.codex/agents/*.toml` twins per bundled `references/codex-agents.md` pairing rules, verifies the Codex skills symlink), and reroutes repo instructions to the plugin. Reports first, applies on approval, re-runnable on partial migrations
+
 ## [1.18.0] - 2026-06-15
 
 ### Added

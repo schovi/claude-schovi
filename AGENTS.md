@@ -10,6 +10,7 @@ This repository hosts **dual plugins for Claude Code and Codex**. Both runtimes 
 |--------|------|---------|
 | `schovi` | `plugins/schovi/` | Main workflow plugin: PR publishing, code review, debugging, Jira/GitHub/Datadog context detection |
 | `homebrew` | `plugins/homebrew/` | Standalone release workflow for Homebrew-distributed repos. Single skill `release`, explicit invocation only. Installable separately so it can be added only where it applies |
+| `workflow` | `plugins/workflow/` | Task-board work framework for hobby/solo repos. Tasks are files in `workflow/<status>/` folders (the folder IS the status; moves are `git mv`); board view via a shipped `./workflow/status` script; repo-specific facts (validation, verify skills, doc routing) live in a `workflow/AGENTS.md` contract the skills read first. Install in repos that track work this way |
 
 Core design: **context isolation**. External data (Jira issues ~10-15k tokens, GitHub PRs 20-50k tokens, Datadog 10-50k tokens) is fetched by subagents in isolated context windows and condensed before returning, keeping the main context clean. Savings: 75-80% on plain fetches, 93-96% on full executor workflows.
 
@@ -20,7 +21,7 @@ Core design: **context isolation**. External data (Jira issues ~10-15k tokens, G
 | Plugin manifest | `plugins/<name>/.claude-plugin/plugin.json` | `plugins/<name>/.codex-plugin/plugin.json` |
 | Marketplace | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json` |
 | Skills | `plugins/<name>/skills/*/SKILL.md` | same files, invoked as `use $<skill>` |
-| Subagents | `plugins/schovi/agents/*/AGENT.md` | reference material only, not registered agents |
+| Subagents | `plugins/schovi/agents/*/AGENT.md` | `plugins/schovi/agents/*/agent.toml` — generated twins, registered globally via `scripts/sync-codex-agents.py` |
 | Templates | `plugins/schovi/templates/` | shared |
 | Human-facing overview | `README.md` | shared |
 
@@ -39,7 +40,9 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 - Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`
 - Documented `/<plugin>:<skill>` commands are Claude-native syntax. In Codex they work as trigger text for the skills, not as shell or TUI slash commands
 - When a workflow references Claude's `Agent` tool or a custom `subagent_type`, adapt it to Codex's available tools and built-in subagents
-- `plugins/schovi/agents/*/AGENT.md` files are not Codex custom agent registrations; treat them as reference material
+- Codex plugins cannot register agents natively (plugin.json has `skills` but no `agents` key). Bridge: each `AGENT.md` gets a generated `agent.toml` twin, symlinked into `~/.codex/agents/` by `scripts/sync-codex-agents.py` so Codex can spawn the agents in any session. The AGENT.md is the single source of truth — never edit `agent.toml` by hand
+- After adding or editing an AGENT.md, rerun `python3 scripts/sync-codex-agents.py` (CI-style validation: `--check`). Codex picks up agent changes on a new task/restart. If a future Codex release adds plugin-native agents, retire the script and the symlinks
+- Sandbox mapping in generated twins: MCP-only tool lists → `sandbox_mode = "read-only"`; anything broader (Bash/gh, full access) → `workspace-write` with `network_access = true`
 
 ## Skills
 
@@ -53,6 +56,13 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
+| groom | workflow | `/workflow:groom [id]` | Refine a board task into an implementable spec; one question round, one groom commit per session |
+| work | workflow | `/workflow:work [id]` | Implement one Ready task (or ad-hoc ask): routed-doc read, plan in chat, `task NNN:` commits, atomic completion commit (Done move + task archival + doc sync) |
+| batch-work | workflow | `/workflow:batch-work [ids\|count]` | Run Ready tasks sequentially in isolated subagents, stop-on-failure, report to `workflow/reports/` |
+| status | workflow | `/workflow:status` | Read-only combined view over every repo's `workflow/` status folders (per-repo view: `./workflow/status`) |
+| decision | workflow | `/workflow:decision` | Append a `D<N>` entry to the repo's decision log |
+| framework-init | workflow | `/workflow:framework-init` | Scaffold `workflow/` + contract + docs skeleton in a fresh repo, route AGENTS.md to the plugin |
+| framework-check | workflow | `/workflow:framework-check` | Deterministic validation (bundled `validate_workflow.py`) + guided migration of legacy layouts (docs/board.md, M-IDs, superseded repo skills) incl. Codex parity for kept repo agents (`references/codex-agents.md`); report first, apply on approval |
 
 Description discipline: a skill description states WHEN to trigger (and when to skip), one concern per skill. The body states HOW. Agent descriptions state the contract (what it fetches, input, output budget) because that is what spawners route on.
 
@@ -75,6 +85,7 @@ Commands are thin wrappers: parse arguments → spawn subagent → handle output
 | `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch & summarize GitHub PRs | 15000 (2000-15000 by PR size) |
 | `schovi:datadog-analyzer:datadog-analyzer` | Fetch & summarize Datadog data | 1200 |
 | `schovi:debug-executor:debug-executor` | Execute debug workflow | 2500 |
+| `workflow:acceptance-verifier:acceptance-verifier` | Adversarially verify a task's acceptance criteria before the completion commit (report-only, fresh context) | 800 |
 
 Always condense; never return raw payloads to the main context.
 
@@ -90,8 +101,8 @@ Subagent types use **three-part format** `plugin:parent:agent`:
 ## Conventions
 
 - Code references use `file:line` format: `src/api/controller.ts:123`, not just the path
-- New workflows go in `plugins/<name>/skills/<skill>/SKILL.md`; new data fetchers in `plugins/schovi/agents/<agent>/AGENT.md`
-- Naming: `-analyzer` suffix for data fetchers, `-executor` suffix for workflow executors, `-auto-detector` suffix for auto-detection skills
+- New workflows go in `plugins/<name>/skills/<skill>/SKILL.md`; new agents in `plugins/<name>/agents/<agent>/AGENT.md`
+- Naming: `-analyzer` suffix for data fetchers, `-executor` suffix for workflow executors, `-auto-detector` suffix for auto-detection skills, `-verifier` suffix for report-only quality gates
 - Source-specific integration steps inside a generic skill live in `references/*.md` within the skill folder, read only when that input type is detected. Each reference file must include a graceful-degradation path so the skill never blocks when the integration is unavailable
 
 ## Development
@@ -119,8 +130,19 @@ python3 -m json.tool plugins/schovi/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool plugins/schovi/.codex-plugin/plugin.json >/dev/null
 python3 -m json.tool plugins/homebrew/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool plugins/homebrew/.codex-plugin/plugin.json >/dev/null
+python3 -m json.tool plugins/workflow/.claude-plugin/plugin.json >/dev/null
+python3 -m json.tool plugins/workflow/.codex-plugin/plugin.json >/dev/null
 python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+```
+
+After changing the workflow task-file format or status-folder conventions, keep `plugins/workflow/skills/framework-check/scripts/validate_workflow.py`, the `status` script and templates under `plugins/workflow/skills/framework-init/templates/`, and the groom/work skill texts consistent — they all encode the same format.
+
+After changing any `AGENT.md`:
+
+```bash
+python3 scripts/sync-codex-agents.py          # regenerate agent.toml twins + refresh ~/.codex/agents symlinks
+python3 scripts/sync-codex-agents.py --check  # verify twins are current without writing
 ```
 
 After changing skills, refresh the local marketplace and start a new Codex session to verify discovery:

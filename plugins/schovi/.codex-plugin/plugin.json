@@ -1,6 +1,6 @@
 {
   "name": "schovi",
-  "version": "1.18.1",
+  "version": "1.19.0",
   "description": "Personal software engineering workflows for PR publishing, review, posting review feedback, debugging, and Jira/GitHub/Datadog context detection.",
   "author": {
     "name": "David Schovanec",
