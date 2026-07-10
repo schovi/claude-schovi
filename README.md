@@ -8,7 +8,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 |--------|---------|
 | `schovi` | Everyday engineering workflows: PR publishing, code review, debugging, Jira/GitHub/Datadog context detection |
 | `homebrew` | CI-gated GitHub release workflow for Homebrew-distributed repos. Install only where it applies |
-| `workflow` | Task-board work framework for hobby/solo repos: tasks are files in `workflow/<status>/` folders (folder = status, moves are `git mv`), board view via `./workflow/status`, repo specifics in a `workflow/AGENTS.md` contract. Install in repos that track work this way |
+| `workflow` | Task-board work framework for hobby/solo repos: tasks are files in `workflow/<status>/` folders (folder = status, moves are `git mv`), board view via `./workflow/status`, repo specifics in a `workflow/AGENTS.md` contract. Full model and lifecycle: [plugins/workflow/README.md](plugins/workflow/README.md) |
 
 ## Tools
 
