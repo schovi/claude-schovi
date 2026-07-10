@@ -5,6 +5,12 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [2.1.0] - 2026-07-10
+
+### Changed
+- `groom`: the single-round "ask once" step becomes **interview to intent** — open-ended AskUserQuestion rounds until ~95% confidence in what the user actually wants (not what they think they should want), stopping the moment intent is unambiguous and skipping entirely when code + docs already decide it. Spec-writing guidance added: don't bake speculative enumerations into the spec as hard commitments (write them as "verify whether X needs change; skip with a reason"), and keep acceptance criteria as observable outcomes rather than name-by-name rosters that delivery can silently fall short of
+- `work`: a `not ready` acceptance-gate verdict can no longer be cleared by argument alone. Gaps that are accepted environment constraints, user-authorized substitutions, or deliberate scope narrowings must be surfaced to the user for an explicit call before committing. The completion report must call out anything the spec named but the change didn't deliver, with the reason — not buried only in the task file's Notes
+
 ## schovi [1.19.0] - 2026-07-10
 
 ### Added

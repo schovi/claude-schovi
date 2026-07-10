@@ -24,7 +24,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `datadog-auto-detector` | schovi | automatic | Fetches condensed Datadog context when observability resources are mentioned |
 | `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
-| `groom` | workflow | `/workflow:groom [id]` | Refines a task file into an implementable spec, then `git mv`s it to `ready/` (with a sparse `priority:`) or `blocked/` (with a `gate:`); one question round, one groom commit per session |
+| `groom` | workflow | `/workflow:groom [id]` | Refines a task file into an implementable spec, then `git mv`s it to `ready/` (with a sparse `priority:`) or `blocked/` (with a `gate:`); interviews to intent, one groom commit per session |
 | `work` | workflow | `/workflow:work [id]` | Implements the top Ready task (lowest priority number) or an ad-hoc ask: routed-doc read, brief plan, `task NNN:` commits, acceptance-verifier gate, atomic completion commit (`done:` date + move to `done/` + doc sync) |
 | `batch-work` | workflow | `/workflow:batch-work [ids\|count]` | Runs Ready tasks sequentially in isolated subagents, priority order, stop-on-failure, consolidated report |
 | `status` | workflow | `/workflow:status` | Read-only combined board view across all repos with `workflow/` status folders (per-repo: `./workflow/status`) |

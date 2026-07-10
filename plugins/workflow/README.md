@@ -44,7 +44,7 @@ idea ──/groom──> draft/ ──spec + priority──> ready/ ──/work�
                                 └─gate:──> blocked/
 ```
 
-- **`/workflow:groom [id]`** — mint an ID, write the spec into the file (one question round max), `git mv` to `ready/` (with a sparse `priority:`) or `blocked/` (with a `gate:`). One commit per groom session.
+- **`/workflow:groom [id]`** — mint an ID, interview the user until intent is clear, write the spec into the file, `git mv` to `ready/` (with a sparse `priority:`) or `blocked/` (with a `gate:`). One commit per groom session.
 - **`/workflow:work [id]`** — take the arg or the top Ready task (lowest priority, ties by ID). Read the contract-routed docs, plan in chat, implement in `task NNN:` commits, validate per the contract, run the **acceptance-verifier gate**, then one atomic completion commit: `done:` date + move to `done/` + doc sync. The in-progress move stays uncommitted until then — fewer tracker commits by design.
 - **`/workflow:batch-work [ids|count]`** — Ready tasks sequentially in isolated subagents, clean-tree gate between tasks, stop-on-failure, report in `workflow/reports/`.
 - **`/workflow:status`** — combined read-only view across every repo with a `workflow/`.
