@@ -18,9 +18,17 @@ The main context plans and dispatches; it never does task work itself. Keep it t
 - **Does**: cheap shell (`git status`, the validator, `./workflow/status`), computes the batch order and dependency plan from that output, dispatches subagents, records each subagent's *condensed* return, writes the report.
 - **Never**: opens task files, doc leaves, source, or diffs; reads a spec to work out an implementation or the exact slice a dependency needs. Every token-heavy step happens *inside* a subagent and comes back as a short summary. If you catch the orchestrator reading a `.md` task body or a source file, that work belongs in a subagent.
 
-Runtime:
-- **Claude Code** — one isolated subagent per unit of work via the `Agent` tool (`subagent_type: general-purpose`), sequentially (all share one worktree, so no true parallelism). Each returns a structured summary, never its transcript.
-- **Codex** — use Codex's own subagent/task mechanism the same way when available. Fall back to running a unit inline only when it isn't, and note it in the report: inline spends main-context tokens, a runtime limit rather than the intended mode.
+## Runtime adapter
+
+Batch work requires context-isolated workers that share the current repository worktree. Select exactly one dispatch adapter by callable capability:
+
+1. If `spawn_agent` and `wait_agent` are available, read `references/codex.md`.
+2. Otherwise, if the `Agent` tool is available, read `references/claude.md`.
+3. Otherwise stop before execution and report that this runtime cannot provide isolated workers.
+
+Never infer the runtime from `.claude/` or `.codex/` files because both can coexist. Load only the selected adapter. The adapter owns dispatch and waiting; this file owns every workflow decision and worker request. Dispatch one fresh worker per unit, wait for its final response, run the shared completion gates, then dispatch the next unit.
+
+Workers inherit the host's current permissions. Never request a permission override, reuse a worker for another unit, create a separate worktree, or run a unit inline.
 
 ## Usage
 
@@ -64,50 +72,45 @@ Everything downstream (isolated subagent per unit, clean-tree gate between units
 
 Work the plan's units in order, one isolated subagent at a time. The orchestrator only dispatches and records the condensed return — it does not read what the subagent read.
 
-**If the unit is a scoped partial-resolve (rung 3)**, dispatch it before its dependent:
+**If the unit is a scoped partial-resolve (rung 3)**, send this self-contained request through the selected runtime adapter before its dependent:
 
 ```text
-Agent(
-  prompt: "In <repo path>, task B (<id>) depends on task A (<id>), which is in
-  <draft|in-progress>/. Read A's and B's task files and the doc leaves the
-  contract routes; implement ONLY the slice of A that B needs (<one-line slice>),
-  as a self-contained change that builds and passes the contract's validation.
-  Do NOT complete the rest of A. Commit prefixed 'task <A>: partial (unblocks
-  <B>)'. Append to A's file Notes: which slice landed, what remains. Leave A in
-  its current folder — do not move it to done/. Return: slice_delivered, commit
-  sha, what_remains, validation.",
-  mode: "bypassPermissions", description: "Partial-resolve <A> for <B>"
-)
+In <absolute repo path>, task B (<id>) depends on task A (<id>), which is in
+<draft|in-progress>/. Read the repository's AGENTS.md instructions,
+workflow/AGENTS.md, A's and B's task files, and the doc leaves the workflow
+contract routes. Implement ONLY the slice of A that B needs (<one-line slice>)
+as a self-contained change that builds and passes the contract's validation. Do
+NOT complete the rest of A. Commit prefixed 'task <A>: partial (unblocks <B>)'.
+Append to A's file Notes: which slice landed and what remains. Leave A in its
+current folder; do not move it to done/. Return only: unit_status (delivered |
+failed), slice_delivered, commit_sha,
+what_remains, validation, issues. `delivered` means this scoped unit completed;
+task A intentionally remains unfinished.
 ```
 
 Confirm its commit landed and the tree is clean, then run B with the note `dependency <A>'s required slice is satisfied in <sha>; its depends: gate is met for this run`.
 
-**For a normal task unit:**
+**For a normal task unit**, resolve the absolute path to the sibling `../work/SKILL.md`, then send this self-contained request through the selected runtime adapter:
 
 ```text
-Agent(
-  prompt: "Run /workflow:work <id> in <repo path>. Read the workflow plugin's
-  work skill, workflow/AGENTS.md (contract), the task file
-  workflow/ready/<id>-*.md, and every doc leaf the contract routes for the
-  touched paths — before code. Complete the full loop: validation, verify
-  gates, the acceptance-verifier gate (a task is done only on a 'ready'
-  verdict), doc sync, the move to workflow/done/ with a done: date, atomic
-  completion commit prefixed 'task <id>:'. Return: final_status (done |
-  failed | partial), acceptance_verdict, key_decisions, files_changed
-  excluding task bookkeeping, validation, issues.",
-  mode: "bypassPermissions",
-  description: "Work task <id>"
-)
+In <absolute repo path>, read and follow <absolute work SKILL.md path> for task
+<id>. Read workflow/AGENTS.md, workflow/ready/<id>-*.md, and every doc leaf the
+contract routes for touched paths before code. Complete the full loop:
+validation, verify gates, the acceptance-verifier gate (a task is done only on
+a 'ready' verdict), doc sync, the move to workflow/done/ with a done: date, and
+the atomic completion commit prefixed 'task <id>:'. Return only: final_status
+(done | failed | partial), acceptance_verdict, key_decisions, files_changed
+excluding task bookkeeping, validation, issues.
 ```
 
 Then, per unit:
 
 1. Record only the returned summary — never pull the subagent's full output into main context.
-2. On success, require `git status --porcelain` to be empty before the next unit. A dirty tree means partial.
-3. On failure or partial completion, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. A partial-resolve that can't produce a valid slice is a failure: stop, don't ship a broken stub.
+2. Success means `final_status: done` for a normal task or `unit_status: delivered` for a scoped partial-resolve. On success, require `git status --porcelain` to be empty before the next unit. A dirty tree means partial.
+3. On a normal task's `failed` or `partial`, or a scoped partial-resolve's `failed`, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. A partial-resolve that can't produce a valid slice is a failure: stop, don't ship a broken stub.
 4. Mark every remaining unit as not run in the report.
 
-Sequential execution is required: later units may depend on earlier commits and all agents share one working directory.
+Sequential execution is required: later units may depend on earlier commits and all workers share one working directory.
 
 ## Report
 
@@ -138,5 +141,3 @@ Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if n
 ### Needs manual review
 List every partial-resolved blocker here (id, slice delivered, what remains) — these are the tasks left intentionally unfinished. Write `None` only when every task completed cleanly and nothing was partial-resolved.
 ```
-
-Codex: follow the runtime bullet under **Main context is the orchestrator** — use Codex's subagent/task mechanism to keep the orchestrator thin, and only fall back to inline (same stop-on-failure and clean-tree rules) when no subagent mechanism is available, noting it in the report.

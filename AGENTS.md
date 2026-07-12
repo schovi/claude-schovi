@@ -39,7 +39,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 
 - Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`
 - Documented `/<plugin>:<skill>` commands are Claude-native syntax. In Codex they work as trigger text for the skills, not as shell or TUI slash commands
-- When a workflow references Claude's `Agent` tool or a custom `subagent_type`, adapt it to Codex's available tools and built-in subagents
+- Keep shared workflow behavior tool-neutral. Put runtime-specific generic-worker dispatch in conditional `references/claude.md` and `references/codex.md` files selected by callable capability. When a workflow references a custom Claude `subagent_type`, adapt it to Codex's available tools and built-in subagents
 - Codex plugins cannot register agents natively (plugin.json has `skills` but no `agents` key). Bridge: each `AGENT.md` gets a generated `agent.toml` twin, symlinked into `~/.codex/agents/` by `scripts/sync-codex-agents.py` so Codex can spawn the agents in any session. The AGENT.md is the single source of truth — never edit `agent.toml` by hand
 - After adding or editing an AGENT.md, rerun `python3 scripts/sync-codex-agents.py` (CI-style validation: `--check`). Codex picks up agent changes on a new task/restart. If a future Codex release adds plugin-native agents, retire the script and the symlinks
 - Sandbox mapping in generated twins: MCP-only tool lists → `sandbox_mode = "read-only"`; anything broader (Bash/gh, full access) → `workspace-write` with `network_access = true`
