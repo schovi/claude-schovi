@@ -17,10 +17,10 @@ Two modes. Read-only — never edit, move, or commit. Point at `/workflow:framew
 
 Turn this repo's board into a decision, not a dump. If there's no `workflow/` here, route to `/workflow:framework-init` and stop.
 
-1. **Read the board**: run `./workflow/status` (done is hidden by default — you don't need it here). Fall back to listing `workflow/<section>/*.md` if the script is missing. The output already carries what you need: `priority:` order, `depends:` edges (met = `depends: N ✓`, unmet = `(waits: N)`), blocked `gate:` lines.
+1. **Read the board**: run `./workflow/status` (done is hidden by default — you don't need it here). Fall back to listing `workflow/<section>/*.md` if the script is missing. The output already carries what you need: `priority:` order, `depends:` edges (met = `depends: N ✓`, unmet = `(waits: N)`), blocked `gate:` lines, and a `Worktrees` section (only when other git worktrees exist) flagging tasks that sit in a different section or have uncommitted edits in a sibling worktree — that is live work this checkout's folders don't yet show.
 2. **Build the dependency picture** from the `depends:` annotations: which ready tasks are runnable now (no `waits:`), which wait on what, and where each awaited id sits (done/blocked/draft/in-progress).
 3. **Write the overview** in these sections, tight — ids + titles, no raw section-by-section echo:
-   - **In progress** — active tasks. Flag any that look stale (uncommitted move, or older than the newest done).
+   - **In progress** — active tasks. Fold in anything from the `Worktrees` section: a task is in flight if it's `in-progress` or has uncommitted edits in a sibling worktree, even when this checkout still files it under Ready. Flag any that look stale (uncommitted move, or older than the newest done). When recommending the next action, don't send someone to a task already being worked in a worktree.
    - **Next up** — the top few runnable Ready tasks in priority order (skip ones with unmet `waits:`). This is what `/workflow:work` would pick.
    - **Batchable now** — the set `/workflow:batch-work auto` would run: runnable Ready tasks, deps-before-dependents. Note which are mutually independent (could parallelize) vs a forced chain.
    - **Blocked & waiting** — `blocked/` tasks with their `gate:`, plus Ready tasks stuck on an unmet `depends:`. For each, name what it waits on and where that sits.

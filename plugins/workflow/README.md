@@ -36,7 +36,7 @@ done: 2026-07-10        # added on completion
 ## Notes                 # never an execution log — git history is
 ```
 
-No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history).
+No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history). When other git worktrees exist, `status` also scans them and flags tasks in flight elsewhere (different section or uncommitted edits) that this checkout's folders don't yet reflect.
 
 ## Lifecycle
 
