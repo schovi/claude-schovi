@@ -21,6 +21,8 @@ Run Ready tasks through `/workflow:work`, one isolated subagent at a time, in pr
 
 Only tasks in `workflow/ready/` are eligible. A Ready task with an unresolved question in its file is also ineligible — report it and stop before execution instead of guessing.
 
+A task with a `depends:` line runs only after its dependencies reach `done/`. `/work` enforces this at pickup and stops if a dependency is unmet, which trips stop-on-failure. So order the queue dependencies-first (a dependency must run earlier than the task that needs it); when in doubt, follow priority order and let the gate catch a bad order.
+
 ## Preconditions
 
 1. `git status --porcelain` — if it prints anything, stop and report the dirty paths. Do not stash, reset, clean, or commit the existing worktree.

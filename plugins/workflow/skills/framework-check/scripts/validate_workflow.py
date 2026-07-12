@@ -25,10 +25,23 @@ def pad(task_id):
 def parse_meta(lines):
     meta = {}
     for line in lines[1:10]:
-        match = re.match(r"^(priority|gate|done):\s*(.+?)\s*$", line.strip())
+        match = re.match(r"^(priority|depends|gate|done):\s*(.+?)\s*$", line.strip())
         if match:
             meta[match.group(1)] = match.group(2)
     return meta
+
+
+def parse_depends(value):
+    """Return (ids, ok): comma-separated integer task IDs, ok=False on bad format."""
+    ids = []
+    for part in value.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if not part.isdigit():
+            return [], False
+        ids.append(int(part))
+    return ids, True
 
 
 def has_acceptance(text):
@@ -68,6 +81,7 @@ def main():
         issues.append("workflow/status: not executable (chmod +x)")
 
     seen = {}
+    depends_edges = []
     for section in SECTIONS:
         for path in sorted((workflow / section).glob("*")):
             rel = path.relative_to(root)
@@ -102,6 +116,14 @@ def main():
                 issues.append(f"{rel}: {section} task needs a non-empty '## Acceptance criteria' section")
             if section == "blocked" and not observable_gate(meta.get("gate")):
                 issues.append(f"{rel}: blocked task needs an observable 'gate:' line")
+            if "depends" in meta:
+                dep_ids, ok = parse_depends(meta["depends"])
+                if not ok:
+                    issues.append(f"{rel}: 'depends:' must be comma-separated task IDs (e.g. depends: 041, 043)")
+                elif task_id in dep_ids:
+                    issues.append(f"{rel}: task cannot depend on itself")
+                else:
+                    depends_edges.append((rel, task_id, dep_ids))
             if section == "done" and not DATE.match(meta.get("done", "")):
                 issues.append(f"{rel}: done task needs a 'done: YYYY-MM-DD' line")
 
@@ -112,6 +134,12 @@ def main():
                 local = target.split("#")[0].split("?")[0]
                 if local and not (path.parent / local).exists():
                     issues.append(f"{rel}: broken local link {target}")
+
+    # ponytail: unknown-ID + self-ref only; dependency cycles left to /work's gate, which just refuses to start
+    for rel, _, dep_ids in depends_edges:
+        for dep in dep_ids:
+            if dep not in seen:
+                issues.append(f"{rel}: 'depends:' references unknown task {pad(dep)}")
 
     highest = max(seen, default=0)
     counter = workflow / "next-task-id"

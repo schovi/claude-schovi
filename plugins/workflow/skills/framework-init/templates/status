@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-META = re.compile(r"^(priority|gate|done):\s*(.+?)\s*$")
+META = re.compile(r"^(priority|depends|gate|done):\s*(.+?)\s*$")
 
 
 def tasks(section):
@@ -41,10 +41,17 @@ def main():
         value = sys.argv[sys.argv.index("--done") + 1]
         done_limit = None if value == "all" else int(value)
 
+    done_ids = {t["id"] for t in tasks("done")}
+
+    def unmet(item):
+        raw = item["meta"].get("depends", "")
+        pending = [d.strip() for d in raw.split(",") if d.strip().isdigit() and int(d.strip()) not in done_ids]
+        return f"  (waits: {', '.join(pending)})" if pending else ""
+
     in_progress = tasks("in-progress")
     show(f"In progress ({len(in_progress)})", in_progress)
     ready = sorted(tasks("ready"), key=lambda t: (int(t["meta"].get("priority", 10**6)), t["id"]))
-    show(f"Ready ({len(ready)})", ready, lambda t: f"  [{t['meta'].get('priority', 'NO PRIORITY')}]")
+    show(f"Ready ({len(ready)})", ready, lambda t: f"  [{t['meta'].get('priority', 'NO PRIORITY')}]{unmet(t)}")
     draft = tasks("draft")
     show(f"Draft ({len(draft)})", draft)
     blocked = tasks("blocked")

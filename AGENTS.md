@@ -56,8 +56,8 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
-| groom | workflow | `/workflow:groom [id]` | Refine a board task into an implementable spec; interview to intent (open-ended questions until ~95% confident), one groom commit per session |
-| work | workflow | `/workflow:work [id]` | Implement one Ready task (or ad-hoc ask): routed-doc read, plan in chat, `task NNN:` commits, atomic completion commit (Done move + task archival + doc sync) |
+| groom | workflow | `/workflow:groom [id]` | Refine a board task into an implementable spec; interview to intent (open-ended questions until ~95% confident), prefer independently-deliverable slices, flag real cross-task dependencies with a `depends:` line, one groom commit per session |
+| work | workflow | `/workflow:work [id]` | Implement one Ready task (or ad-hoc ask): dependency gate (stops if a `depends:` task isn't in `done/`), routed-doc read, plan in chat, `task NNN:` commits, atomic completion commit (Done move + task archival + doc sync) |
 | batch-work | workflow | `/workflow:batch-work [ids\|count]` | Run Ready tasks sequentially in isolated subagents, stop-on-failure, report to `workflow/reports/` |
 | status | workflow | `/workflow:status` | Read-only combined view over every repo's `workflow/` status folders (per-repo view: `./workflow/status`) |
 | decision | workflow | `/workflow:decision` | Append a `D<N>` entry to the repo's decision log |
