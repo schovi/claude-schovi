@@ -11,11 +11,13 @@ Status is the folder this file sits in (`draft/`, `ready/`, `in-progress/`, `blo
 
 ## What & why
 
-2–6 lines: the outcome, the user-visible change, why now. Tiny tasks can stop after Acceptance criteria.
+2–6 lines: the outcome, the user-visible change, why now. Tiny drafts can stop after Acceptance criteria until they move to Ready.
 
 ## Spec
 
-Only what implementation needs: exact behavior, edge cases, files/areas touched. Pseudo-code welcome. Name the doc leaves that apply (see `workflow/AGENTS.md` doc routing).
+Only what implementation needs: exact behavior and edge cases. Pseudo-code welcome.
+
+Before moving to `ready/`, use bounded codebase reconnaissance to confirm this is one cohesive, independently deliverable outcome sized for one `/work` loop. In Spec or Notes, record a compact implementation boundary: expected production ownership surfaces, likely tests and routed docs, known load-bearing contracts, and explicit exclusions. Omit categories with nothing material rather than adding empty boilerplate. Split independently verifiable outcomes into separate tasks.
 
 ## Acceptance criteria
 

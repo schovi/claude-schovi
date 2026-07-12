@@ -24,8 +24,8 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `datadog-auto-detector` | schovi | automatic | Fetches condensed Datadog context when observability resources are mentioned |
 | `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
-| `groom` | workflow | `/workflow:groom [id]` | Refines a task file into an implementable spec, then `git mv`s it to `ready/` (with a sparse `priority:`) or `blocked/` (with a `gate:`); interviews to intent, one groom commit per session |
-| `work` | workflow | `/workflow:work [id]` | Implements the top Ready task (lowest priority number) or an ad-hoc ask: routed-doc read, brief plan, `task NNN:` commits, acceptance-verifier gate, atomic completion commit (`done:` date + move to `done/` + doc sync) |
+| `groom` | workflow | `/workflow:groom [id]` | Uses an intent interview and bounded codebase reconnaissance to produce a Ready task with one cohesive, independently deliverable outcome sized for one work loop, then moves it to `ready/` or `blocked/` |
+| `work` | workflow | `/workflow:work [id]` | Implements the top Ready task or an ad-hoc ask, validates it through the acceptance-verifier gate, and hands material scope divergence back for re-grooming |
 | `batch-work` | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner: main context plans + dispatches, all task work in isolated subagents; sequential, stop-on-failure, consolidated report. `auto` orders/pulls/partial-resolves by the `depends:` graph |
 | `status` | workflow | `/workflow:status` | Current-repo work overview by default (next up, batchable, blockers ranked by unblock value); `all` for a combined across-repos table. Per-repo dump: `./workflow/status` |
 | `decision` | workflow | `/workflow:decision` | Appends a `D<N>` record to the repo's decision log |

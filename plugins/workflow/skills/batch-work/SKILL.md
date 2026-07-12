@@ -100,7 +100,9 @@ validation, verify gates, the acceptance-verifier gate (a task is done only on
 a 'ready' verdict), doc sync, the move to workflow/done/ with a done: date, and
 the atomic completion commit prefixed 'task <id>:'. Return only: final_status
 (done | failed | partial), acceptance_verdict, key_decisions, files_changed
-excluding task bookkeeping, validation, issues.
+excluding task bookkeeping, validation, issues, needs_regroom (omit unless scope
+diverged; ownership_map, failed_assumption, why_not_one_loop, candidate_slices,
+dependency_order).
 ```
 
 Then, per unit:
@@ -127,7 +129,7 @@ Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if n
 
 ### 184 — Title
 - **Status**: done | failed | partial | not run
-- **Acceptance verdict** / **Key decisions** / **Files changed** / **Validation** / **Issues**
+- **Acceptance verdict** / **Key decisions** / **Files changed** / **Validation** / **Issues** / **Needs re-groom** (when returned)
 
 ## Overall
 
@@ -139,5 +141,5 @@ Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if n
 
 ### Files touched by multiple tasks
 ### Needs manual review
-List every partial-resolved blocker here (id, slice delivered, what remains) — these are the tasks left intentionally unfinished. Write `None` only when every task completed cleanly and nothing was partial-resolved.
+List every partial-resolved blocker here (id, slice delivered, what remains) and every needs re-groom handoff with its ownership map, failed assumption, one-loop constraint, candidate slices, and dependency order. Write `None` only when every task completed cleanly and neither kind was returned.
 ```
