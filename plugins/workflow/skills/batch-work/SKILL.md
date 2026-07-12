@@ -15,20 +15,30 @@ Run Ready tasks through `/workflow:work`, one isolated subagent at a time, in pr
 
 ```text
 /workflow:batch-work            # all Ready tasks, priority order
+/workflow:batch-work auto       # all runnable Ready tasks, auto-ordered by depends: (deps before dependents)
 /workflow:batch-work 3          # first three Ready tasks
 /workflow:batch-work 184,185    # named Ready tasks, in the given order
 ```
 
 Only tasks in `workflow/ready/` are eligible. A Ready task with an unresolved question in its file is also ineligible — report it and stop before execution instead of guessing.
 
-A task with a `depends:` line runs only after its dependencies reach `done/`. `/work` enforces this at pickup and stops if a dependency is unmet, which trips stop-on-failure. So order the queue dependencies-first (a dependency must run earlier than the task that needs it); when in doubt, follow priority order and let the gate catch a bad order.
+A task with a `depends:` line runs only after its dependencies reach `done/`. `/work` enforces this at pickup and stops if a dependency is unmet, which trips stop-on-failure. So a batch must run dependencies-first (a dependency runs earlier than the task that needs it). The `auto` mode does this ordering for you; the other modes don't, so order those yourself or let the gate catch a bad order.
+
+**`auto` selection** — build the batch from the `depends:` graph instead of a hand-picked list:
+
+1. Candidates = every task in `workflow/ready/`.
+2. A candidate is *runnable* when each id in its `depends:` is already in `workflow/done/` or is another candidate in this batch. Drop a candidate whose dependency sits in `draft/`, `blocked/`, `in-progress/`, or doesn't exist — it can't be satisfied by this run.
+3. Order with Kahn's algorithm: repeatedly emit the runnable candidate whose deps are all done-or-already-emitted, breaking ties by lowest `priority:` then lowest id. A `depends:` cycle among candidates leaves tasks unemittable — drop them.
+4. List every dropped task in the plan with the blocking reason (unsatisfiable dep NNN in `<folder>`, or dependency cycle). `auto` with nothing runnable stops with that report instead of running an empty batch.
+
+Everything downstream (isolated subagent per task, clean-tree gate between tasks, stop-on-failure, report) is identical to the other modes.
 
 ## Preconditions
 
 1. `git status --porcelain` — if it prints anything, stop and report the dirty paths. Do not stash, reset, clean, or commit the existing worktree.
 2. Run the bundled validator: `python3 <plugin>/skills/framework-check/scripts/validate_workflow.py` (resolve `<plugin>` via `${CLAUDE_PLUGIN_ROOT}`, or relative to this skill file). Stop if the framework is inconsistent.
-3. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`). Implicit selection follows priority order (lowest `priority:` first, ties by id); explicit IDs run in the given order but must all be in `ready/`.
-4. Print the plan before starting: task id, title, report path. Reports go to `workflow/reports/batch-<YYYY-MM-DD>.md`; append `-2`, `-3`, … when the path exists.
+3. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`). Selection by mode: no arg → priority order (lowest `priority:` first, ties by id); `auto` → the runnable, dependency-ordered set from **`auto` selection** above; explicit IDs → the given order, all must be in `ready/`.
+4. Print the plan before starting: ordered task id + title, any tasks `auto` dropped and why, report path. Reports go to `workflow/reports/batch-<YYYY-MM-DD>.md`; append `-2`, `-3`, … when the path exists.
 
 ## Execution
 
@@ -67,6 +77,7 @@ Write the report even when the queue stops early, commit it (`batch-work: <date>
 # Batch Run: YYYY-MM-DD
 
 Tasks: 184, 185, 186
+Dropped (auto): 187 (dep 190 in draft/)   # omit the line when nothing was dropped
 
 ## Per task
 

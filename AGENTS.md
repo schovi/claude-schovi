@@ -58,7 +58,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
 | groom | workflow | `/workflow:groom [id]` | Refine a board task into an implementable spec; interview to intent (open-ended questions until ~95% confident), prefer independently-deliverable slices, flag real cross-task dependencies with a `depends:` line, one groom commit per session |
 | work | workflow | `/workflow:work [id]` | Implement one Ready task (or ad-hoc ask): dependency gate (stops if a `depends:` task isn't in `done/`), routed-doc read, plan in chat, `task NNN:` commits, atomic completion commit (Done move + task archival + doc sync) |
-| batch-work | workflow | `/workflow:batch-work [ids\|count]` | Run Ready tasks sequentially in isolated subagents, stop-on-failure, report to `workflow/reports/` |
+| batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Run Ready tasks sequentially in isolated subagents, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: runnable tasks only, ordered deps-before-dependents, unsatisfiable tasks dropped and reported |
 | status | workflow | `/workflow:status` | Read-only combined view over every repo's `workflow/` status folders (per-repo view: `./workflow/status`) |
 | decision | workflow | `/workflow:decision` | Append a `D<N>` entry to the repo's decision log |
 | framework-init | workflow | `/workflow:framework-init` | Scaffold `workflow/` + contract + docs skeleton in a fresh repo, route AGENTS.md to the plugin |
