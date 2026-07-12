@@ -29,6 +29,14 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/framework-check/scripts/validate_workflow.
 Beyond the script, check and collect findings:
 
 - **Legacy layouts**: markdown-board era (`docs/board.md`, `docs/tasks/`, `docs/.next-task-id`, `docs/milestones/`, `docs/archive/tasks/`, milestone/M-ID vocabulary, git-tag-per-task habits, reports outside `workflow/reports/`) or the interim plugin layout (`workflow/board.md` + `workflow/tasks/` + `workflow/archive/`).
+- **Drifted shipped files**: the repo's copies of the generic templates go stale when the plugin evolves them. Diff each against the current template and flag any that differ:
+
+  ```bash
+  diff -q workflow/status    "${CLAUDE_PLUGIN_ROOT}/skills/framework-init/templates/status"
+  diff -q workflow/TEMPLATE.md "${CLAUDE_PLUGIN_ROOT}/skills/framework-init/templates/TEMPLATE.md"
+  ```
+
+  (Codex: resolve the template paths relative to this skill file.) These files carry no repo-specific content, so a difference means the repo is behind — record it for refresh. Show the actual diff in the report so a deliberate local edit is visible before it's overwritten.
 - **Superseded repo skills**: `.claude/skills/{groom,work,batch-run,batch-work}/` — now owned by the plugin. Repo-specific skills (verify*, design, analyze-*, playwright-*) stay.
 - **Scout agents**: `.claude/agents/scout.md` and `.codex/agents/scout.toml` — retired entirely; the plugin skills use generic bounded subagents. Other agents (test-writer, chrome-reviewer, …) stay.
 - **Codex runtime parity**: every kept `.claude/agents/<name>.md` needs a `.codex/agents/<name>.toml` twin, and the repo's Codex skills symlink (`.codex/skills` or `.agents/skills` → `.claude/skills`) must exist and resolve. Pairing rules: `references/codex-agents.md`.
@@ -37,13 +45,13 @@ Beyond the script, check and collect findings:
 
 ## 3. Report and approve
 
-Print findings grouped as: validator issues, legacy artifacts, superseded skills/agents, stale references, contract gaps — each with the exact fix. Then the migration plan as an ordered list. Ask for approval before touching anything (one confirmation for the whole plan; call out destructive steps — skill/agent deletion, renumbering — explicitly).
+Print findings grouped as: validator issues, legacy artifacts, drifted shipped files, superseded skills/agents, stale references, contract gaps — each with the exact fix. Then the migration plan as an ordered list. Ask for approval before touching anything (one confirmation for the whole plan; call out destructive steps — skill/agent deletion, renumbering — explicitly).
 
 ## 4. Apply (after approval)
 
 Use `git mv` for every move so history follows. Order:
 
-1. **Create the structure**: status folders + `reports/` (each with `.gitkeep`), `workflow/TEMPLATE.md`, `workflow/status` script (`chmod +x`), `workflow/next-task-id` — from the framework-init templates.
+1. **Create or refresh the structure**: status folders + `reports/` (each with `.gitkeep`), `workflow/TEMPLATE.md`, `workflow/status` script (`chmod +x`), `workflow/next-task-id` — from the framework-init templates. When the repo already has these, overwrite any shipped file the audit flagged as drifted (`workflow/status`, `workflow/TEMPLATE.md`) with the current template (re-`chmod +x` the status script). This is the "make sure it's up to date" path on an already-migrated repo.
 2. **Migrate every card to a task file**, one per card, into the folder matching its old status:
    - Card already has a task/spec file → `git mv` it into the right status folder (renaming to `NNN-slug.md` if needed) and fold the board line's extra facts into it.
    - Inline-only card (spec lived on the board line) → create the file: `# NNN — Title` plus the line's sub-bullets as Spec/Acceptance criteria.
@@ -58,6 +66,6 @@ Use `git mv` for every move so history follows. Order:
 8. **Verify**: re-run the validator (must exit 0), run `./workflow/status` and sanity-check the board against the old one (same tasks, same statuses, Ready order preserved), and run the contract's full validation gate. Spot-check that no remaining file references the old paths.
 9. **Commit** the whole migration as one commit: `workflow: migrate to workflow framework`.
 
-On an already-migrated repo this skill is a pure validator: report, and fix only what the user approves.
+On an already-migrated repo this skill validates and keeps the shipped files current: report drift and structural issues, and fix only what the user approves.
 
 Codex: invoke as `use $framework-check`; identical flow.

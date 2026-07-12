@@ -26,8 +26,8 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
 | `groom` | workflow | `/workflow:groom [id]` | Refines a task file into an implementable spec, then `git mv`s it to `ready/` (with a sparse `priority:`) or `blocked/` (with a `gate:`); interviews to intent, one groom commit per session |
 | `work` | workflow | `/workflow:work [id]` | Implements the top Ready task (lowest priority number) or an ad-hoc ask: routed-doc read, brief plan, `task NNN:` commits, acceptance-verifier gate, atomic completion commit (`done:` date + move to `done/` + doc sync) |
-| `batch-work` | workflow | `/workflow:batch-work [ids\|count]` | Runs Ready tasks sequentially in isolated subagents, priority order, stop-on-failure, consolidated report |
-| `status` | workflow | `/workflow:status` | Read-only combined board view across all repos with `workflow/` status folders (per-repo: `./workflow/status`) |
+| `batch-work` | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner: main context plans + dispatches, all task work in isolated subagents; sequential, stop-on-failure, consolidated report. `auto` orders/pulls/partial-resolves by the `depends:` graph |
+| `status` | workflow | `/workflow:status` | Current-repo work overview by default (next up, batchable, blockers ranked by unblock value); `all` for a combined across-repos table. Per-repo dump: `./workflow/status` |
 | `decision` | workflow | `/workflow:decision` | Appends a `D<N>` record to the repo's decision log |
 | `framework-init` | workflow | `/workflow:framework-init` | Scaffolds `workflow/` + repo contract + docs skeleton in a fresh repo |
 | `framework-check` | workflow | `/workflow:framework-check` | Validates the framework (bundled script) and migrates legacy layouts (docs/board.md, M-IDs, superseded repo skills); reports first, applies on approval |
