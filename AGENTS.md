@@ -29,7 +29,7 @@ Core design: **context isolation**. External data (Jira issues ~10-15k tokens, G
 
 Every change must keep both runtimes in sync. Never update one side and leave the other stale.
 
-1. **Manifests stay in sync**: version bumps, skill additions/removals, and description changes apply to BOTH `plugin.json` files of the affected plugin
+1. **Manifests stay in sync**: version bumps, skill additions/removals, and description changes apply to BOTH `plugin.json` files of the affected plugin. A version bump has THREE places: `plugins/<name>/.claude-plugin/plugin.json`, `plugins/<name>/.codex-plugin/plugin.json`, and the plugin's entry in `.claude-plugin/marketplace.json` (which carries its own `version`). All three must match. The Codex marketplace (`.agents/plugins/marketplace.json`) is path-only with no version field, so it needs no bump. Grep the old version across the repo before committing to catch a stale copy
 2. **Skills serve both runtimes**: `/<plugin>:<skill>` syntax and `Agent` tool / `subagent_type` references are Claude-native. When adding or changing a skill, make sure it degrades gracefully in Codex (trigger text works, subagent steps have a Codex-compatible path or are clearly Claude-only)
 3. **Validate JSON after manifest changes**: see [Validation](#validation)
 4. **Docs stay in sync**: this file is the single instructions source for both runtimes. When plugin logic changes affect the architecture or patterns documented here, update this file in the same change

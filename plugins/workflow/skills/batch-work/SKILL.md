@@ -63,14 +63,24 @@ Everything downstream (isolated subagent per unit, clean-tree gate between units
 
 ## Preconditions
 
-1. `git status --porcelain` — if it prints anything, stop and report the dirty paths. Do not stash, reset, clean, or commit the existing worktree.
-2. Run the bundled validator: `python3 <plugin>/skills/framework-check/scripts/validate_workflow.py` (resolve `<plugin>` via `${CLAUDE_PLUGIN_ROOT}`, or relative to this skill file). Stop if the framework is inconsistent.
-3. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`) — the orchestrator's only reads. Selection by mode: no arg → priority order (lowest `priority:` first, ties by id); `auto` → the runnable, dependency-ordered set from **`auto` selection** above; explicit IDs → the given order, all must be in `ready/`. Apply **Dependency handling** to any selected task with an unmet `depends:`, in every mode.
-4. Print the plan before starting: the ordered units (task id + title, and any scoped partial-resolve steps with the slice + who they unblock), any dropped tasks and why, report path. Reports go to `workflow/reports/batch-<YYYY-MM-DD>.md`; append `-2`, `-3`, … when the path exists.
+1. **Resume check** — glob `workflow/reports/batch-<YYYY-MM-DD>*.md`. If one carries `Status: in-progress`, this is a resumed batch: adopt its frozen plan verbatim, skip selection and the rest of these preconditions, and go to Execution at its `next=` unit. Do **not** recompute selection — board state may have shifted mid-batch and the frozen order is the decision of record. Otherwise continue below to start a fresh batch.
+2. `git status --porcelain` — if it prints anything, stop and report the dirty paths. Do not stash, reset, clean, or commit the existing worktree.
+3. Run the bundled validator: `python3 <plugin>/skills/framework-check/scripts/validate_workflow.py` (resolve `<plugin>` via `${CLAUDE_PLUGIN_ROOT}`, or relative to this skill file). Stop if the framework is inconsistent.
+4. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`) — the orchestrator's only reads. Selection by mode: no arg → priority order (lowest `priority:` first, ties by id); `auto` → the runnable, dependency-ordered set from **`auto` selection** above; explicit IDs → the given order, all must be in `ready/`. Apply **Dependency handling** to any selected task with an unmet `depends:`, in every mode.
+5. Resolve the report path: `workflow/reports/batch-<YYYY-MM-DD>.md`, appending `-2`, `-3`, … only when a *completed* report already occupies the path. Write the report file now with the full plan and `Status: in-progress | next=<first unit>` (see **Report**), then print the same plan: the ordered units (task id + title, and any scoped partial-resolve steps with the slice + who they unblock), any dropped tasks and why, report path.
 
 ## Execution
 
 Work the plan's units in order, one isolated subagent at a time. The orchestrator only dispatches and records the condensed return — it does not read what the subagent read.
+
+**The orchestrator holds no batch state it can't rebuild from the report file.** A long batch will be compacted; treat the on-disk report, not this context, as the source of truth. Every iteration re-derives its position instead of trusting memory:
+
+1. Read the report file → frozen plan, completed units, and `next=`.
+2. Reconcile with reality: `git log` confirms the last recorded unit's commit landed; `git status --porcelain` is empty. A mismatch (recorded done but no commit, or a dirty tree) means the previous unit did not finish cleanly — treat it as a stop, not a resume past it.
+3. Dispatch `next=` through the runtime adapter.
+4. Append the unit's condensed return to the report and advance the `Status:` marker (`next=<following unit>`, or `complete` after the last). This append is the checkpoint — do it before dispatching anything else.
+
+A compaction between any two of these steps is harmless: step 1 reloads the truth on the next turn.
 
 **If the unit is a scoped partial-resolve (rung 3)**, send this self-contained request through the selected runtime adapter before its dependent:
 
@@ -107,19 +117,21 @@ dependency_order).
 
 Then, per unit:
 
-1. Record only the returned summary — never pull the subagent's full output into main context.
-2. Success means `final_status: done` for a normal task or `unit_status: delivered` for a scoped partial-resolve. On success, require `git status --porcelain` to be empty before the next unit. A dirty tree means partial.
-3. On a normal task's `failed` or `partial`, or a scoped partial-resolve's `failed`, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. A partial-resolve that can't produce a valid slice is a failure: stop, don't ship a broken stub.
+1. Append only the returned summary to the report file — never pull the subagent's full output into main context, and never hold results only in context. The report append is the durable record.
+2. Success means `final_status: done` for a normal task or `unit_status: delivered` for a scoped partial-resolve. On success, require `git status --porcelain` to be empty, then advance the `Status:` marker to the next unit before dispatching it. A dirty tree means partial.
+3. On a normal task's `failed` or `partial`, or a scoped partial-resolve's `failed`, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. A partial-resolve that can't produce a valid slice is a failure: stop, don't ship a broken stub. Set `Status: stopped` and record which unit stopped it.
 4. Mark every remaining unit as not run in the report.
 
 Sequential execution is required: later units may depend on earlier commits and all workers share one working directory.
 
 ## Report
 
-Write the report even when the queue stops early, commit it (`batch-work: <date> report`), print its content, and end with its path:
+The report is created at plan time and updated in place as the batch runs — it is both the live checkpoint and the final artifact. The `Status:` line is what the resume check reads: `in-progress | next=<id>` while running, `stopped | at=<id>` on failure, `complete` when the queue finishes. When the queue finishes or stops for good, commit the report (`batch-work: <date> report`), print its content, and end with its path.
 
 ```markdown
 # Batch Run: YYYY-MM-DD
+
+Status: in-progress | next=185
 
 Tasks: 184, 185, 186
 Partial-resolved: 190 (slice for 186 — NOT done, needs completion)   # omit if none

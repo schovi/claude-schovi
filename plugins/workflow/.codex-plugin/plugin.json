@@ -1,6 +1,6 @@
 {
   "name": "workflow",
-  "version": "2.9.0",
+  "version": "2.10.0",
   "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, plus framework-init scaffolding and framework-check validation/migration. Tasks are files in workflow/<status>/ folders (folder = status, moves are git mv), board view via a shipped ./workflow/status script, repo specifics in a workflow/AGENTS.md contract.",
   "author": {
     "name": "David Schovanec",
