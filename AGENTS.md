@@ -57,14 +57,16 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
 | groom | workflow | `/workflow:groom [id]` | Refine a board task through intent interview and bounded codebase reconnaissance; Ready means one cohesive, independently deliverable outcome sized for one work loop, with known ownership surfaces and load-bearing contracts; one groom commit per session |
-| work | workflow | `/workflow:work [id]` | Implement one Ready task (or ad-hoc ask): dependency gate, routed-doc read, plan in chat, `task NNN:` commits, acceptance-verifier gate, atomic completion commit; hand material scope divergence back for re-grooming |
+| work | workflow | `/workflow:work [id]` | Implement one Ready task, or an ad-hoc ask when explicitly invoked: dependency gate, routed-doc read, plan in chat, `task NNN:` commits, acceptance-verifier gate, atomic completion commit; hand material scope divergence back for re-grooming |
 | batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner (main context just plans + dispatches + records condensed returns; all task work in isolated subagents), sequential, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: deps-before-dependents ordering, pulls whole Ready deps in, best-effort scoped partial-resolve of a draft/in-progress code dep (never moved to done, flagged for completion), drops blocked/external deps and reports |
 | status | workflow | `/workflow:status` | Default: decision-oriented overview of the current repo (in progress, next up, batchable now, blockers ranked by unblock value). `all`: combined one-row-per-repo table across every repo's `workflow/` folders. Underlying per-repo dump: `./workflow/status` (done hidden by default, `--done N\|all` to list) |
 | decision | workflow | `/workflow:decision` | Append a `D<N>` entry to the repo's decision log |
-| framework-init | workflow | `/workflow:framework-init` | Scaffold `workflow/` + contract + docs skeleton in a fresh repo, route AGENTS.md to the plugin |
+| framework-init | workflow | `/workflow:framework-init` | Explicit-only scaffold of `workflow/` + contract + docs skeleton in a fresh repo; never runs as a missing-framework fallback |
 | framework-check | workflow | `/workflow:framework-check` | Deterministic validation (bundled `validate_workflow.py`) + guided migration of legacy layouts (docs/board.md, M-IDs, superseded repo skills) incl. Codex parity for kept repo agents (`references/codex-agents.md`); report first, apply on approval |
 
 Description discipline: a skill description states WHEN to trigger (and when to skip), one concern per skill. The body states HOW. Agent descriptions state the contract (what it fetches, input, output budget) because that is what spawners route on.
+
+Workflow discovery is conservative because the plugin may be installed outside its intended hobby/solo repos. Invoke workflow skills explicitly by default. `work`, `groom`, and `status` may be selected implicitly only when the current repo has `workflow/AGENTS.md` and the request unmistakably refers to that board. `framework-init` has Codex's `agents/openai.yaml` policy `allow_implicit_invocation: false`, an explicit-only shared description, and a body guard against inherited invocation. It must never be invoked as another skill's missing-framework fallback.
 
 ## Subagents
 
@@ -137,6 +139,12 @@ python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 ```
 
 After changing the workflow task-file format or status-folder conventions, keep `plugins/workflow/skills/framework-check/scripts/validate_workflow.py`, the `status` script and templates under `plugins/workflow/skills/framework-init/templates/`, and the groom/work skill texts consistent — they all encode the same format.
+
+After changing a workflow `SKILL.md` or skill invocation policy, validate that its trigger text cannot capture unrelated requests or initialize the framework implicitly:
+
+```bash
+python3 scripts/validate-workflow-skill-triggers.py
+```
 
 After changing any `AGENT.md`:
 

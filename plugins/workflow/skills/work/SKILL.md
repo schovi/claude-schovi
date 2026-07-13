@@ -1,19 +1,21 @@
 ---
 name: work
 description: >
-  Implement one task from the repo's workflow/ status folders, or any small
-  ad-hoc ask, with a minimal deliberate loop: read routed docs, brief plan,
-  implement, validate, atomic completion commit. Use when the user says
-  "/workflow:work", "/work", "/work 051", asks for the next task, or hands an
-  implementation task. Requires an initialized framework (workflow/AGENTS.md
-  exists); otherwise route to /workflow:framework-init first.
+  Implement one selected task from an initialized workflow board with a minimal
+  deliberate loop: read routed docs, plan, implement, validate, and commit. Use
+  when the user explicitly invokes "/workflow:work", "/work", "/work 051", or
+  "use $work". When workflow/AGENTS.md exists, also use for an unmistakable
+  request to implement the next, numbered, or Ready workflow-board task. Do not
+  use for generic implementation requests. If explicitly invoked in an
+  uninitialized repo, stop and suggest /workflow:framework-init; never invoke
+  it automatically.
 ---
 
 # Work
 
 One loop for task-sized and ad-hoc work. Fast over ceremonial: small mistakes caught by tests beat a process that runs 10x longer. The folder a task file sits in IS its status; the file is spec, never a phase tracker. View the board with `./workflow/status`.
 
-1. **Contract**: read `workflow/AGENTS.md` in full — validation commands, verify mapping, doc routing, local notes all come from there.
+1. **Contract**: if `workflow/AGENTS.md` is missing, stop and explain that this repo is not initialized for the workflow plugin. Suggest explicit `/workflow:framework-init` (`use $framework-init` in Codex); never invoke it automatically. Otherwise read the contract in full. Validation commands, verify mapping, doc routing, and local notes all come from there.
 2. **Select**: arg = a task (find `workflow/*/<id>-*.md`) or a direct ask (no task needed — skip the folder steps). Without an arg, take the top Ready task: lowest `priority:` number in `workflow/ready/`, ties broken by lowest id (`./workflow/status` shows the queue). Only `ready/` tasks are eligible; draft or blocked routes through `/workflow:groom` first. Don't re-prioritize while selecting.
 3. **Read and map the implementation surface**: read the task file, then the doc leaf(s) the contract routes for every expected path — in full, before code. Do bounded code search and read only enough of the primary production owners to validate the groomed ownership surfaces, likely tests and docs, and load-bearing contracts before implementation. Don't read `done/` unless the task links a specific historical constraint.
 4. **Plan in chat**: expected ownership surfaces and exclusions, files to touch, approach, test targets — a few lines, not a document. Proceed immediately when the path is clear; pause only on genuinely multiple valid outcomes, conflict with stable docs, unexpected failures without a safe evidence-backed repair, destructive steps, or material scope expansion.

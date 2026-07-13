@@ -1,12 +1,13 @@
 ---
 name: status
 description: >
-  Overview of tracked work. Default: a decision-oriented summary of the CURRENT
-  repo's board (in progress, next up, batchable now, blockers ranked by unblock
-  value). With "all": a one-line-per-repo table across every repo that has
-  workflow/ folders. Use when the user says "/workflow:status", "board status",
-  "what should I work on", "what's blocked", or "status across my projects".
-  Read-only; never edits, moves, or commits.
+  Show a decision-oriented overview of tracked workflow-board work in the
+  current repo, or a one-line-per-repo table with "all". Use when the user
+  explicitly invokes "/workflow:status" or "use $status". When
+  workflow/AGENTS.md exists, also use for an unmistakable question about that
+  board's queue, progress, dependencies, or gates. Do not use for generic
+  project-status or work-prioritization questions. Read-only; never edits,
+  moves, commits, or initializes the framework.
 ---
 
 # Status
@@ -15,7 +16,7 @@ Two modes. Read-only — never edit, move, or commit. Point at `/workflow:framew
 
 ## Default (no arg): current-repo overview
 
-Turn this repo's board into a decision, not a dump. If there's no `workflow/` here, route to `/workflow:framework-init` and stop.
+Turn this repo's board into a decision, not a dump. If there's no `workflow/` here, report that this repo has no workflow board and stop. The user can explicitly invoke `/workflow:framework-init` (`use $framework-init` in Codex) if they want one; never invoke it automatically.
 
 1. **Read the board**: run `./workflow/status` (done is hidden by default — you don't need it here). Fall back to listing `workflow/<section>/*.md` if the script is missing. The output already carries what you need: `priority:` order, `depends:` edges (met = `depends: N ✓`, unmet = `(waits: N)`), blocked `gate:` lines, and a `Worktrees` section (only when other git worktrees exist) flagging tasks that sit in a different section or have uncommitted edits in a sibling worktree — that is live work this checkout's folders don't yet show.
 2. **Build the dependency picture** from the `depends:` annotations: which ready tasks are runnable now (no `waits:`), which wait on what, and where each awaited id sits (done/blocked/draft/in-progress).

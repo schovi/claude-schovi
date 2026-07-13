@@ -1,16 +1,19 @@
 ---
 name: framework-init
 description: >
-  Initialize the workflow framework in a repo that doesn't have one: create the
-  workflow/ status folders, install the board-view script, write the repo
-  contract, scaffold the docs skeleton, and route AGENTS.md to the plugin. Use
-  when the user says "/workflow:framework-init", "init the workflow", "set up
-  the board here", or when another workflow skill finds no workflow/AGENTS.md.
-  For repos with an existing legacy board (docs/board.md or a workflow/board.md
-  file), use /workflow:framework-check instead — it migrates.
+  Explicit invocation only. Initialize the workflow framework in a repo that
+  does not have one: create the workflow/ status folders, install the board-view
+  script, write the repo contract, scaffold the docs skeleton, and route
+  AGENTS.md to the plugin. Use only when the user explicitly invokes
+  "/workflow:framework-init", says "init the workflow" or "set up the board
+  here", or invokes "use $framework-init". Never invoke this skill because a
+  different workflow skill found no workflow/AGENTS.md. For a repo with an
+  existing legacy board, use /workflow:framework-check instead.
 ---
 
 # Framework Init
+
+Run only after the user explicitly requests initialization. Never inherit invocation from another workflow skill.
 
 Scaffold the workflow framework in a fresh repo. Templates live next to this skill in `templates/`. The folder a task sits in IS its status — there is no board file.
 

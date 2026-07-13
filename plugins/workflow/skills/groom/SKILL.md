@@ -2,10 +2,12 @@
 name: groom
 description: >
   Refine a task in the repo's workflow/ status folders into an implementable
-  spec. Use when the user says "/workflow:groom", "/groom", "groom 052",
-  "refine this task", or hands a fuzzy ask that should enter the board.
-  Requires an initialized framework (workflow/AGENTS.md exists); otherwise
-  route to /workflow:framework-init first.
+  spec. Use when the user explicitly invokes "/workflow:groom", "/groom",
+  "groom 052", or "use $groom". When workflow/AGENTS.md exists, also use for
+  an unmistakable request to refine a workflow-board task or put an ask onto
+  that board. Do not use for generic planning or task-refinement requests. If
+  explicitly invoked in an uninitialized repo, stop and suggest
+  /workflow:framework-init; never invoke it automatically.
 ---
 
 # Groom
@@ -14,7 +16,7 @@ Turn a task into something `/workflow:work` can pick up without guessing. A Read
 
 The unit of work is a **task** — one `NNN-slug.md` file whose status is the folder it sits in (`workflow/draft|ready|in-progress|blocked|done/`). View the board with `./workflow/status`.
 
-1. **Contract**: read `workflow/AGENTS.md` (project one-liner, doc routing, decision log path).
+1. **Contract**: if `workflow/AGENTS.md` is missing, stop and explain that this repo is not initialized for the workflow plugin. Suggest explicit `/workflow:framework-init` (`use $framework-init` in Codex); never invoke it automatically. Otherwise read the contract (project one-liner, doc routing, decision log path).
 2. **Resolve the task** (arg = task number or title fragment): find its file across the status folders (`ls workflow/*/<id>-*.md`). New ask? Mint the next id from `workflow/next-task-id`, create `workflow/draft/<id>-<slug>.md` with a `# NNN — Title` first line, increment the counter.
 3. **Read and map the implementation surface**: read the task file and the 1–2 doc leaves the contract routes for the affected paths. Then do bounded code search and read only enough to identify the primary production ownership surfaces, likely tests and routed docs, and any load-bearing contracts the change crosses. This is reconnaissance for task sizing, not an implementation plan or `done/` archaeology. Don't re-ask decisions already recorded in the repo's decision log.
 4. **Interview to intent**: ask the user open-ended questions with the AskUserQuestion tool, interviewing them until you have ~95% confidence about what they *actually* want — not what they think they should want. Batch related questions (max 4 per round, each with a recommended default); run another round only while a genuine ambiguity remains that code + docs can't settle and that would change the spec. Stop the moment intent is unambiguous — don't manufacture questions to fill a round, and skip the interview entirely when code + docs + decision log already determine the task. Prefer questions that surface the real goal, constraints, and what "done" feels like over questions that just confirm a plan you've already written. When you write, say which decisions were answered and which you defaulted.

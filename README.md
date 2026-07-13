@@ -25,7 +25,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
 | `groom` | workflow | `/workflow:groom [id]` | Uses an intent interview and bounded codebase reconnaissance to produce a Ready task with one cohesive, independently deliverable outcome sized for one work loop, then moves it to `ready/` or `blocked/` |
-| `work` | workflow | `/workflow:work [id]` | Implements the top Ready task or an ad-hoc ask, validates it through the acceptance-verifier gate, and hands material scope divergence back for re-grooming |
+| `work` | workflow | `/workflow:work [id]` | Implements the top Ready task, or an ad-hoc ask when explicitly invoked, validates it through the acceptance-verifier gate, and hands material scope divergence back for re-grooming |
 | `batch-work` | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner: main context plans + dispatches, all task work in isolated subagents; sequential, stop-on-failure, consolidated report. `auto` orders/pulls/partial-resolves by the `depends:` graph |
 | `status` | workflow | `/workflow:status` | Current-repo work overview by default (next up, batchable, blockers ranked by unblock value); `all` for a combined across-repos table. Per-repo dump: `./workflow/status` |
 | `decision` | workflow | `/workflow:decision` | Appends a `D<N>` record to the repo's decision log |
@@ -33,6 +33,8 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `framework-check` | workflow | `/workflow:framework-check` | Validates the framework (bundled script) and migrates legacy layouts (docs/board.md, M-IDs, superseded repo skills); reports first, applies on approval |
 
 In Codex, invoke skills as `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`, `use $groom`, `use $work`, etc.
+
+Workflow skill discovery is intentionally conservative. Invoke these skills explicitly by default. `work`, `groom`, and `status` may be selected implicitly only in repos with `workflow/AGENTS.md` and clear board-specific intent. `framework-init` always requires an explicit request and is never an automatic fallback.
 
 ### Subagents (schovi)
 

@@ -55,6 +55,8 @@ idea ──/groom──> draft/ ──spec + priority──> ready/ ──/work�
 
 Codex invocation: `use $groom`, `use $work`, etc.
 
+Skill discovery is conservative. Invoke workflow skills explicitly by default. `work`, `groom`, and `status` may be selected implicitly only when the current repo has `workflow/AGENTS.md` and the request unmistakably refers to that board. `framework-init` never runs as a missing-framework fallback; initialization always requires an explicit request.
+
 ## The contract
 
 Skills carry the invariant process; each repo declares only its variable facts in `workflow/AGENTS.md`:
