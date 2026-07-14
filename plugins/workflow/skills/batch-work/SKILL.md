@@ -79,10 +79,12 @@ Work the plan's units in order, one isolated subagent at a time. The orchestrato
 
 1. Read the report file → frozen plan, completed units, and `next=`.
 2. Reconcile with reality: `git log` confirms the last recorded unit's commit landed; `git status --porcelain` is empty. A mismatch (recorded done but no commit, or a dirty tree) means the previous unit did not finish cleanly — treat it as a stop, not a resume past it.
-3. Dispatch `next=` through the runtime adapter.
+3. Dispatch `next=` through the runtime adapter. Note the wall-clock time at dispatch.
 4. On return, append the unit's condensed return to the report, advance the `Status:` marker (`next=<following unit>`, or `complete` after the last), and **commit the report** (per-unit handling below). The committed checkpoint is the durable record.
 
 A compaction between any two of these steps is harmless: step 1 reloads the truth on the next turn. The report is committed at every checkpoint, so the tree is clean whenever a worker starts.
+
+**A worker that yields control without emitting its final structured return is not done.** It may have parked while a child subagent (validation, acceptance-verifier, a contract-named helper) was still running, then stopped once the child finished without resuming its own loop. This is a stall, not a completion or a failure. Resume the *same* worker once to finish its loop and produce the structured return; only a second yield with still no structured return is a real failure (step 3 below). Do not open a new worker for the unit — that duplicates its work on the shared tree.
 
 **If the unit is a scoped partial-resolve (rung 3)**, send this self-contained request through the selected runtime adapter before its dependent:
 
@@ -111,16 +113,18 @@ contract routes for touched paths before code. Complete the full loop:
 validation, verify gates, the acceptance-verifier gate (a task is done only on
 a 'ready' verdict), doc sync, the move to workflow/done/ with a done: date, and
 the atomic completion commit prefixed 'task <id>:'. Return only: final_status
-(done | failed | partial), acceptance_verdict, key_decisions, files_changed
-excluding task bookkeeping, validation, issues, needs_regroom (omit unless scope
-diverged; ownership_map, failed_assumption, why_not_one_loop, candidate_slices,
-dependency_order).
+(done | failed | partial), acceptance_verdict, verification_depth (which gates
+actually ran — typecheck/build/unit/e2e/Chrome-MCP — and one clause on why any
+were skipped, e.g. non-UI task), key_decisions, files_changed excluding task
+bookkeeping, sub_agents_spawned (count), tests_added (count), validation,
+issues, needs_regroom (omit unless scope diverged; ownership_map,
+failed_assumption, why_not_one_loop, candidate_slices, dependency_order).
 ```
 
 Then, per unit:
 
 1. Success means `final_status: done` for a normal task or `unit_status: delivered` for a scoped partial-resolve. Require `git status --porcelain` to be empty — the worker's atomic completion commit landed and left the tree clean. A dirty tree means partial → treat as failure (step 3).
-2. Record the outcome: append only the returned summary to the report (never pull the subagent's full output into main context, never hold results only in context), advance the `Status:` marker to the next unit, and commit the report (`batch-work: checkpoint <id>`). This commit is the durable checkpoint and restores a clean tree for the next unit's dispatch.
+2. Record the outcome: append only the returned summary to the report (never pull the subagent's full output into main context, never hold results only in context), plus the unit's wall-clock duration (dispatch→return, from step 3 above) and the proxies the worker returned (`verification_depth`, `sub_agents_spawned`, `tests_added`) — these are the batch's only visibility into per-unit cost and rigor. Advance the `Status:` marker to the next unit, and commit the report (`batch-work: checkpoint <id>`). This commit is the durable checkpoint and restores a clean tree for the next unit's dispatch.
 3. On a normal task's `failed` or `partial`, or a scoped partial-resolve's `failed`, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. A partial-resolve that can't produce a valid slice is a failure: stop, don't ship a broken stub. Set `Status: stopped | at=<id>`, record which unit stopped it and why, mark every remaining unit not run, and commit the report checkpoint.
 
 Sequential execution is required: later units may depend on earlier commits and all workers share one working directory.
@@ -142,6 +146,7 @@ Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if n
 
 ### 184 — Title
 - **Status**: done | failed | partial | not run
+- **Duration**: NN min (dispatch→return) · **Verification depth**: gates that ran (or why skipped) · **Sub-agents**: N · **Tests added**: N
 - **Acceptance verdict** / **Key decisions** / **Files changed** / **Validation** / **Issues** / **Needs re-groom** (when returned)
 
 ## Overall
@@ -151,6 +156,7 @@ Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if n
 | Completed | N/total |
 | Failed or partial | N |
 | Not run | N |
+| Total wall time | sum of per-unit durations |
 
 ### Files touched by multiple tasks
 ### Needs manual review
