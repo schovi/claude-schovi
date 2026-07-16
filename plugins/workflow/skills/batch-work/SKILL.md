@@ -32,6 +32,10 @@ Never infer the runtime from `.claude/` or `.codex/` files because both can coex
 
 Workers inherit the host's current permissions. Never request a permission override, reuse a worker for another unit, create a separate worktree, or run a unit inline.
 
+**Unattended by default.** batch-work never pauses for confirmation. The queue advances on each worker's structured return and stops only on `failed`/`partial` (Execution step 3) or an empty/blocked plan. Workers apply `/work`'s fix-and-continue rule — resolve a routine blocker in place when the root cause is proven and the repair is local, reversible, and in scope (a lockfile-present dependency, a stale locator/snapshot/fixture, an unused port offset) — and return `failed`/`partial`/`needs_regroom` rather than asking when the cause is uncertain or multiple outcomes are valid.
+
+**Permissions must be pre-granted by the host.** Workers inherit the host session's permissions and the skill never requests an override. An unattended batch assumes the session already allows what the work needs — file edits, the contract's build/test/verify commands, and any Chrome-MCP driving for UI acceptance. If those aren't granted up front, workers block on prompts and the batch stalls; grant them at launch, not per unit.
+
 ## Usage
 
 ```text
@@ -96,7 +100,9 @@ contract routes. Implement ONLY the slice of A that B needs (<one-line slice>)
 as a self-contained change that builds and passes the contract's validation. Do
 NOT complete the rest of A. Commit prefixed 'task <A>: partial (unblocks <B>)'.
 Append to A's file Notes: which slice landed and what remains. Leave A in its
-current folder; do not move it to done/. Return only: unit_status (delivered |
+current folder; do not move it to done/. You run unattended in a batch: do not
+pause for confirmation — apply /work's fix-and-continue rule for routine
+blockers and return failed instead of asking. Return only: unit_status (delivered |
 failed), slice_delivered, commit_sha,
 what_remains, validation, issues. `delivered` means this scoped unit completed;
 task A intentionally remains unfinished.
@@ -112,7 +118,10 @@ In <absolute repo path>, read and follow <absolute work SKILL.md path> for task
 contract routes for touched paths before code. Complete the full loop:
 validation, verify gates, the acceptance-verifier gate (a task is done only on
 a 'ready' verdict), doc sync, the move to workflow/done/ with a done: date, and
-the atomic completion commit prefixed 'task <id>:'. Return only: final_status
+the atomic completion commit prefixed 'task <id>:'. You run unattended in a
+batch: do not pause for confirmation — apply /work's fix-and-continue rule for
+routine blockers and return failed/partial/needs_regroom instead of asking.
+Return only: final_status
 (done | failed | partial), acceptance_verdict, verification_depth (which gates
 actually ran — typecheck/build/unit/e2e/Chrome-MCP — and one clause on why any
 were skipped, e.g. non-UI task), key_decisions, files_changed excluding task
