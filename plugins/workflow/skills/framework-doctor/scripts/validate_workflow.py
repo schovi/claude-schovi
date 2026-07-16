@@ -44,6 +44,41 @@ def parse_depends(value):
     return ids, True
 
 
+def find_dependency_cycle(edges):
+    """Return one cycle as a list of task IDs (closed, e.g. [41, 43, 41]), or None.
+
+    edges: (rel, task_id, dep_ids). A cycle means every task in it waits on another
+    that can never reach done/, so /work refuses all of them forever — worth failing
+    loudly at validation rather than leaving them silently unselectable.
+    """
+    graph = {}
+    for _, task_id, dep_ids in edges:
+        graph.setdefault(task_id, []).extend(dep_ids)
+    color = {}  # 0 unseen, 1 on-stack, 2 done
+    stack = []
+
+    def visit(node):
+        color[node] = 1
+        stack.append(node)
+        for nxt in graph.get(node, []):
+            if color.get(nxt, 0) == 1:
+                return stack[stack.index(nxt):] + [nxt]
+            if color.get(nxt, 0) == 0 and nxt in graph:
+                found = visit(nxt)
+                if found:
+                    return found
+        stack.pop()
+        color[node] = 2
+        return None
+
+    for node in graph:
+        if color.get(node, 0) == 0:
+            found = visit(node)
+            if found:
+                return found
+    return None
+
+
 def has_acceptance(text):
     match = re.search(r"^##\s+Acceptance criteria\s*$", text, re.M)
     if not match:
@@ -63,10 +98,8 @@ def main():
     workflow = root / "workflow"
 
     if not all((workflow / s).is_dir() for s in SECTIONS):
-        if (workflow / "board.md").exists():
-            print("LEGACY: workflow/board.md layout found — run the framework-check migration to status folders", file=sys.stderr)
-        elif (root / "docs" / "board.md").exists():
-            print("LEGACY: docs/board.md exists — run the framework-check migration", file=sys.stderr)
+        if (workflow / "board.md").exists() or (root / "docs" / "board.md").exists():
+            print("LEGACY: markdown-board layout found — migrate to workflow/ status folders by hand (automated migration retired)", file=sys.stderr)
         else:
             print("MISSING: no workflow/ status folders — run /workflow:framework-init", file=sys.stderr)
         sys.exit(2)
@@ -74,6 +107,10 @@ def main():
     issues = []
     if not (workflow / "AGENTS.md").exists():
         issues.append("workflow/AGENTS.md: repo contract is missing")
+    if not (workflow / "TEMPLATE.md").exists():
+        issues.append("workflow/TEMPLATE.md: task template is missing (groom writes specs from it)")
+    if not (workflow / "reports").is_dir():
+        issues.append("workflow/reports/: batch-work report folder is missing")
     status_script = workflow / "status"
     if not status_script.exists():
         issues.append("workflow/status: board view script is missing")
@@ -88,8 +125,28 @@ def main():
             if path.name == ".gitkeep":
                 continue
             if path.suffix != ".md" or path.is_dir():
-                issues.append(f"{rel}: only NNN-slug.md task files belong in status folders")
+                issues.append(f"{rel}: only .md task files belong in status folders")
                 continue
+
+            text = path.read_text(encoding="utf-8")
+            lines = text.splitlines()
+            meta = parse_meta(lines)
+            loose = re.match(r"(\d+)", path.name)
+            loose_id = int(loose.group(1)) if loose else None
+
+            # done/ is the immutable archive. Legacy names and headings are preserved on
+            # migration (git tags and D<N> refs point at them), so enforce only a done:
+            # date here. Track the id loosely, when the filename exposes one, for dup and
+            # counter checks.
+            if section == "done":
+                if not DATE.match(meta.get("done", "")):
+                    issues.append(f"{rel}: done task needs a 'done: YYYY-MM-DD' line")
+                if loose_id is not None:
+                    if loose_id in seen:
+                        issues.append(f"{rel}: duplicate task {pad(loose_id)} (also in {seen[loose_id]})")
+                    seen.setdefault(loose_id, section)
+                continue
+
             match = re.match(r"^(\d+)-[a-z0-9][a-z0-9-]*\.md$", path.name)
             if not match:
                 issues.append(f"{rel}: task filename must be NNN-slug.md")
@@ -99,8 +156,6 @@ def main():
                 issues.append(f"{rel}: duplicate task {pad(task_id)} (also in {seen[task_id]})")
             seen.setdefault(task_id, section)
 
-            text = path.read_text(encoding="utf-8")
-            lines = text.splitlines()
             if not lines or not re.match(rf"^#\s+{pad(task_id)}\s+[—-]\s+\S", lines[0]):
                 issues.append(f"{rel}: first line must be '# {pad(task_id)} — Title'")
             if text.startswith("---"):
@@ -108,10 +163,8 @@ def main():
             if re.search(r"^status\s*:", text, re.I | re.M):
                 issues.append(f"{rel}: status is the folder, never a line in the file")
 
-            meta = parse_meta(lines)
-            if section == "ready":
-                if not meta.get("priority", "").isdigit():
-                    issues.append(f"{rel}: ready task needs an integer 'priority:' line (sparse, lowest = next)")
+            if section == "ready" and not meta.get("priority", "").isdigit():
+                issues.append(f"{rel}: ready task needs an integer 'priority:' line (sparse, lowest = next)")
             if section in ("ready", "in-progress") and not has_acceptance(text):
                 issues.append(f"{rel}: {section} task needs a non-empty '## Acceptance criteria' section")
             if section == "blocked" and not observable_gate(meta.get("gate")):
@@ -124,8 +177,6 @@ def main():
                     issues.append(f"{rel}: task cannot depend on itself")
                 else:
                     depends_edges.append((rel, task_id, dep_ids))
-            if section == "done" and not DATE.match(meta.get("done", "")):
-                issues.append(f"{rel}: done task needs a 'done: YYYY-MM-DD' line")
 
             body = re.sub(r"```.*?```", "", text, flags=re.S)
             for _, target in LINK.findall(body):
@@ -135,11 +186,15 @@ def main():
                 if local and not (path.parent / local).exists():
                     issues.append(f"{rel}: broken local link {target}")
 
-    # ponytail: unknown-ID + self-ref only; dependency cycles left to /work's gate, which just refuses to start
     for rel, _, dep_ids in depends_edges:
         for dep in dep_ids:
             if dep not in seen:
                 issues.append(f"{rel}: 'depends:' references unknown task {pad(dep)}")
+
+    cycle = find_dependency_cycle(depends_edges)
+    if cycle:
+        chain = " -> ".join(pad(i) for i in cycle)
+        issues.append(f"depends: cycle {chain} — these tasks can never start; break it in groom")
 
     highest = max(seen, default=0)
     counter = workflow / "next-task-id"

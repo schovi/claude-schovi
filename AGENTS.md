@@ -39,7 +39,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 
 - Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`
 - Documented `/<plugin>:<skill>` commands are Claude-native syntax. In Codex they work as trigger text for the skills, not as shell or TUI slash commands
-- Keep shared workflow behavior tool-neutral. Put runtime-specific generic-worker dispatch in conditional `references/claude.md` and `references/codex.md` files selected by callable capability. When a workflow references a custom Claude `subagent_type`, adapt it to Codex's available tools and built-in subagents
+- Keep shared workflow behavior tool-neutral. Put runtime-specific generic-worker dispatch in conditional `references/claude-instructions.md` and `references/codex-instructions.md` files selected by callable capability. When a workflow references a custom Claude `subagent_type`, adapt it to Codex's available tools and built-in subagents
 - Codex plugins cannot register agents natively (plugin.json has `skills` but no `agents` key). Bridge: each `AGENT.md` gets a generated `agent.toml` twin, symlinked into `~/.codex/agents/` by `scripts/sync-codex-agents.py` so Codex can spawn the agents in any session. The AGENT.md is the single source of truth — never edit `agent.toml` by hand
 - After adding or editing an AGENT.md, rerun `python3 scripts/sync-codex-agents.py` (CI-style validation: `--check`). Codex picks up agent changes on a new task/restart. If a future Codex release adds plugin-native agents, retire the script and the symlinks
 - Sandbox mapping in generated twins: MCP-only tool lists → `sandbox_mode = "read-only"`; anything broader (Bash/gh, full access) → `workspace-write` with `network_access = true`
@@ -58,11 +58,11 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
 | groom | workflow | `/workflow:groom [id]` | Refine a board task through intent interview and bounded codebase reconnaissance; Ready means one cohesive, independently deliverable outcome sized for one work loop, with known ownership surfaces and load-bearing contracts; one groom commit per session |
 | work | workflow | `/workflow:work [id]` | Implement one Ready task, or an ad-hoc ask when explicitly invoked: dependency gate, routed-doc read, plan in chat, `task NNN:` commits, acceptance-verifier gate, atomic completion commit; hand material scope divergence back for re-grooming |
-| batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner (main context just plans + dispatches + records condensed returns; all task work in isolated subagents), sequential, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: deps-before-dependents ordering, pulls whole Ready deps in, best-effort scoped partial-resolve of a draft/in-progress code dep (never moved to done, flagged for completion), drops blocked/external deps and reports |
+| batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner (main context just plans + dispatches + records condensed returns; all task work in isolated subagents), sequential, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: deps-before-dependents ordering, pulls whole Ready deps in, drops any dep it can't satisfy in-batch (draft/in-progress not pullable whole, or blocked/external) and reports |
 | status | workflow | `/workflow:status` | Default: decision-oriented overview of the current repo (in progress, next up, batchable now, blockers ranked by unblock value). `all`: combined one-row-per-repo table across every repo's `workflow/` folders. Underlying per-repo dump: `./workflow/status` (done hidden by default, `--done N\|all` to list) |
 | decision | workflow | `/workflow:decision` | Append a `D<N>` entry to the repo's decision log |
 | framework-init | workflow | `/workflow:framework-init` | Explicit-only scaffold of `workflow/` + contract + docs skeleton in a fresh repo; never runs as a missing-framework fallback |
-| framework-check | workflow | `/workflow:framework-check` | Deterministic validation (bundled `validate_workflow.py`) + guided migration of legacy layouts (docs/board.md, M-IDs, superseded repo skills) incl. Codex parity for kept repo agents (`references/codex-agents.md`); report first, apply on approval |
+| framework-doctor | workflow | `/workflow:framework-doctor` | Validator + cleanup for an initialized repo: deterministic validation (bundled `validate_workflow.py`), refresh of drifted shipped files (status/TEMPLATE) against templates, contract sanity, Codex agent parity (`references/codex-agents.md`). Report first, apply on approval. Not a migrator |
 
 Description discipline: a skill description states WHEN to trigger (and when to skip), one concern per skill. The body states HOW. Agent descriptions state the contract (what it fetches, input, output budget) because that is what spawners route on.
 
@@ -138,7 +138,7 @@ python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 ```
 
-After changing the workflow task-file format or status-folder conventions, keep `plugins/workflow/skills/framework-check/scripts/validate_workflow.py`, the `status` script and templates under `plugins/workflow/skills/framework-init/templates/`, and the groom/work skill texts consistent — they all encode the same format.
+After changing the workflow task-file format or status-folder conventions, keep `plugins/workflow/skills/framework-doctor/scripts/validate_workflow.py` (and its `test_validate_workflow.py`), the `status` script and templates under `plugins/workflow/skills/framework-init/templates/`, and the groom/work skill texts consistent — they all encode the same format.
 
 After changing a workflow `SKILL.md` or skill invocation policy, validate that its trigger text cannot capture unrelated requests or initialize the framework implicitly:
 

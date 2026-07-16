@@ -5,6 +5,25 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.0.0] - 2026-07-16
+
+### Changed (breaking)
+- **`framework-check` → `framework-doctor`**, and it is no longer a migrator. The skill is now validate + cleanup only: run the validator, refresh drifted shipped files (`status`, `TEMPLATE.md`) against the plugin templates, sanity-check the contract, check Codex agent parity. The legacy-layout migrator (markdown boards, M-number/milestone IDs, card→file conversion, superseded-skill and scout-agent cleanup, stale-routing rewrites) is retired now that all repos are on the folder model — migrate any remaining legacy board by hand. Command, skill directory, and bundled validator path all move to `framework-doctor`
+- **Claude/Codex parity for the acceptance gate**: `work` step 11 now spawns the registered `acceptance-verifier` agent on Codex too (`spawn_agent`, `fork_turns: none`), so the adversarial check runs in genuine fresh context on both runtimes instead of an inline self-check. Inline falsification remains only as a fallback when agent-spawning is unavailable
+- **Runtime-neutral interview**: `groom` and `framework-init` no longer name the Claude-only AskUserQuestion tool as the mechanism — they ask via AskUserQuestion on Claude, plain chat questions on Codex
+- `work` lifecycle tightened: the full validation gate and acceptance gate now run on the *final* tree (doc sync folded into implement; any post-gate edit re-runs the gates); argless `/work` resumes an interrupted `in-progress/` task before picking Ready; the ad-hoc (taskless) path is defined explicitly; completion drops the now-moot `priority:` line
+- `groom`/`work` sizing guidance condensed (was restated at length in both); `groom` records the implementation boundary in Spec/Notes (matching the template) and won't silently reopen a `done/` task
+
+### Removed
+- **batch-work scoped partial-resolve (rung 3)**: an unattended batch no longer auto-implements a slice of an ungroomed draft/in-progress dependency. A dependency it can't satisfy in-batch (not pullable whole, or blocked/external) drops the dependent and reports it. This also removes the `/work` dependency-gate override that only batch-work could invoke
+
+### Added
+- Validator: dependency-cycle detection, required `workflow/TEMPLATE.md` and `workflow/reports/`, and lenient `done/` archive handling (legacy filenames/headings accepted, only a `done:` date required). Fixture tests in `test_validate_workflow.py`
+- batch-work: `needs_regroom` is a first-class worker outcome that stops the queue; a stopped run's report is no longer overwritten by a later same-day run
+
+### Fixed
+- Renamed batch-work dispatch adapters `references/claude.md`/`codex.md` → `claude-instructions.md`/`codex-instructions.md` so they are no longer auto-loaded as `CLAUDE.md` memory on case-insensitive filesystems
+
 ## workflow [2.1.0] - 2026-07-10
 
 ### Changed

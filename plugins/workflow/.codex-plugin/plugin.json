@@ -1,7 +1,7 @@
 {
   "name": "workflow",
-  "version": "2.11.0",
-  "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, plus framework-init scaffolding and framework-check validation/migration. Tasks are files in workflow/<status>/ folders (folder = status, moves are git mv), board view via a shipped ./workflow/status script, repo specifics in a workflow/AGENTS.md contract.",
+  "version": "3.0.0",
+  "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, plus framework-init scaffolding and framework-doctor validation/cleanup. Tasks are files in workflow/<status>/ folders (folder = status, moves are git mv), board view via a shipped ./workflow/status script, repo specifics in a workflow/AGENTS.md contract.",
   "author": {
     "name": "David Schovanec",
     "email": "david.schovanec@productboard.com",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Workflow Board",
     "shortDescription": "Folder-based task board and work loop for solo/hobby repos",
-    "longDescription": "A unified work framework shared across repos. Tasks are single files in workflow/<status>/ folders — the folder IS the status, so every transition is one git mv. Ready is ordered by sparse priority lines; a shipped ./workflow/status script prints the board. Repo-specific facts (validation commands, verify skills, doc routing) live in a workflow/AGENTS.md contract the skills read first. Skills: groom refines a task into an implementable spec, work implements one task with an adversarial acceptance-verifier gate and an atomic completion commit, batch-work runs queued tasks unattended, decision appends to the repo's decision log, status shows all boards across repos, framework-init scaffolds a new repo, framework-check validates the structure and migrates legacy layouts.",
+    "longDescription": "A unified work framework shared across repos. Tasks are single files in workflow/<status>/ folders — the folder IS the status, so every transition is one git mv. Ready is ordered by sparse priority lines; a shipped ./workflow/status script prints the board. Repo-specific facts (validation commands, verify skills, doc routing) live in a workflow/AGENTS.md contract the skills read first. Skills: groom refines a task into an implementable spec, work implements one task with an adversarial acceptance-verifier gate and an atomic completion commit, batch-work runs queued tasks unattended, decision appends to the repo's decision log, status shows all boards across repos, framework-init scaffolds a new repo, framework-doctor validates the structure and keeps shipped files current.",
     "developerName": "David Schovanec",
     "category": "Coding",
     "capabilities": [

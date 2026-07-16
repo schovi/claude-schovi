@@ -7,8 +7,8 @@ description: >
   AGENTS.md to the plugin. Use only when the user explicitly invokes
   "/workflow:framework-init", says "init the workflow" or "set up the board
   here", or invokes "use $framework-init". Never invoke this skill because a
-  different workflow skill found no workflow/AGENTS.md. For a repo with an
-  existing legacy board, use /workflow:framework-check instead.
+  different workflow skill found no workflow/AGENTS.md. A repo with an existing
+  legacy markdown board must be migrated to status folders by hand first.
 ---
 
 # Framework Init
@@ -17,13 +17,13 @@ Run only after the user explicitly requests initialization. Never inherit invoca
 
 Scaffold the workflow framework in a fresh repo. Templates live next to this skill in `templates/`. The folder a task sits in IS its status — there is no board file.
 
-1. **Detect**: `workflow/AGENTS.md` exists → already initialized, route to `/workflow:framework-check`. A legacy layout exists (`docs/board.md`, `docs/tasks/`, milestone files, or a `workflow/board.md`) → route to `/workflow:framework-check` for migration; don't scaffold a second system.
+1. **Detect**: `workflow/AGENTS.md` exists → already initialized, route to `/workflow:framework-doctor` for a health check. A legacy markdown board (`docs/board.md` or `workflow/board.md`) exists → stop and tell the user to migrate it to status folders by hand first (the automated migrator was retired); don't scaffold a second system over it.
 2. **Create `workflow/`**:
    - status folders `draft/`, `ready/`, `in-progress/`, `blocked/`, `done/`, plus `reports/` — each with a `.gitkeep` (git doesn't track empty dirs; the folders must exist for `mv` and the validator)
    - `TEMPLATE.md` from `templates/TEMPLATE.md`
    - `status` from `templates/status`, then `chmod +x workflow/status` — the board view is `./workflow/status`
    - `next-task-id` containing `001`
-3. **Write the contract** `workflow/AGENTS.md` from `templates/AGENTS.md`, pre-filled by inspecting the repo — project one-liner from the README, validation commands from `package.json` scripts / Makefile / existing CI, verify skills and doc leaves from what exists under `.claude/skills/` and `docs/`. Confirm the guesses with one AskUserQuestion round (validation commands, verify mapping, decision log yes/no) — defaults from the inspection.
+3. **Write the contract** `workflow/AGENTS.md` from `templates/AGENTS.md`, pre-filled by inspecting the repo — project one-liner from the README, validation commands from `package.json` scripts / Makefile / existing CI, verify skills and doc leaves from what exists under `.claude/skills/` and `docs/`. Confirm the guesses with one question round (AskUserQuestion on Claude; plain chat questions on Codex): validation commands, verify mapping, decision log yes/no — defaults from the inspection.
 4. **Docs skeleton** (only what's missing, only if the user opted in during the question round): `docs/style.md` stub (one job per file, cross-link don't duplicate, no execution logs), empty `docs/areas/` and `docs/spec/` with a one-line README each. Content stays the repo's job.
 5. **Route the repo instructions**: add a `## Work tracking` section to the root `AGENTS.md` (create it, plus a `CLAUDE.md` containing `@AGENTS.md`, if missing — but follow the repo's existing pattern, e.g. `AGENTS.md` as a symlink to `CLAUDE.md`):
 
@@ -34,10 +34,10 @@ Scaffold the workflow framework in a fresh repo. Templates live next to this ski
    (draft, ready, in-progress, blocked, done) — the folder IS the status;
    moving a task is `git mv`. Board view: `./workflow/status`. Repo contract:
    `workflow/AGENTS.md`. Commands: `/workflow:groom`, `/workflow:work`,
-   `/workflow:batch-work`, `/workflow:status`, `/workflow:framework-check`.
+   `/workflow:batch-work`, `/workflow:status`, `/workflow:framework-doctor`.
    ```
 
-6. **Validate**: run `python3 <plugin>/skills/framework-check/scripts/validate_workflow.py` (resolve via `${CLAUDE_PLUGIN_ROOT}` or relative to this skill file). Must pass — an empty board is valid.
+6. **Validate**: run `python3 <plugin>/skills/framework-doctor/scripts/validate_workflow.py` (resolve via `${CLAUDE_PLUGIN_ROOT}` or relative to this skill file). Must pass — an empty board is valid.
 7. **Commit** everything as one commit: `workflow: initialize framework`.
 
 Codex: invoke as `use $framework-init`; identical flow.

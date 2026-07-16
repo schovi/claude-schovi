@@ -16,7 +16,7 @@ Run Ready tasks through `/workflow:work`, one isolated subagent at a time, in de
 The main context plans and dispatches; it never does task work itself. Keep it token-thin — a long batch must not fill the orchestrator's context with specs, diffs, and code.
 
 - **Does**: cheap shell (`git status`, the validator, `./workflow/status`), computes the batch order and dependency plan from that output, dispatches subagents, records each subagent's *condensed* return, writes the report.
-- **Never**: opens task files, doc leaves, source, or diffs; reads a spec to work out an implementation or the exact slice a dependency needs. Every token-heavy step happens *inside* a subagent and comes back as a short summary. If you catch the orchestrator reading a `.md` task body or a source file, that work belongs in a subagent.
+- **Never**: opens task files, doc leaves, source, or diffs; reads a spec to work out an implementation. Every token-heavy step happens *inside* a subagent and comes back as a short summary. If you catch the orchestrator reading a `.md` task body or a source file, that work belongs in a subagent.
 
 Role decomposition already happens one level down, inside each worker's `/work` loop: it runs validation, spawns the independent `acceptance-verifier` subagent for the acceptance gate, and delegates bounded find/summarize/test-generation to the repo agents the contract names — all in the worker's isolated context, invisible to the orchestrator. Keep it there. Do **not** add orchestrator-level role agents (a separate validator, reviewer, etc.); that work belongs in the worker, and pulling it up here refills the context the isolation exists to protect.
 
@@ -24,8 +24,8 @@ Role decomposition already happens one level down, inside each worker's `/work` 
 
 Batch work requires context-isolated workers that share the current repository worktree. Select exactly one dispatch adapter by callable capability:
 
-1. If `spawn_agent` and `wait_agent` are available, read `references/codex.md`.
-2. Otherwise, if the `Agent` tool is available, read `references/claude.md`.
+1. If `spawn_agent` and `wait_agent` are available, read `references/codex-instructions.md`.
+2. Otherwise, if the `Agent` tool is available, read `references/claude-instructions.md`.
 3. Otherwise stop before execution and report that this runtime cannot provide isolated workers.
 
 Never infer the runtime from `.claude/` or `.codex/` files because both can coexist. Load only the selected adapter. The adapter owns dispatch and waiting; this file owns every workflow decision and worker request. Dispatch one fresh worker per unit, wait for its final response, run the shared completion gates, then dispatch the next unit.
@@ -53,17 +53,14 @@ A `depends:` edge *inside* the batch is not a blocker — it's an order. Run the
 
 1. **A already in `done/`** → satisfied, nothing to do.
 2. **A is a batched or Ready task** → run A fully, ordered before B, pulling A into the batch if it wasn't selected. A completes atomically through its own `/work` loop, then B runs. Default and preferred path.
-3. **A is a code dependency in `draft/` or `in-progress/`** that can't be pulled whole (not Ready, or too large to finish here) → **scoped partial-resolve**: a dedicated subagent implements *only* the slice B needs (the specific interface/function/data), as a self-contained change that builds and passes tests. It commits under A's id marked partial (`task A: partial (unblocks B)`), records in A's file Notes exactly which slice landed and what remains, and leaves A in its folder — **never moved to `done/`**. B then runs told that A's required slice is satisfied in that commit, so its dependency gate passes. The report flags A under Needs manual review.
-4. **A is `blocked/` on an external `gate:`, or the needed slice can't be cleanly isolated** → do not touch A. Drop B and report it. Code can't resolve an external gate, and a guessed slice on an ungroomed blocker is how unattended runs corrupt state.
-
-Rung 3 deliberately leaves a task partially implemented — best-effort, never silent. The blocker still needs grooming and a real completion pass; that is what the report flag is for.
+3. **A is anything else** (in `draft/`/`in-progress/` and not pullable whole, or `blocked/` on an external `gate:`) → do not touch A. Drop B and report it. An unattended batch never partially implements or auto-slices an ungroomed dependency — that is how these runs corrupt state. B waits for a real `/work` or re-groom pass on A.
 
 **`auto` selection** — build the batch from the `depends:` graph instead of a hand-picked list:
 
 1. Candidates = every task in `workflow/ready/`.
-2. Resolve each candidate's `depends:` through the ladder above: satisfied/in-batch → keep; Ready-but-unselected dep → pull it in; draft/in-progress code dep → mark for scoped partial-resolve; blocked/external or un-isolable → drop the candidate.
-3. Order with Kahn's algorithm: repeatedly emit the runnable candidate whose deps are all done, already-emitted, or slated to partial-resolve first, breaking ties by lowest `priority:` then lowest id. A `depends:` cycle leaves tasks unemittable — drop them.
-4. List in the plan: the ordered batch, any partial-resolves to run first (which slice, for whom), and every dropped task with its reason. `auto` with nothing runnable stops with that report instead of running an empty batch.
+2. Resolve each candidate's `depends:` through the ladder above: satisfied/in-batch → keep; Ready-but-unselected dep → pull it in; anything else (draft/in-progress not pullable whole, or blocked/external) → drop the candidate and report it.
+3. Order with Kahn's algorithm: repeatedly emit the runnable candidate whose deps are all done or already-emitted, breaking ties by lowest `priority:` then lowest id. A `depends:` cycle leaves tasks unemittable — drop them (the validator flags cycles before you get here).
+4. List in the plan: the ordered batch and every dropped task with its reason. `auto` with nothing runnable stops with that report instead of running an empty batch.
 
 Everything downstream (isolated subagent per unit, clean-tree gate between units, stop-on-failure, report) is identical across modes; only `auto` computes the order and dependency plan for you.
 
@@ -71,9 +68,9 @@ Everything downstream (isolated subagent per unit, clean-tree gate between units
 
 1. **Resume check** — glob `workflow/reports/batch-*.md` (date-agnostic: an overnight batch can span midnight, so don't scope to today). If any carries `Status: in-progress`, this is a resumed batch — take the most recent one: adopt its frozen plan verbatim, skip selection and the rest of these preconditions, and go to Execution at its `next=` unit. Do **not** recompute selection — board state may have shifted mid-batch and the frozen order is the decision of record. Otherwise continue below to start a fresh batch.
 2. `git status --porcelain` — if it prints anything, stop and report the dirty paths. Do not stash, reset, clean, or commit the existing worktree.
-3. Run the bundled validator: `python3 <plugin>/skills/framework-check/scripts/validate_workflow.py` (resolve `<plugin>` via `${CLAUDE_PLUGIN_ROOT}`, or relative to this skill file). Stop if the framework is inconsistent.
+3. Run the bundled validator: `python3 <plugin>/skills/framework-doctor/scripts/validate_workflow.py` (resolve `<plugin>` via `${CLAUDE_PLUGIN_ROOT}`, or relative to this skill file). Stop if the framework is inconsistent.
 4. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`) — the orchestrator's only reads. Selection by mode: no arg → priority order (lowest `priority:` first, ties by id); `auto` → the runnable, dependency-ordered set from **`auto` selection** above; explicit IDs → the given order, all must be in `ready/`. Apply **Dependency handling** to any selected task with an unmet `depends:`, in every mode.
-5. Resolve the report path: `workflow/reports/batch-<YYYY-MM-DD>.md`, appending `-2`, `-3`, … only when a *completed* report already occupies the path. Write the report file now with the full plan and `Status: in-progress | next=<first unit>` (see **Report**), **commit it** (`batch-work: <date> plan`) so the tree is clean before the first unit, then print the same plan: the ordered units (task id + title, and any scoped partial-resolve steps with the slice + who they unblock), any dropped tasks and why, report path.
+5. Resolve the report path: `workflow/reports/batch-<YYYY-MM-DD>.md`, appending `-2`, `-3`, … when a *completed or stopped* report already occupies the path (never overwrite a finished run's record). Write the report file now with the full plan and `Status: in-progress | next=<first unit>` (see **Report**), **commit it** (`batch-work: <date> plan`) so the tree is clean before the first unit, then print the same plan: the ordered units (task id + title), any dropped tasks and why, report path.
 
 ## Execution
 
@@ -90,27 +87,7 @@ A compaction between any two of these steps is harmless: step 1 reloads the trut
 
 **A worker that yields control without emitting its final structured return is not done.** It may have parked while a child subagent (validation, acceptance-verifier, a contract-named helper) was still running, then stopped once the child finished without resuming its own loop. This is a stall, not a completion or a failure. Resume the *same* worker once to finish its loop and produce the structured return; only a second yield with still no structured return is a real failure (step 3 below). Do not open a new worker for the unit — that duplicates its work on the shared tree.
 
-**If the unit is a scoped partial-resolve (rung 3)**, send this self-contained request through the selected runtime adapter before its dependent:
-
-```text
-In <absolute repo path>, task B (<id>) depends on task A (<id>), which is in
-<draft|in-progress>/. Read the repository's AGENTS.md instructions,
-workflow/AGENTS.md, A's and B's task files, and the doc leaves the workflow
-contract routes. Implement ONLY the slice of A that B needs (<one-line slice>)
-as a self-contained change that builds and passes the contract's validation. Do
-NOT complete the rest of A. Commit prefixed 'task <A>: partial (unblocks <B>)'.
-Append to A's file Notes: which slice landed and what remains. Leave A in its
-current folder; do not move it to done/. You run unattended in a batch: do not
-pause for confirmation — apply /work's fix-and-continue rule for routine
-blockers and return failed instead of asking. Return only: unit_status (delivered |
-failed), slice_delivered, commit_sha,
-what_remains, validation, issues. `delivered` means this scoped unit completed;
-task A intentionally remains unfinished.
-```
-
-Confirm its commit landed and the tree is clean, then run B with the note `dependency <A>'s required slice is satisfied in <sha>; its depends: gate is met for this run`.
-
-**For a normal task unit**, resolve the absolute path to the sibling `../work/SKILL.md`, then send this self-contained request through the selected runtime adapter:
+Resolve the absolute path to the sibling `../work/SKILL.md`, then send this self-contained request for the unit through the selected runtime adapter:
 
 ```text
 In <absolute repo path>, read and follow <absolute work SKILL.md path> for task
@@ -122,19 +99,20 @@ the atomic completion commit prefixed 'task <id>:'. You run unattended in a
 batch: do not pause for confirmation — apply /work's fix-and-continue rule for
 routine blockers and return failed/partial/needs_regroom instead of asking.
 Return only: final_status
-(done | failed | partial), acceptance_verdict, verification_depth (which gates
-actually ran — typecheck/build/unit/e2e/Chrome-MCP — and one clause on why any
-were skipped, e.g. non-UI task), key_decisions, files_changed excluding task
-bookkeeping, sub_agents_spawned (count), tests_added (count), validation,
-issues, needs_regroom (omit unless scope diverged; ownership_map,
-failed_assumption, why_not_one_loop, candidate_slices, dependency_order).
+(done | failed | partial | needs_regroom), acceptance_verdict, verification_depth
+(which gates actually ran — typecheck/build/unit/e2e/Chrome-MCP — and one clause
+on why any were skipped, e.g. non-UI task), key_decisions, files_changed excluding
+task bookkeeping, sub_agents_spawned (count), tests_added (count), validation,
+issues, needs_regroom (required when final_status is needs_regroom; else omit:
+ownership_map, failed_assumption, why_not_one_loop, candidate_slices,
+dependency_order).
 ```
 
 Then, per unit:
 
-1. Success means `final_status: done` for a normal task or `unit_status: delivered` for a scoped partial-resolve. Require `git status --porcelain` to be empty — the worker's atomic completion commit landed and left the tree clean. A dirty tree means partial → treat as failure (step 3).
+1. Success means `final_status: done` with an empty `git status --porcelain` — the worker's atomic completion commit landed and left the tree clean. A dirty tree or any non-`done` status is not success → step 3.
 2. Record the outcome: append only the returned summary to the report (never pull the subagent's full output into main context, never hold results only in context), plus the unit's wall-clock duration (dispatch→return, from step 3 above) and the proxies the worker returned (`verification_depth`, `sub_agents_spawned`, `tests_added`) — these are the batch's only visibility into per-unit cost and rigor. Advance the `Status:` marker to the next unit, and commit the report (`batch-work: checkpoint <id>`). This commit is the durable checkpoint and restores a clean tree for the next unit's dispatch.
-3. On a normal task's `failed` or `partial`, or a scoped partial-resolve's `failed`, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. A partial-resolve that can't produce a valid slice is a failure: stop, don't ship a broken stub. Set `Status: stopped | at=<id>`, record which unit stopped it and why, mark every remaining unit not run, and commit the report checkpoint.
+3. On `failed`, `partial`, or `needs_regroom`, stop the queue immediately. Preserve the worktree exactly as the subagent left it — never `git checkout`, `git reset`, `git clean`, or automatic rollback. Set `Status: stopped | at=<id>`, record which unit stopped it and why (for `needs_regroom`, record the returned ownership map and candidate slices so the follow-up groom has them), mark every remaining unit not run, and commit the report checkpoint.
 
 Sequential execution is required: later units may depend on earlier commits and all workers share one working directory.
 
@@ -148,7 +126,6 @@ The report is created at plan time and updated in place as the batch runs — it
 Status: in-progress | next=185
 
 Tasks: 184, 185, 186
-Partial-resolved: 190 (slice for 186 — NOT done, needs completion)   # omit if none
 Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if none
 
 ## Per task
@@ -163,11 +140,11 @@ Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if n
 | Metric | Value |
 |--------|-------|
 | Completed | N/total |
-| Failed or partial | N |
+| Stopped (failed/partial/re-groom) | N |
 | Not run | N |
 | Total wall time | sum of per-unit durations |
 
 ### Files touched by multiple tasks
 ### Needs manual review
-List every partial-resolved blocker here (id, slice delivered, what remains) and every needs re-groom handoff with its ownership map, failed assumption, one-loop constraint, candidate slices, and dependency order. Write `None` only when every task completed cleanly and neither kind was returned.
+List every needs re-groom handoff with its ownership map, failed assumption, one-loop constraint, candidate slices, and dependency order. Write `None` only when every task completed cleanly.
 ```

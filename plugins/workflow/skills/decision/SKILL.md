@@ -14,7 +14,7 @@ Append-only decision log with stable `D<N>` handles, referenced from code commen
 1. **Locate the log**: the contract (`workflow/AGENTS.md` → Doc routing) names it; default `docs/decisions.md` (index) + `docs/decisions/d<N>-<slug>.md` (entries). Contract says "none"? Ask whether to create the default layout.
 2. **Gate**: log only choices that outlive the task and that a future agent might plausibly flip. Task-local choices belong in the task file's Notes.
 3. **Next handle**: highest existing `D<N>` + 1 (check the index and the entries directory).
-4. **Write the entry** `docs/decisions/d<N>-<slug>.md`:
+4. **Write the entry** in the directory named by the index path minus `.md` (default index `docs/decisions.md` → `docs/decisions/d<N>-<slug>.md`; a contract index at `docs/adr.md` → `docs/adr/d<N>-<slug>.md`):
 
 ```markdown
 # D<N> — Title

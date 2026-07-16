@@ -47,11 +47,11 @@ idea ──/groom──> draft/ ──spec + priority──> ready/ ──/work�
 
 - **`/workflow:groom [id]`** — mint an ID, interview the user until intent is clear, and use bounded codebase reconnaissance to identify ownership surfaces and load-bearing contracts. A Ready task is one cohesive, independently deliverable outcome sized for one `/work` loop; split independent outcomes before moving the spec to `ready/`. When a real cross-task dependency remains, flag it with a `depends:` line. Move externally gated work to `blocked/` with a `gate:`. One commit per groom session.
 - **`/workflow:work [id]`** — take the arg or the top Ready task (lowest priority, ties by ID). Refuses to start if the task's `depends:` aren't all in `done/`. Read the contract-routed docs, plan in chat, implement in `task NNN:` commits, validate per the contract, run the **acceptance-verifier gate**, then one atomic completion commit: `done:` date + move to `done/` + doc sync. If implementation discovers material scope outside the groomed ownership surfaces or contracts, hand the task back for re-grooming instead of expanding it. The in-progress move stays uncommitted until then.
-- **`/workflow:batch-work [ids|count|auto]`** — orchestrator-only runner: the main context just plans, dispatches, and records condensed returns while every task runs in its own isolated subagent (Claude `Agent` tool / Codex subagents), sequential (shared worktree), clean-tree gate between units, stop-on-failure, report in `workflow/reports/`. `auto` builds the batch from the `depends:` graph and resolves each unmet dependency by an escalation ladder: satisfied/in-batch → order it first; unselected Ready dep → pull it in whole; draft/in-progress code dep → best-effort scoped partial-resolve of just the needed slice (committed under the blocker, left un-done, flagged for a real completion pass); blocked-on-external-gate → drop and report.
+- **`/workflow:batch-work [ids|count|auto]`** — orchestrator-only runner: the main context just plans, dispatches, and records condensed returns while every task runs in its own isolated subagent (Claude `Agent` tool / Codex subagents), sequential (shared worktree), clean-tree gate between units, stop-on-failure, report in `workflow/reports/`. `auto` builds the batch from the `depends:` graph, deps before dependents: satisfied/in-batch → order it first; unselected Ready dep → pull it in whole; anything else (draft/in-progress not pullable whole, or blocked on an external gate) → drop the dependent and report it.
 - **`/workflow:status`** — default: a decision-oriented overview of the *current* repo (in progress, next up, batchable now, blockers ranked by how many tasks clearing them frees). `all`: one-row-per-repo table across every repo with a `workflow/`. Read-only.
 - **`/workflow:decision`** — append a `D<N>` record to the repo's decision log.
 - **`/workflow:framework-init`** — scaffold all of the above in a fresh repo (folders + `.gitkeep`s, status script, contract pre-filled by repo inspection, AGENTS.md routing).
-- **`/workflow:framework-check`** — deterministic validation (bundled zero-dependency `validate_workflow.py`; exit 0 valid / 1 issues / 2 legacy-or-missing) plus guided migration of legacy layouts: markdown boards (`docs/board.md`), M-number IDs (active tasks renumbered, archives/tags untouched), superseded repo-local groom/work skills, Codex agent parity. Reports first, applies on approval, re-runnable.
+- **`/workflow:framework-doctor`** — validator + cleanup for an initialized repo: run the bundled zero-dependency `validate_workflow.py` (exit 0 valid / 1 issues / 2 no-framework), refresh shipped files that drifted from the plugin templates (`status`, `TEMPLATE.md`), sanity-check the contract, and check Codex agent parity. Reports first, applies on approval, re-runnable. Not a migrator — initialize a fresh repo with `/workflow:framework-init`.
 
 Codex invocation: `use $groom`, `use $work`, etc.
 
@@ -86,7 +86,7 @@ Swapping where status lives (say, to GitHub Issues someday) would touch the skil
 codex plugin marketplace add ~/work/claude-schovi
 ```
 
-Then per repo: `/workflow:framework-init` (fresh) or `/workflow:framework-check` (existing tracker to migrate).
+Then per repo: `/workflow:framework-init` (fresh), and `/workflow:framework-doctor` any time to validate and keep the shipped files current.
 
 ## Rules the framework enforces
 

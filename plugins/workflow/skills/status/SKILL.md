@@ -12,7 +12,7 @@ description: >
 
 # Status
 
-Two modes. Read-only — never edit, move, or commit. Point at `/workflow:framework-check` for inconsistencies.
+Two modes. Read-only — never edit, move, or commit. Point at `/workflow:framework-doctor` for inconsistencies.
 
 ## Default (no arg): current-repo overview
 
@@ -32,7 +32,7 @@ Keep the whole thing scannable. If the board is tiny, collapse empty sections to
 
 ## `all`: cross-repo summary
 
-Scan `~/work/*/workflow/` plus the current repo for the status-folder layout (or use paths given after `all`). One row per repo:
+Discover repos under the configured roots (default `~/work/*`, plus the current repo; or the paths given after `all`) that have a `workflow/` status layout. **Read each repo's `workflow/<section>/*.md` files directly — don't execute other repos' `./workflow/status` scripts; only the current repo's shipped script is trusted.** One row per repo:
 
 ```markdown
 | Repo | In progress | Next ready | Blocked | Done (7d) |
@@ -40,6 +40,6 @@ Scan `~/work/*/workflow/` plus the current repo for the status-folder layout (or
 | rift-drifter | 051 — Title | 052 — Title (+4) | 1 (gate: …) | 3 |
 ```
 
-Next ready = lowest `priority:` runnable task in `ready/`. Done (7d) = `done/` files with a `done:` date in the last 7 days (call `./workflow/status --done all` to get the dates). Follow the table with a few bullets on anything that needs attention: stale in-progress, empty Ready queues, gates that look satisfiable, cross-repo pileups.
+Next ready = lowest `priority:` runnable task in `ready/`. Done (7d) = `workflow/done/*.md` files whose `done:` date is within the last 7 days. Follow the table with a few bullets on anything that needs attention: stale in-progress, empty Ready queues, gates that look satisfiable, cross-repo pileups.
 
 Keep it to the table + a few bullets. No edits, no commits.
