@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>workflow board</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:light dark;--bg:#f4f5f7;--col:#ebecf0;--card:#fff;--line:#dfe1e6;--muted:#6b778c;--accent:#0052cc;--warn:#bf2600}
+@media(prefers-color-scheme:dark){:root{--bg:#1d2125;--col:#22272b;--card:#2c333a;--line:#3d4750;--muted:#9fadbc;--accent:#579dff;--warn:#ff6b5b}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:inherit}
+header{padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+h1{font-size:15px;margin:0;font-weight:600}
+#filters{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}
+#filters label{display:flex;gap:4px;align-items:center;background:var(--col);padding:2px 8px;border-radius:12px;cursor:pointer}
+input[type=text]{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:inherit}
+button{font:inherit;padding:4px 10px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:inherit;cursor:pointer}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+#board{display:flex;gap:12px;padding:16px;overflow-x:auto;align-items:flex-start}
+.column{background:var(--col);border-radius:8px;padding:8px;min-width:260px;width:260px;flex:0 0 auto}
+.column h2{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 6px 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:8px;margin-bottom:8px;cursor:pointer}
+.card:hover{border-color:var(--accent)}
+.card .repo{font-size:11px;color:var(--muted)}
+.card .title{font-weight:500;margin:2px 0}
+.badges{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.badge{font-size:11px;padding:1px 6px;border-radius:10px;background:var(--col)}
+.badge.prio{background:var(--accent);color:#fff}
+.badge.waits{background:var(--warn);color:#fff}
+.badge.wt{background:#8777d9;color:#fff}
+.badge.gate{background:#ffab00;color:#000}
+.done{color:var(--muted);font-size:12px;padding:4px 6px}
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}
+#modal{background:var(--card);border-radius:8px;padding:16px;width:min(680px,92vw);max-height:90vh;overflow:auto}
+#modal textarea{width:100%;height:340px;font:13px/1.5 ui-monospace,Menlo,monospace;padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:inherit}
+#modal .row{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
+select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:inherit}
+.err{color:var(--warn);font-size:12px}
+</style></head><body>
+<header>
+  <h1>workflow board</h1>
+  <div id="filters"></div>
+  <input type="text" id="q" placeholder="filter text…">
+  <button id="add">+ Draft</button>
+  <button id="refresh">↻</button>
+  <span id="status" style="color:var(--muted);font-size:12px"></span>
+</header>
+<div id="board"></div>
+<div id="overlay"><div id="modal"></div></div>
+<script>
+const COLS=["draft","ready","in-progress","blocked"];
+const EDITABLE=["draft","ready"];
+let DATA=[], hidden=new Set();
+
+async function load(){
+  DATA=await (await fetch("/api/board")).json();
+  const f=document.getElementById("filters"); f.innerHTML="";
+  for(const r of DATA){
+    const l=document.createElement("label");
+    l.innerHTML=`<input type=checkbox ${hidden.has(r.repo)?"":"checked"} data-repo="${r.repo}"> ${r.repo}`;
+    l.querySelector("input").onchange=e=>{e.target.checked?hidden.delete(r.repo):hidden.add(r.repo);render()};
+    f.appendChild(l);
+  }
+  render();
+}
+
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+
+function render(){
+  const q=document.getElementById("q").value.toLowerCase();
+  const cards={}; COLS.forEach(c=>cards[c]=[]);
+  let done=0;
+  for(const r of DATA){
+    if(hidden.has(r.repo))continue;
+    done+=r.done;
+    for(const t of r.tasks){
+      if(q && !(t.title+" "+t.repo).toLowerCase().includes(q))continue;
+      cards[t.section].push(t);
+    }
+  }
+  const board=document.getElementById("board"); board.innerHTML="";
+  for(const c of COLS){
+    const col=document.createElement("div"); col.className="column";
+    col.innerHTML=`<h2>${c} (${cards[c].length})</h2>`;
+    for(const t of cards[c])col.appendChild(cardEl(t));
+    board.appendChild(col);
+  }
+  const dc=document.createElement("div"); dc.className="column";
+  dc.innerHTML=`<h2>done</h2><div class="done">${done} completed (history — see git)</div>`;
+  board.appendChild(dc);
+  document.getElementById("status").textContent=`${DATA.length} repos · ${done} done`;
+}
+
+function cardEl(t){
+  const el=document.createElement("div"); el.className="card";
+  let b="";
+  if(t.meta.priority)b+=`<span class="badge prio">P${t.meta.priority}</span>`;
+  if(t.waits.length)b+=`<span class="badge waits">waits: ${t.waits.join(", ")}</span>`;
+  if(t.meta.gate)b+=`<span class="badge gate">gate</span>`;
+  for(const w of t.worktree)b+=`<span class="badge wt">${esc(w)}</span>`;
+  el.innerHTML=`<div class="repo">${t.repo}</div><div class="title">${esc(t.title)}</div><div class="badges">${b}</div>`;
+  if(EDITABLE.includes(t.section))el.onclick=()=>edit(t);
+  else el.style.cursor="default";
+  return el;
+}
+
+function openModal(html){document.getElementById("modal").innerHTML=html;document.getElementById("overlay").style.display="flex"}
+function close(){document.getElementById("overlay").style.display="none"}
+
+function edit(t){
+  openModal(`<h3>${esc(t.repo)} · ${esc(t.file)}</h3>
+    <textarea id="body">${esc(t.body)}</textarea>
+    <div class="row">status: <select id="to">${EDITABLE.map(s=>`<option ${s===t.section?"selected":""}>${s}</option>`).join("")}</select>
+    <button class="primary" id="save">Save & commit</button><button id="cancel">Cancel</button>
+    <span class="err" id="err"></span></div>`);
+  document.getElementById("cancel").onclick=close;
+  document.getElementById("save").onclick=async()=>{
+    const r=await post("/api/save",{repo:t.repo,section:t.section,file:t.file,to:document.getElementById("to").value,body:document.getElementById("body").value});
+    if(r.ok){close();load()}else document.getElementById("err").textContent=r.error;
+  };
+}
+
+function addDraft(){
+  const repos=DATA.map(r=>r.repo);
+  openModal(`<h3>New draft</h3>
+    <div class="row">repo: <select id="repo">${repos.map(r=>`<option>${r}</option>`).join("")}</select></div>
+    <div class="row"><input type="text" id="title" placeholder="title" style="flex:1"></div>
+    <textarea id="what" placeholder="what & why…"></textarea>
+    <div class="row"><button class="primary" id="create">Create & commit</button><button id="cancel">Cancel</button>
+    <span class="err" id="err"></span></div>`);
+  document.getElementById("cancel").onclick=close;
+  document.getElementById("create").onclick=async()=>{
+    const title=document.getElementById("title").value.trim();
+    if(!title){document.getElementById("err").textContent="title required";return}
+    const r=await post("/api/draft",{repo:document.getElementById("repo").value,title,what:document.getElementById("what").value});
+    if(r.ok){close();load()}else document.getElementById("err").textContent=r.error;
+  };
+}
+
+async function post(url,body){return (await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}
+
+document.getElementById("q").oninput=render;
+document.getElementById("add").onclick=addDraft;
+document.getElementById("refresh").onclick=load;
+document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")close()};
+load();
+// Live updates: server pushes on any workflow/ file change. Safety poll covers
+// the rare case a filesystem watch event is dropped.
+new EventSource("/api/events").onmessage=load;
+setInterval(load,30000);
+</script></body></html>

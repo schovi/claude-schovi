@@ -1,0 +1,7 @@
+{
+  "name": "claude-schovi",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Workflow board dashboard, runnable via bunx github:schovi/claude-schovi",
+  "bin": { "workflow-board": "plugins/workflow/tools/board.ts" }
+}

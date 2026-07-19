@@ -75,6 +75,26 @@ Swapping where status lives (say, to GitHub Issues someday) would touch the skil
 |-------|---------|
 | `workflow:acceptance-verifier:acceptance-verifier` | Fresh-context adversarial check before the completion commit: tries to falsify each acceptance criterion against the diff, evidence per verdict, PASS/FAIL/UNVERIFIABLE per criterion, `ready`/`not ready` overall. Report-only, max 800 tokens. `/work` requires `ready` to finish; `/batch-work` records the verdict per task |
 
+## Dashboard (cross-repo board)
+
+A single-file Bun/TypeScript web server that renders every repo's board as one Kanban. It reads the `workflow/` folders directly (the folder IS the status) and overlays live git-worktree state — no database, no config.
+
+```bash
+bunx github:schovi/claude-schovi                 # run straight from GitHub
+bunx github:schovi/claude-schovi --port 9000     # custom port
+bun run plugins/workflow/tools/board.ts          # local checkout
+```
+
+Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root DIR` (repeatable) to scan elsewhere. Requires [Bun](https://bun.sh); no install step, no dependencies.
+
+- **Columns** `draft / ready / in-progress / blocked`; `done` is folded to a count (it's git history).
+- **Filter** by repo (checkboxes) and free text.
+- **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, and a worktree flag when a task is in flight in a sibling worktree.
+- **Write** is deliberately narrow — add a draft, edit a draft/ready card body, edit its `priority:`, and move draft↔ready. Each write auto-commits in that repo (`task NNN: … (dashboard)`). It does **not** touch in-progress/blocked/done — those transitions are `/work` and the acceptance gate, not file moves.
+- **Live updates**: the server watches each `workflow/` dir and pushes changes to open tabs over SSE, so any edit (yours, an agent's, another tab's) refreshes every board instantly. A 30s poll backs it up if a watch event drops.
+
+Self-check: `bun run plugins/workflow/tools/board.ts --selftest`.
+
 ## Install
 
 ```bash
