@@ -51,7 +51,7 @@ select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background
 <script>
 const COLS=["draft","ready","in-progress","blocked"];
 const EDITABLE=["draft","ready"];
-let DATA=[], selected=null, prev=null;  // selected: null=show all; prev: last snapshot for change diff
+let DATA=[], selected=localStorage.getItem("wboard.repo")||null, prev=null;  // selected: null=show all; prev: last snapshot for change diff
 
 function snapshot(){
   const m=new Map();
@@ -89,7 +89,7 @@ async function load(){
   for(const r of DATA){
     const b=document.createElement("button");
     b.textContent=r.repo;
-    b.onclick=()=>{selected=selected===r.repo?null:r.repo;render()};  // click to isolate, click again to clear
+    b.onclick=()=>{selected=selected===r.repo?null:r.repo;selected?localStorage.setItem("wboard.repo",selected):localStorage.removeItem("wboard.repo");render()};  // click to isolate, click again to clear
     f.appendChild(b);
   }
   render();
