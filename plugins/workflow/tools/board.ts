@@ -3,10 +3,13 @@
  * Cross-repo Kanban dashboard for the workflow/ task-board framework.
  *
  * Reads task files directly from every repo's workflow/ folders (the folder IS
- * the status), overlays live git-worktree state, and serves a single-page Kanban
+ * the status). A task can also exist in a git worktree in a different folder; the
+ * authoritative state is the most recently committed occurrence, so a worktree that
+ * moved a task forward wins over an unmerged main. Serves a single-page Kanban
  * at http://127.0.0.1:8787. Add drafts and edit/move draft & ready cards from the
  * UI; each write auto-commits in its repo. Open tabs live-update via SSE fed by a
- * filesystem watch on each workflow/ dir.
+ * filesystem watch on the main workflow/ dir, with a client-side safety poll that
+ * also catches commits made inside worktrees.
  *
  *   bunx github:schovi/claude-schovi                 # run straight from GitHub
  *   bun run board.ts [--port N] [--root DIR ...]     # local, default root: ~/work
@@ -18,7 +21,7 @@
  */
 import {
   readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync,
-  rmSync, realpathSync, watch,
+  rmSync, realpathSync, statSync, watch,
 } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -29,8 +32,11 @@ const META = /^(priority|depends|gate|done):\s*(.+?)\s*$/;
 const FILENAME = /^\d+-[a-z0-9][a-z0-9-]*\.md$/;
 const enc = new TextEncoder();
 
-function git(args: string[], cwd: string): string {
-  const r = Bun.spawnSync(["git", ...args], { cwd, stdout: "pipe", stderr: "pipe", timeout: 10000 });
+function git(args: string[], cwd: string, env?: Record<string, string>): string {
+  const r = Bun.spawnSync(["git", ...args], {
+    cwd, stdout: "pipe", stderr: "pipe", timeout: 10000,
+    ...(env ? { env: { ...process.env, ...env } } : {}),
+  });
   return r.exitCode === 0 ? r.stdout.toString() : "";
 }
 
@@ -73,64 +79,76 @@ function parseTask(path: string, section: string) {
   };
 }
 
-function sectionMap(repo: string): Record<number, string> {
-  const map: Record<number, string> = {};
-  for (const section of SECTIONS)
-    for (const f of mdFiles(join(repo, "workflow", section))) {
-      const m = /^(\d+)/.exec(f);
-      if (m) map[parseInt(m[1], 10)] = section;
-    }
-  return map;
+// Newest commit time (unix seconds) that touched each task file, in one git walk.
+// A `git mv` between status folders is a commit touching that id, so this dates the
+// task's *last state change* in this location. Used to pick which location wins.
+function taskTimestamps(loc: string): Record<number, number> {
+  const ts: Record<number, number> = {};
+  let cur = 0;
+  for (const line of git(["log", "--format=@%ct", "--name-only", "--", "workflow/"], loc).split("\n")) {
+    if (line.startsWith("@")) { cur = parseInt(line.slice(1), 10); continue; }
+    const m = /workflow\/[\w-]+\/(\d+)/.exec(line);
+    if (m) { const id = parseInt(m[1], 10); if (!(id in ts)) ts[id] = cur; }
+  }
+  return ts;
 }
 
-function worktreeFlags(repo: string): Record<number, string[]> {
-  const others = git(["worktree", "list", "--porcelain"], repo).split("\n")
+function mtimeSeconds(path: string): number {
+  try { return statSync(path).mtimeMs / 1000; } catch { return 0; }
+}
+
+function worktreesOf(repo: string): string[] {
+  return git(["worktree", "list", "--porcelain"], repo).split("\n")
     .filter((l) => l.startsWith("worktree "))
-    .map((l) => l.slice("worktree ".length));
-  const here = sectionMap(repo);
-  const flags: Record<number, string[]> = {};
-  for (const wt of others) {
-    if (realpath(wt) === realpath(repo) || !existsSync(join(wt, "workflow"))) continue;
-    const there = sectionMap(wt);
-    const dirty = new Set<number>();
-    for (const line of git(["status", "--porcelain", "--", "workflow/"], wt).split("\n")) {
-      const m = /workflow\/[\w-]+\/(\d+)/.exec(line.slice(3));
-      if (m) dirty.add(parseInt(m[1], 10));
-    }
-    const name = basename(wt);
-    for (const [tidStr, sect] of Object.entries(there)) {
-      const tid = parseInt(tidStr, 10);
-      const note: string[] = [];
-      if (here[tid] !== sect) note.push(`${sect} in ${name}`);
-      if (dirty.has(tid)) note.push(`edited in ${name}`);
-      if (note.length) (flags[tid] ??= []).push(...note);
-    }
+    .map((l) => l.slice("worktree ".length))
+    .filter((wt) => realpath(wt) !== realpath(repo) && existsSync(join(wt, "workflow")));
+}
+
+type TaskState = { section: string; path: string; origin: string | null; ts: number };
+
+// A task can exist in the main checkout and in each worktree, in different status
+// folders. The authoritative state is the most recently committed occurrence: a
+// worktree that moved the task forward (e.g. ready -> done) has a newer commit than
+// main, so it wins even though main hasn't merged yet. Commit time, not mtime:
+// `git worktree add` stamps every file with the checkout time, which would make a
+// stale worktree falsely win. Tie -> main, so an untouched worktree never overrides.
+function resolveStates(repo: string): Record<number, TaskState> {
+  const locations = [{ path: repo, origin: null as string | null }]
+    .concat(worktreesOf(repo).map((wt) => ({ path: wt, origin: basename(wt) as string | null })));
+  const best: Record<number, TaskState> = {};
+  for (const loc of locations) {
+    const ts = taskTimestamps(loc.path);
+    for (const section of SECTIONS)
+      for (const f of mdFiles(join(loc.path, "workflow", section))) {
+        const m = /^(\d+)/.exec(f);
+        if (!m) continue;
+        const id = parseInt(m[1], 10);
+        const path = join(loc.path, "workflow", section, f);
+        const when = ts[id] ?? mtimeSeconds(path);
+        const prev = best[id];
+        if (!prev || when > prev.ts || (when === prev.ts && loc.origin === null))
+          best[id] = { section, path, origin: loc.origin, ts: when };
+      }
   }
-  return flags;
+  return best;
 }
 
 function buildBoard(repos: string[]) {
   return repos.map((repo) => {
-    const wf = join(repo, "workflow");
+    const states = resolveStates(repo);
     const doneIds = new Set<number>();
-    for (const f of mdFiles(join(wf, "done"))) {
-      const m = /^(\d+)/.exec(f);
-      if (m) doneIds.add(parseInt(m[1], 10));
-    }
-    const flags = worktreeFlags(repo);
-    const tasks: any[] = [];
+    for (const [id, s] of Object.entries(states)) if (s.section === "done") doneIds.add(parseInt(id, 10));
     // ponytail: done included so the UI can reveal/search history. Reads every done
     // file each build; if a repo's history grows into the thousands, make done lazy.
-    for (const section of SECTIONS) {
-      for (const f of mdFiles(join(wf, section))) {
-        const t: any = parseTask(join(wf, section, f), section);
-        const deps = (t.meta.depends ?? "").split(",").map((s: string) => s.trim()).filter((s: string) => /^\d+$/.test(s));
-        t.waits = deps.filter((d: string) => !doneIds.has(parseInt(d, 10)));
-        t.worktree = flags[t.id] ?? [];
-        t.repo = basename(repo);
-        tasks.push(t);
-      }
-    }
+    const tasks: any[] = Object.values(states).map((s) => {
+      const t: any = parseTask(s.path, s.section);
+      const deps = (t.meta.depends ?? "").split(",").map((x: string) => x.trim()).filter((x: string) => /^\d+$/.test(x));
+      t.waits = deps.filter((d: string) => !doneIds.has(parseInt(d, 10)));
+      t.worktree = s.origin ? [`via ${s.origin}`] : [];
+      t.repo = basename(repo);
+      return t;
+    });
+    tasks.sort((a, b) => SECTIONS.indexOf(a.section) - SECTIONS.indexOf(b.section) || a.id - b.id);
     return { repo: basename(repo), path: repo, done: doneIds.size, tasks };
   });
 }
@@ -274,6 +292,22 @@ function selftest() {
     saveTask(repo, "draft", name, body, "ready");
     assert(existsSync(join(wf, "ready", name)) && !existsSync(join(wf, "draft", name)), "move");
     assert(git(["status", "--porcelain"], repo).trim() === "", "clean after commit");
+
+    // A worktree that moves a task forward (ready -> done) with a newer commit wins
+    // over main, which still has it in ready. Forced dates keep the comparison
+    // deterministic instead of relying on same-second commit ordering.
+    const wt = join(tmp, "demo-wt");
+    git(["branch", "feat"], repo);
+    git(["worktree", "add", "-q", wt, "feat"], repo);
+    git(["mv", "workflow/ready/041-existing.md", "workflow/done/041-existing.md"], wt);
+    const future = { GIT_AUTHOR_DATE: "2030-01-01T00:00:00", GIT_COMMITTER_DATE: "2030-01-01T00:00:00" };
+    git(["commit", "-qm", "task 041: done", "-a"], wt, future);
+    const b2 = buildBoard(repos)[0];
+    const t41 = b2.tasks.find((t: any) => t.id === 41);
+    assert(t41.section === "done", "worktree state wins: " + t41.section);
+    assert(t41.worktree[0] === "via demo-wt", "worktree origin badge: " + t41.worktree);
+    assert(b2.tasks.filter((t: any) => t.id === 41).length === 1, "task 41 not duplicated across locations");
+    git(["worktree", "remove", "--force", wt], repo);
 
     let rejected = false;
     try { saveTask(repo, "ready", name, body, "done"); } catch { rejected = true; }
