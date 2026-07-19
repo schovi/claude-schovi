@@ -119,8 +119,9 @@ function buildBoard(repos: string[]) {
     }
     const flags = worktreeFlags(repo);
     const tasks: any[] = [];
+    // ponytail: done included so the UI can reveal/search history. Reads every done
+    // file each build; if a repo's history grows into the thousands, make done lazy.
     for (const section of SECTIONS) {
-      if (section === "done") continue; // history, not board; expose a count only
       for (const f of mdFiles(join(wf, section))) {
         const t: any = parseTask(join(wf, section, f), section);
         const deps = (t.meta.depends ?? "").split(",").map((s: string) => s.trim()).filter((s: string) => /^\d+$/.test(s));
@@ -259,6 +260,7 @@ function selftest() {
 
     const board = buildBoard(repos)[0];
     assert(board.done === 1, "done count");
+    assert(board.tasks.some((t: any) => t.section === "done" && t.id === 7), "done task in board");
     const ready = board.tasks.find((t: any) => t.section === "ready");
     assert(ready.meta.priority === "10", "priority");
     assert(JSON.stringify(ready.waits) === JSON.stringify(["099"]), "waits " + ready.waits);

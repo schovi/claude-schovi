@@ -49,9 +49,10 @@ select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background
 <div id="overlay"><div id="modal"></div></div>
 <div id="toasts"></div>
 <script>
-const COLS=["draft","ready","in-progress","blocked"];
+const COLS=["draft","ready","in-progress","blocked","done"];
 const EDITABLE=["draft","ready"];
 let DATA=[], selected=localStorage.getItem("wboard.repo")||null, prev=null;  // selected: null=show all; prev: last snapshot for change diff
+let showDone=localStorage.getItem("wboard.showDone")==="1";  // done column collapsed by default
 
 function snapshot(){
   const m=new Map();
@@ -63,10 +64,10 @@ function announce(prev,cur){
   for(const [k,v] of cur){
     const p=prev.get(k);
     if(!p)msgs.push(["🆕 new",v]);
-    else if(p.section!==v.section)msgs.push([`➡️ ${p.section}→${v.section}`,v]);
+    else if(p.section!==v.section)msgs.push([v.section==="done"?"✅ done":`➡️ ${p.section}→${v.section}`,v]);
     else if(p.body!==v.body)msgs.push(["✏️ changed",v]);
   }
-  for(const [k,p] of prev)if(!cur.has(k))msgs.push(["✅ done",p]);  // dropped off the board = moved to done/removed
+  for(const [k,p] of prev)if(!cur.has(k))msgs.push(["🗑 removed",p]);  // gone from every folder = deleted
   if(!msgs.length)return;
   if(msgs.length>5){emit(`${msgs.length} task changes`,"");return}  // avoid a flood after being away
   for(const [tag,v] of msgs)emit(tag,`${v.repo} · ${v.title}`);
@@ -97,30 +98,41 @@ async function load(){
 
 function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
 
+function matches(t,q){return (t.title+" "+t.repo+" "+t.id).toLowerCase().includes(q)}
+
 function render(){
   const q=document.getElementById("q").value.toLowerCase();
   document.querySelectorAll("#filters button").forEach(b=>b.classList.toggle("active",b.textContent===selected));
   const cards={}; COLS.forEach(c=>cards[c]=[]);
-  let done=0;
+  let doneTotal=0;
   for(const r of DATA){
     if(selected && r.repo!==selected)continue;
-    done+=r.done;
     for(const t of r.tasks){
-      if(q && !(t.title+" "+t.repo).toLowerCase().includes(q))continue;
+      if(t.section==="done")doneTotal++;
+      if(q && !matches(t,q))continue;
       cards[t.section].push(t);
     }
   }
   const board=document.getElementById("board"); board.innerHTML="";
   for(const c of COLS){
     const col=document.createElement("div"); col.className="column";
-    col.innerHTML=`<h2>${c} (${cards[c].length})</h2>`;
-    for(const t of cards[c])col.appendChild(cardEl(t));
+    if(c==="done"){
+      const reveal=showDone||!!q;  // a text query always surfaces matching done tasks
+      const h=document.createElement("h2");
+      h.textContent=`done (${q?cards.done.length+" matched":doneTotal})`;
+      const btn=document.createElement("button");
+      btn.textContent=reveal?"hide":"show all"; btn.style.cssText="float:right;font-size:11px;padding:0 6px";
+      btn.onclick=()=>{showDone=!showDone;localStorage.setItem("wboard.showDone",showDone?"1":"");render()};
+      h.appendChild(btn); col.appendChild(h);
+      if(reveal)for(const t of cards.done)col.appendChild(cardEl(t));
+      else{const d=document.createElement("div");d.className="done";d.textContent=`${doneTotal} completed — history, see git`;col.appendChild(d)}
+    }else{
+      col.innerHTML=`<h2>${c} (${cards[c].length})</h2>`;
+      for(const t of cards[c])col.appendChild(cardEl(t));
+    }
     board.appendChild(col);
   }
-  const dc=document.createElement("div"); dc.className="column";
-  dc.innerHTML=`<h2>done</h2><div class="done">${done} completed (history — see git)</div>`;
-  board.appendChild(dc);
-  document.getElementById("status").textContent=`${DATA.length} repos · ${done} done`;
+  document.getElementById("status").textContent=`${DATA.length} repos · ${doneTotal} done`;
 }
 
 function cardEl(t){
@@ -129,15 +141,24 @@ function cardEl(t){
   if(t.meta.priority)b+=`<span class="badge prio">P${t.meta.priority}</span>`;
   if(t.waits.length)b+=`<span class="badge waits">waits: ${t.waits.join(", ")}</span>`;
   if(t.meta.gate)b+=`<span class="badge gate">gate</span>`;
+  if(t.meta.done)b+=`<span class="badge">✓ ${t.meta.done}</span>`;
   for(const w of t.worktree)b+=`<span class="badge wt">${esc(w)}</span>`;
   el.innerHTML=`<div class="repo">${t.repo}</div><div class="title">${esc(t.title)}</div><div class="badges">${b}</div>`;
-  if(EDITABLE.includes(t.section))el.onclick=()=>edit(t);
-  else el.style.cursor="default";
+  el.onclick=()=>openCard(t);  // all cards open a detail; editable only for draft/ready
   return el;
 }
 
 function openModal(html){document.getElementById("modal").innerHTML=html;document.getElementById("overlay").style.display="flex"}
 function close(){document.getElementById("overlay").style.display="none"}
+
+function openCard(t){EDITABLE.includes(t.section)?edit(t):view(t)}
+
+function view(t){
+  openModal(`<h3>${esc(t.repo)} · ${esc(t.file)} — <span style="color:var(--muted)">${t.section} (read-only)</span></h3>
+    <textarea readonly>${esc(t.body)}</textarea>
+    <div class="row"><button id="cancel">Close</button></div>`);
+  document.getElementById("cancel").onclick=close;
+}
 
 function edit(t){
   openModal(`<h3>${esc(t.repo)} · ${esc(t.file)}</h3>

@@ -87,8 +87,9 @@ bun run plugins/workflow/tools/board.ts          # local checkout
 
 Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root DIR` (repeatable) to scan elsewhere. Requires [Bun](https://bun.sh); no install step, no dependencies.
 
-- **Columns** `draft / ready / in-progress / blocked`; `done` is folded to a count (it's git history).
-- **Filter** by repo (checkboxes) and free text.
+- **Columns** `draft / ready / in-progress / blocked / done`. Done is collapsed to a count with a **show all** toggle (it's git history).
+- **Filter** by repo (click a chip to isolate, click again to clear; persisted) and a top text/number box that searches titles and IDs across every column — including done, even while it's collapsed.
+- **Card detail** opens on any card: editable for draft/ready, read-only for in-progress/blocked/done.
 - **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, and a worktree flag when a task is in flight in a sibling worktree.
 - **Write** is deliberately narrow — add a draft, edit a draft/ready card body, edit its `priority:`, and move draft↔ready. Each write auto-commits in that repo (`task NNN: … (dashboard)`). It does **not** touch in-progress/blocked/done — those transitions are `/work` and the acceptance gate, not file moves.
 - **Live updates**: the server watches each `workflow/` dir and pushes changes to open tabs over SSE, so any edit (yours, an agent's, another tab's) refreshes every board instantly. A 30s poll backs it up if a watch event drops.
