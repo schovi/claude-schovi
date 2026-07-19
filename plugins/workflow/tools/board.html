@@ -33,6 +33,8 @@ button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 #modal .row{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
 select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:inherit}
 .err{color:var(--warn);font-size:12px}
+#toasts{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:10}
+.toast{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:6px;padding:8px 12px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.25);max-width:340px}
 </style></head><body>
 <header>
   <h1>workflow board</h1>
@@ -40,17 +42,49 @@ select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background
   <input type="text" id="q" placeholder="filter text…">
   <button id="add">+ Draft</button>
   <button id="refresh">↻</button>
+  <button id="bell" title="Enable desktop notifications">🔔</button>
   <span id="status" style="color:var(--muted);font-size:12px"></span>
 </header>
 <div id="board"></div>
 <div id="overlay"><div id="modal"></div></div>
+<div id="toasts"></div>
 <script>
 const COLS=["draft","ready","in-progress","blocked"];
 const EDITABLE=["draft","ready"];
-let DATA=[], selected=null;  // null = show all; otherwise a single repo name
+let DATA=[], selected=null, prev=null;  // selected: null=show all; prev: last snapshot for change diff
+
+function snapshot(){
+  const m=new Map();
+  for(const r of DATA)for(const t of r.tasks)m.set(r.repo+"/"+t.id,{repo:r.repo,title:t.title,section:t.section,body:t.body});
+  return m;
+}
+function announce(prev,cur){
+  const msgs=[];
+  for(const [k,v] of cur){
+    const p=prev.get(k);
+    if(!p)msgs.push(["🆕 new",v]);
+    else if(p.section!==v.section)msgs.push([`➡️ ${p.section}→${v.section}`,v]);
+    else if(p.body!==v.body)msgs.push(["✏️ changed",v]);
+  }
+  for(const [k,p] of prev)if(!cur.has(k))msgs.push(["✅ done",p]);  // dropped off the board = moved to done/removed
+  if(!msgs.length)return;
+  if(msgs.length>5){emit(`${msgs.length} task changes`,"");return}  // avoid a flood after being away
+  for(const [tag,v] of msgs)emit(tag,`${v.repo} · ${v.title}`);
+}
+function emit(title,body){
+  const text=title+(body?": "+body:"");
+  toast(text);
+  if(window.Notification&&Notification.permission==="granted")new Notification("workflow board",{body:text});
+}
+function toast(text){
+  const el=document.createElement("div");el.className="toast";el.textContent=text;
+  document.getElementById("toasts").appendChild(el);
+  setTimeout(()=>el.remove(),6000);
+}
 
 async function load(){
   DATA=await (await fetch("/api/board")).json();
+  const cur=snapshot(); if(prev)announce(prev,cur); prev=cur;  // notify deltas (skip first load — no baseline)
   const f=document.getElementById("filters"); f.innerHTML="";
   for(const r of DATA){
     const b=document.createElement("button");
@@ -140,6 +174,7 @@ async function post(url,body){return (await fetch(url,{method:"POST",headers:{"C
 document.getElementById("q").oninput=render;
 document.getElementById("add").onclick=addDraft;
 document.getElementById("refresh").onclick=load;
+document.getElementById("bell").onclick=()=>window.Notification&&Notification.requestPermission();
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")close()};
 load();
 // Live updates: server pushes on any workflow/ file change. Safety poll covers

@@ -92,6 +92,7 @@ Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root D
 - **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, and a worktree flag when a task is in flight in a sibling worktree.
 - **Write** is deliberately narrow — add a draft, edit a draft/ready card body, edit its `priority:`, and move draft↔ready. Each write auto-commits in that repo (`task NNN: … (dashboard)`). It does **not** touch in-progress/blocked/done — those transitions are `/work` and the acceptance gate, not file moves.
 - **Live updates**: the server watches each `workflow/` dir and pushes changes to open tabs over SSE, so any edit (yours, an agent's, another tab's) refreshes every board instantly. A 30s poll backs it up if a watch event drops.
+- **Change notifications**: each refresh diffs against the previous board and pops a toast for every new / moved / changed / done task. Click 🔔 to also get desktop notifications (so you see an agent finish a task while the tab is in the background).
 
 Self-check: `bun run plugins/workflow/tools/board.ts --selftest`.
 
