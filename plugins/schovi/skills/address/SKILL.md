@@ -1,6 +1,6 @@
 ---
 name: address
-description: "Drive an open GitHub PR to green: fetch it, propose fixes for every unresolved review comment and every failing CI job, then (after you approve, or automatically with --auto) implement, push, reply to each thread with what changed and resolve it. Use when the user says \"/schovi:address\", \"address the PR comments\", \"resolve the review comments\", \"fix the failing CI and respond\", \"handle the review feedback on #123\", or points at a PR and asks to work through its open feedback. Previews the plan and waits for confirmation before changing code, unless --auto is given. Uses /schovi:publish to commit, push, and rewrite the PR description for the behaviour that changed."
+description: "Drive an open GitHub PR to green: fetch it, triage every unresolved review comment (fix it, decline it with evidence-backed reasoning when it's a false positive or low-value nit, or defer it to a human when it needs a decision) and diagnose every failing CI job, then (after you approve, or automatically with --auto) implement, push, reply to each thread with what changed or why not, and resolve the ones you addressed. Use when the user says \"/schovi:address\", \"address the PR comments\", \"resolve the review comments\", \"fix the failing CI and respond\", \"handle the review feedback on #123\", or points at a PR and asks to work through its open feedback. Previews the plan and waits for confirmation before changing code, unless --auto is given. Uses /schovi:publish to commit, push, and rewrite the PR description for the behaviour that changed."
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -9,7 +9,7 @@ user-invocable: true
 
 Takes an open PR from "has feedback / red CI" to "addressed and green":
 
-1. **Open review comments** — propose a fix and a reply for each unresolved thread, implement on approval, then reply with what changed and resolve the thread.
+1. **Open review comments** — triage each unresolved thread (fix it, decline it with reasoning, or defer it to a human), implement fixes on approval, then reply with what changed or why not and resolve the ones you addressed.
 2. **Failing CI jobs** — read the failing logs, diagnose, and fix in the same pass.
 3. **Behaviour description** — once code is pushed, hand off to `/schovi:publish` to rewrite the PR description for what actually changed.
 
@@ -99,14 +99,20 @@ gh run view <run-id> --log-failed      # run-id from the check `link`, or `gh ru
 
 If there are zero unresolved threads and zero failing checks, say so and stop. Nothing to address.
 
-### Phase 3 — Diagnose and propose (no code changes yet)
+### Phase 3 — Triage, diagnose, and propose (no code changes yet)
 
-For each item, work out the fix. Delegate the digging:
+First judge each review thread against the actual code, then decide its outcome. Don't reflexively fix — a wrong decline is worse than a fixed nit, and blindly applying a bad suggestion is worse than both.
 
-- **Review threads** → spawn an Explore subagent (`general-purpose`) to read the code at `path:line` and the surrounding context, then propose a concrete change and a short reply.
+- **FIX** — valid and actionable. Work out the concrete change.
+- **DECLINE** — false positive, already handled, or a low-value nit that fights a repo convention. No code change; reply with the evidence-backed reason, then resolve. Only decline when you can point at the code or convention that proves it. If you're guessing, it's a SKIP, not a DECLINE.
+- **SKIP** — needs a product/design decision, is genuinely ambiguous, or is out of scope. No code change; reply with the open question and leave it unresolved for a human.
+
+Delegate the digging:
+
+- **Review threads** → spawn an Explore subagent (`general-purpose`) to read the code at `path:line` and its context, then return the classification (FIX/DECLINE/SKIP), the concrete change if any, and a reply that explains the reasoning — enough that a review bot or a human learns from it, not just "done".
 - **CI failures** → spawn a subagent to read `--log-failed`, find the root cause, and propose the fix. Root cause, not symptom (a shared-function guard beats N caller patches).
 
-If a comment is a GitHub **suggested change** (```suggestion block), the fix is to apply that suggestion verbatim.
+If a comment is a GitHub **suggested change** (```suggestion block), applying it verbatim is the fix — but still sanity-check it against the code. A wrong suggestion is a DECLINE with the reason, not a rubber-stamp.
 
 Present a single consolidated plan and stop:
 
@@ -114,16 +120,19 @@ Present a single consolidated plan and stop:
 PR #<n> — <title>   (<X> threads, <Y> failing checks)
 
 REVIEW COMMENTS
-  1. <path>:<line>  @<author>: "<comment excerpt>"
-     fix:   <one line>
-     reply: "<draft reply>"
-  ...
+  FIX (change code, reply, resolve)
+    1. <path>:<line>  @<author>: "<comment excerpt>"
+       fix:   <one line>
+       reply: "<what changed and why>"
+  DECLINE (no change, reply with evidence, resolve)
+    2. <path>:<line>  @<author>: "<comment excerpt>"
+       reply: "<why this needs no change — cite the code/convention>"
+  SKIP (no change, reply, left unresolved for a human)
+    3. <path>:<line>: <why — needs a product decision / ambiguous / out of scope>
 CI FAILURES
   A. <check name> (<workflow>)
      cause: <one line>
      fix:   <one line>
-SKIP (left unresolved, reported)
-  - <path>:<line>: <why — e.g. outdated, needs product decision, out of scope>
 
 Description: will be regenerated via /schovi:publish after push.
 ```
@@ -155,20 +164,23 @@ Confirm the push landed before Phase 7 (`git ls-remote --heads origin <headRefNa
 
 ### Phase 7 — Reply and resolve
 
-Only for items whose fix actually landed and validated. For each addressed thread:
+Reply on every triaged thread; resolve only the ones you addressed — a FIX that landed and validated, or a DECLINE with a standing evidence-backed reason. SKIP stays open.
 
 ```bash
-# reply with what changed (cite the commit / evidence)
-gh api repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body="Fixed in <sha>: <what changed>."
+# FIX — reply with what changed and why, citing the commit
+gh api repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body="Fixed in <sha>: <what changed and why>."
 
-# resolve the thread
+# DECLINE — reply with the reason (no sha; nothing changed)
+gh api repos/<owner>/<repo>/pulls/<number>/comments/<databaseId>/replies -f body="<why no change is warranted, citing the code/convention>."
+
+# resolve the thread (FIX and DECLINE only)
 gh api graphql -f query='
 mutation($threadId:ID!){
   resolveReviewThread(input:{threadId:$threadId}){ thread{ isResolved } }
 }' -F threadId=<thread node id>
 ```
 
-Do not resolve SKIP items — reply on them if useful (e.g. "left open: needs a product decision on X") but leave them unresolved for a human.
+Do not resolve SKIP items — reply with the open question (e.g. "left open: needs a product decision on X") and leave them unresolved for a human. A FIX whose change didn't land or whose validation failed drops to SKIP with the reason — never resolve it.
 
 For CI: after the push, re-check and report:
 
@@ -192,8 +204,9 @@ Short summary: threads resolved (with links), CI status (was → now), items ski
 
 ## Implementation Notes
 
-1. Planning and changing code are separate turns gated by `yes`, except under `--auto`.
-2. A thread is resolved only after its fix is pushed and validated. No fix, no resolve.
-3. Replies cite evidence (the commit sha / what changed), never "done".
-4. Root cause over symptom for both review comments and CI failures.
-5. The description rewrite is delegated to `/schovi:publish` — this skill never edits the PR body directly.
+1. The plan is always printed. Planning and changing code are separate turns gated by `yes`, except under `--auto`, which runs the whole loop (triage, fix, decline, resolve) unattended.
+2. Triage before fixing: FIX / DECLINE / SKIP. When you can't back a DECLINE with concrete evidence, it's a SKIP — never decline on a guess, and never fix on autopilot.
+3. Resolve only what you addressed: a FIX that's pushed and validated, or a DECLINE with a standing evidence-backed reason. Otherwise it's a SKIP, left unresolved.
+4. Replies teach: what changed and why, or why no change — with evidence, never "done". They're the git-visible record a human or a review bot learns from.
+5. Root cause over symptom for both review comments and CI failures.
+6. The description rewrite is delegated to `/schovi:publish` — this skill never edits the PR body directly.

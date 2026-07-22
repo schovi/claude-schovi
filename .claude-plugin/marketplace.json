@@ -10,7 +10,7 @@
     {
       "name": "schovi",
       "description": "Workflow automation for software engineering: publish (GitHub PR), review, feedback, address, debug, Jira/GitHub/Datadog auto-detection",
-      "version": "1.20.0",
+      "version": "1.21.0",
       "source": "./plugins/schovi"
     },
     {
