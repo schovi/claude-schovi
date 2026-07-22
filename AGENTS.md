@@ -51,6 +51,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | publish | schovi | `/schovi:publish` | Create/update GitHub PRs with auto-commit. Jira integration loads conditionally from `references/jira.md` |
 | review | schovi | `/schovi:review` | Structured code review of PRs, Jira tickets, branches, or local files |
 | feedback | schovi | `/schovi:feedback` | Post feedback to a PR as reviewer (findings/comments inline + general, optional verdict) or as author (reply to change-request threads with what changed, evidence-gated, never resolves). Previews before posting; outputs as text when no PR link is given |
+| address | schovi | `/schovi:address [PR] [--auto]` | Drive an open PR to green: propose fixes for every unresolved review thread and failing CI job, implement on approval (or unattended with `--auto`), then reply with what changed and resolve each addressed thread. Gates before touching code; delegates commit/push/description rewrite to `/schovi:publish`; never resolves an unfixed or skipped thread |
 | debug | schovi | `/schovi:debug` | Root cause analysis with fix proposal via debug-executor |
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
