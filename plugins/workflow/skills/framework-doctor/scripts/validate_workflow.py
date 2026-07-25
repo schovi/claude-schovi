@@ -87,8 +87,8 @@ def find_dependency_cycle(edges):
     return None
 
 
-def has_acceptance(text):
-    match = re.search(r"^##\s+Acceptance criteria\s*$", text, re.M)
+def has_nonempty_section(text, heading):
+    match = re.search(rf"^##\s+{re.escape(heading)}\s*$", text, re.M | re.I)
     if not match:
         return False
     rest = text[match.end():]
@@ -173,8 +173,11 @@ def main():
 
             if section == "ready" and not meta.get("priority", "").isdigit():
                 issues.append(f"{rel}: ready task needs an integer 'priority:' line (sparse, lowest = next)")
-            if section in ("ready", "in-progress") and not has_acceptance(text):
+            if section in ("ready", "in-progress") and not has_nonempty_section(text, "Acceptance criteria"):
                 issues.append(f"{rel}: {section} task needs a non-empty '## Acceptance criteria' section")
+            # An unanswered question surviving past draft is a guess /work would have to make.
+            if section in ("ready", "in-progress") and has_nonempty_section(text, "Open questions"):
+                issues.append(f"{rel}: {section} task still has an '## Open questions' section — answer it or keep the task in draft/")
             if section == "blocked" and not observable_gate(meta.get("gate")):
                 issues.append(f"{rel}: blocked task needs an observable 'gate:' line")
             if "depends" in meta:

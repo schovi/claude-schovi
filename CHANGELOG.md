@@ -5,6 +5,16 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.2.0] - 2026-07-25
+
+### Added
+- **`groom` capture mode** — invoked with no id while exploration findings are already in context, it mints one task per independently deliverable outcome, skips reconnaissance the exploration already paid for, and runs one interview round across the whole batch instead of one per task
+- **Readiness gate** in `groom`: a task leaves `draft/` only when acceptance criteria come from code actually read, ownership surfaces are named from opened files, no spec-changing decision is open, and it fits one `/work` loop. Misses stay in `draft/` with an `## Open questions` section so the next groom resumes instead of re-interviewing; capture mode reports a ready/draft line per task so overriding a call is one line
+- `## Open questions` is a documented draft-only template section; the validator now rejects a non-empty one in `ready/` or `in-progress/` (an unanswered question there is a guess `/work` would have to make)
+
+### Changed
+- `groom` can now be invoked implicitly after an exploration, audit, or review produces concrete work items to track (still only in a repo with `workflow/AGENTS.md`)
+
 ## workflow [3.1.0] - 2026-07-25
 
 ### Added

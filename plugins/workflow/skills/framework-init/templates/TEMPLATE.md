@@ -26,6 +26,10 @@ Before moving to `ready/`, use bounded codebase reconnaissance to confirm this i
 
 - Observable checks, one per line. These are what "done" means. Required to leave `draft/`.
 
+## Open questions
+
+Draft-only, and only when something genuinely blocks Ready: the specific questions that must be answered before this can be groomed to `ready/` (one per line). Delete the section when the task moves to `ready/` — an open question surviving into Ready is a bug, `/work` would have to guess it.
+
 ## Notes
 
 Optional, brief: surprises, follow-ups, decisions logged (`D<N>`). Not an execution log — git history is the execution log.
