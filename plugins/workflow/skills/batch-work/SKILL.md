@@ -87,17 +87,13 @@ A compaction between any two of these steps is harmless: step 1 reloads the trut
 
 **A worker that yields control without emitting its final structured return is not done.** It may have parked while a child subagent (validation, acceptance-verifier, a contract-named helper) was still running, then stopped once the child finished without resuming its own loop. This is a stall, not a completion or a failure. Resume the *same* worker once to finish its loop and produce the structured return; only a second yield with still no structured return is a real failure (step 3 below). Do not open a new worker for the unit — that duplicates its work on the shared tree.
 
-Resolve the absolute path to the sibling `../work/SKILL.md`, then send this self-contained request for the unit through the selected runtime adapter:
+Resolve the absolute path to the sibling `../work/SKILL.md`, then send this self-contained request for the unit through the selected runtime adapter. It carries only what `/work` can't know on its own — which task, that the run is unattended, and the return schema. Don't re-list `/work`'s steps here: a partial restatement reads as the authoritative loop and the worker follows it over the skill.
 
 ```text
 In <absolute repo path>, read and follow <absolute work SKILL.md path> for task
-<id>. Read workflow/AGENTS.md, workflow/ready/<id>-*.md, and every doc leaf the
-contract routes for touched paths before code. Complete the full loop:
-validation, verify gates, the acceptance-verifier gate (a task is done only on
-a 'ready' verdict), doc sync, the move to workflow/done/ with a done: date, and
-the atomic completion commit prefixed 'task <id>:'. You run unattended in a
-batch: do not pause for confirmation — apply /work's fix-and-continue rule for
-routine blockers and return failed/partial/needs_regroom instead of asking.
+<id>, every step, in order. You run unattended in a batch: do not pause for
+confirmation — apply /work's fix-and-continue rule for routine blockers and
+return failed/partial/needs_regroom instead of asking.
 Return only: final_status
 (done | failed | partial | needs_regroom), acceptance_verdict, verification_depth
 (which gates actually ran — typecheck/build/unit/e2e/Chrome-MCP — and one clause

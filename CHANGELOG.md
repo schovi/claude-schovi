@@ -5,6 +5,12 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.2.1] - 2026-07-25
+
+### Fixed
+- `work` step 7 states the `in-progress/` move must happen before the first file edit, with the reason (the folder IS the status, so work started in `ready/` is invisible on the board and orphaned if the session dies). Batch workers were implementing first and moving later
+- `batch-work` no longer restates `/work`'s steps in its dispatch prompt. The partial list (it named the `done/` move but not the `in-progress/` one) read as the authoritative loop and the worker followed it over the skill. The prompt now carries only what `/work` can't know: which task, unattended mode, return schema
+
 ## workflow [3.2.0] - 2026-07-25
 
 ### Added
