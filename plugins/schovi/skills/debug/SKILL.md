@@ -101,16 +101,6 @@ Ready to implement the fix.
 - **Executor failed**: Report error with details from subagent
 - **External fetch failed** (Jira/GitHub/Datadog inside executor): Report error, suggest checking auth or MCP server config
 
-## Quality Gates
-
-Before completing, verify:
-
-- [ ] Input processed successfully with clear problem reference
-- [ ] debug-executor invoked with full three-part subagent type
-- [ ] Output received within token budget
-- [ ] All file references use file:line format
-- [ ] Terminal output displayed
-
 ## Example Usage
 
 ```bash

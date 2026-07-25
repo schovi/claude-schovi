@@ -12,7 +12,9 @@ This repository hosts **dual plugins for Claude Code and Codex**. Both runtimes 
 | `homebrew` | `plugins/homebrew/` | Standalone release workflow for Homebrew-distributed repos. Single skill `release`, explicit invocation only. Installable separately so it can be added only where it applies |
 | `workflow` | `plugins/workflow/` | Task-board work framework for hobby/solo repos. Tasks are files in `workflow/<status>/` folders (the folder IS the status; moves are `git mv`); board view via a shipped `./workflow/status` script; repo-specific facts (validation, verify skills, doc routing) live in a `workflow/AGENTS.md` contract the skills read first. Install in repos that track work this way |
 
-Core design: **context isolation**. External data (Jira issues ~10-15k tokens, GitHub PRs 20-50k tokens, Datadog 10-50k tokens) is fetched by subagents in isolated context windows and condensed before returning, keeping the main context clean. Savings: 75-80% on plain fetches, 93-96% on full executor workflows.
+Core design: **selective context isolation**. External payloads (Jira ~10-15k tokens, GitHub PRs 20-50k, Datadog 10-50k) can be fetched by subagents in isolated windows and condensed before returning.
+
+This is a judgment call, not a default. On a 1M-token context a 30k PR is 3% of the window, and a subagent round-trip costs latency and fidelity to reclaim it. Isolate when the payload is genuinely large or mostly noise (Datadog log dumps, Jira issues with 50 comments, oversized PRs). Read it inline when it isn't, especially for a PR in the current repo where `gh pr diff` is one call. Skills say which they prefer and why.
 
 ## Repository Layout
 
@@ -56,7 +58,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
-| release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects, plus a follow-up documentation-sync PR (`disable-model-invocation: true`) |
+| release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects: green CI on the exact release commit, then an approval gate on version + notes before the tag push, then verification and a follow-up documentation-sync PR (`disable-model-invocation: true`) |
 | groom | workflow | `/workflow:groom [id]` | Refine a board task through intent interview and bounded codebase reconnaissance; Ready means one cohesive, independently deliverable outcome sized for one work loop, with known ownership surfaces and load-bearing contracts; one groom commit per session |
 | work | workflow | `/workflow:work [id]` | Implement one Ready task, or an ad-hoc ask when explicitly invoked: dependency gate, routed-doc read, plan in chat, `task NNN:` commits, acceptance-verifier gate, atomic completion commit; hand material scope divergence back for re-grooming |
 | batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner (main context just plans + dispatches + records condensed returns; all task work in isolated subagents), sequential, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: deps-before-dependents ordering, pulls whole Ready deps in, drops any dep it can't satisfy in-batch (draft/in-progress not pullable whole, or blocked/external) and reports |
@@ -85,12 +87,14 @@ Commands are thin wrappers: parse arguments → spawn subagent → handle output
 | Agent (full subagent_type) | Purpose | Max output tokens |
 |----------------------------|---------|-------------------|
 | `schovi:jira-analyzer:jira-analyzer` | Fetch & summarize Jira issues | 1000 |
-| `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch & summarize GitHub PRs | 15000 (2000-15000 by PR size) |
+| `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch GitHub PRs for review, diff intact | 15000 normal, 3000 oversized (>150 files or >20k lines, diff omitted) |
 | `schovi:datadog-analyzer:datadog-analyzer` | Fetch & summarize Datadog data | 1200 |
 | `schovi:debug-executor:debug-executor` | Execute debug workflow | 2500 |
 | `workflow:acceptance-verifier:acceptance-verifier` | Adversarially verify a task's acceptance criteria before the completion commit (report-only, fresh context) | 800 |
 
-Always condense; never return raw payloads to the main context.
+Never return raw payloads to the main context. Condense analyzer output; `gh-pr-reviewer` is the exception, since a summarized diff can't be reviewed.
+
+Write agents and skills for a model that already verifies its own work and delegates readily. No self-verification checklists, no per-section token budgets, no "❌ NEVER / ✅ ALWAYS" blocks, no templated error messages for every failure mode, no ASCII banners or self-reported token counts. State the contract and the judgment calls; let the model handle the rest. Prefer one subagent over a chain, and never spawn one to check another's work (the `acceptance-verifier` is deliberate: it verifies written criteria in fresh context, which is a gate, not a self-check).
 
 ### Naming Convention
 

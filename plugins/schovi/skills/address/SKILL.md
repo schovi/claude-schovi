@@ -13,7 +13,7 @@ Takes an open PR from "has feedback / red CI" to "addressed and green":
 2. **Failing CI jobs** — read the failing logs, diagnose, and fix in the same pass.
 3. **Behaviour description** — once code is pushed, hand off to `/schovi:publish` to rewrite the PR description for what actually changed.
 
-The main context stays coordination-only: exploration, log reading, and bulk edits go to subagents; the plan, the approval gate, and the thread replies stay here.
+Do the work inline. Delegate only what's genuinely too big for this context: a CI log dump, or a wide investigation across many files. The plan, the approval gate, and the thread replies always stay here.
 
 ## Codex Compatibility
 
@@ -91,7 +91,7 @@ gh pr view <PR> --json reviews,comments
 gh pr checks <PR> --json name,state,bucket,workflow,link
 ```
 
-For each `bucket == "fail"`, read the failing logs (delegate to a subagent so the raw log never enters main context):
+For each `bucket == "fail"`, read the failing logs. Delegate this if a log is large enough to swamp the context; otherwise read it here:
 
 ```bash
 gh run view <run-id> --log-failed      # run-id from the check `link`, or `gh run list --branch <headRefName>`
@@ -107,10 +107,9 @@ First judge each review thread against the actual code, then decide its outcome.
 - **DECLINE** — false positive, already handled, or a low-value nit that fights a repo convention. No code change; reply with the evidence-backed reason, then resolve. Only decline when you can point at the code or convention that proves it. If you're guessing, it's a SKIP, not a DECLINE.
 - **SKIP** — needs a product/design decision, is genuinely ambiguous, or is out of scope. No code change; reply with the open question and leave it unresolved for a human.
 
-Delegate the digging:
+For each thread, read the code at `path:line` and enough around it to judge the comment, then settle on FIX / DECLINE / SKIP, the concrete change if there is one, and a reply that explains the reasoning — enough that a review bot or a human learns from it, not just "done". That's a couple of reads per thread; do it here.
 
-- **Review threads** → spawn an Explore subagent (`general-purpose`) to read the code at `path:line` and its context, then return the classification (FIX/DECLINE/SKIP), the concrete change if any, and a reply that explains the reasoning — enough that a review bot or a human learns from it, not just "done".
-- **CI failures** → spawn a subagent to read `--log-failed`, find the root cause, and propose the fix. Root cause, not symptom (a shared-function guard beats N caller patches).
+For CI failures, work back from `--log-failed` to the root cause, not the symptom (a shared-function guard beats N caller patches). Delegate only when the investigation spans more files than you can hold alongside the rest of the triage.
 
 If a comment is a GitHub **suggested change** (```suggestion block), applying it verbatim is the fix — but still sanity-check it against the code. A wrong suggestion is a DECLINE with the reason, not a rubber-stamp.
 
@@ -143,7 +142,7 @@ If `--auto` is **not** set: wait for explicit `yes` / `edit` / `cancel`. On `edi
 
 ### Phase 5 — Implement and validate
 
-Make the changes (batch related edits into one implementation subagent where it fits). Then run the repo's own validation, and fix what you broke before moving on:
+Make the changes. Then run the repo's own validation, and fix what you broke before moving on:
 
 ```bash
 # use whatever the repo defines; discover, don't assume

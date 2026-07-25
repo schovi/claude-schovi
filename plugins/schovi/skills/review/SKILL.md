@@ -5,195 +5,124 @@ disable-model-invocation: false
 user-invocable: true
 ---
 
-# Review Skill
+# Review
 
-Structured code review with Risk, Security, Performance, Issues, and Verdict sections.
+Structured code review: risk, security, performance, issues, verdict.
 
-Casual PR mentions in conversation ("what is #123 about?") belong to the `gh-pr-auto-detector` skill, not this one.
+Casual PR mentions ("what is #123 about?") belong to `gh-pr-auto-detector`, not here. Posting the findings back to GitHub belongs to `/schovi:feedback`.
 
-## Codex Compatibility
-
-If a Claude-style custom subagent is unavailable, execute the referenced reviewer workflow directly with available Codex tools. For GitHub PRs, prefer the `gh` CLI commands described in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md`, then condense the result before continuing the review.
-
-## Trigger
-
-- User invokes `/schovi:review <arg>`
-- User says "review this PR", "review #123", "code review"
-
----
-
-## Workflow
-
-### Phase 1: Input Parsing & Classification
-
-**Input Types**:
-- GitHub PR: URL, `owner/repo#123`, or `#123`
-- Jira ID: `EC-1234`, `IS-8046`, etc.
-- File path: `./path/to/file.md` or absolute path
-- `this branch` / no arg: local diff review against base branch
-- Free-form: description text
-
-**Repository resolution for bare `#123`:**
-1. Check conversation history for previous repo context
-2. Check cwd: `git remote get-url origin`, parse owner/repo
-3. If neither works, ask user to clarify
-
-**Flags**:
-- `--quick`: Lighter analysis, faster results
-- Default: Deep review
-
-### Phase 2: Context Fetching
-
-**GitHub PR**:
-- Spawn `schovi:gh-pr-reviewer:gh-pr-reviewer` via Agent tool
-- Returns all changed files with stats, diff, reviews, CI checks
-
-**Jira Issue**:
-- Spawn `schovi:jira-analyzer:jira-analyzer` via Agent tool
-
-**Local branch** (`this branch` or no arg):
-- Run `git diff` against base branch
-- List changed files
-
-**File Path**:
-- Read file directly
-
-### Phase 2.5: Source Code Fetching (PRs only)
-
-**Prioritize files** (up to 10 for deep, 3 for quick):
-- Top files by total changes
-- Core logic files over config/docs
-- Related test files
-- Exclude: lock files, generated files
-
-**Fetch strategy:**
-- Local filesystem when in same repo (preferred)
-- GitHub API for remote repos: `gh api repos/OWNER/REPO/contents/PATH?ref=BRANCH`
-
-**Deep review also fetches:**
-- Related dependencies (imports)
-- Reverse dependencies (files importing changed files)
-
-### Phase 3: Review Analysis
-
-#### Deep Review (Default)
-
-**Direct code analysis on fetched files:**
-- Review changed sections with full file context
-- Cross-reference between related files
-- Verify imports/exports
-
-**Multi-dimensional analysis:**
-
-- **Functionality**: Edge cases, error handling, return values
-- **Code Quality**: Readability, DRY, single responsibility, complexity
-- **Security** (CRITICAL): SQL injection, XSS, auth issues, data leaks, input validation, CSRF
-- **Performance**: N+1 queries, memory leaks, inefficient algorithms, unnecessary re-renders
-- **Testing**: Coverage for changed code, missing scenarios, test quality
-- **Architecture**: Design patterns, coupling, cohesion, separation of concerns
-
-**Common issue scan:**
-- TODO/FIXME comments, console.log in production, commented-out code
-- Hardcoded values, magic numbers, inconsistent naming
-- Missing error handling in async code, race conditions, resource leaks
-
-#### Quick Review (--quick)
-
-- Use diff only, limit to 3 most important files
-- No dependency exploration
-- Focus on obvious issues and high-level patterns
-
-### Phase 4: Structured Output
-
-Terminal only, no file creation.
-
-```markdown
-# Code Review: [Input Identifier]
-
-## Summary
-
-[2-3 sentence overview and overall assessment]
-
-## Risk Assessment
-
-**Risk Level:** [Low / Low-Medium / Medium / Medium-High / High]
-
-- [Technical risk factors]
-- [Test coverage status]
-- [Data/schema changes]
-- [Dependencies / deployment risk]
-
-## Security Review
-
-[Security assessment, always include even if no concerns]
-
-**If concerns:** Specific issue with file:line, classification, impact, recommendation
-**If none:** Verified auth/validation patterns, proper sanitization, correct permissions
-
-## Performance Impact
-
-[Performance assessment, always include]
-
-**If concerns:** Specific issue with file:line, classification, expected impact
-**If none:** Queries optimized, no leaks, acceptable complexity
-
-## Key Changes
-
-- **2-5 word title**
-  - Detail with file:line reference
-- **Another title**
-  - Detail with file:line reference
-
-## Issues Found
-
-### Must Fix
-[Critical issues that block merge]
-
-1. **Issue title** (file:line)
-   - Description with code evidence
-   - Why it's critical
-   - **Action:** Specific fix
-
-### Should Fix
-[Important but not blocking]
-
-### Consider
-[Minor suggestions for later]
-
-## Recommendations
-
-1. **Title** (file:line if applicable)
-   - Explanation and expected benefit
-
-## Verdict
-
-**[Approve / Approve with changes / Needs work / Blocked]**
-
-[1-2 sentences reasoning]
-
-**Merge Criteria:**
-- [ ] [From Must Fix items]
-- [ ] [From Should Fix items]
-```
-
----
-
-## Error Handling
-
-- **PR not found**: Report error, suggest checking PR number and repository
-- **Auth failure**: Suggest `gh auth login`
-- **Missing repo context**: Ask user to specify as `owner/repo#123`
-- **Fetch timeout**: Fall back to quick review, notify user
-- **Empty context**: Report nothing found to review
-
-## Example Usage
+**Report every issue you find, then rank it.** Don't pre-filter to what feels important enough to mention. The Must Fix / Should Fix / Consider split is the filter, and it happens after the search, not during it.
 
 ```bash
 /schovi:review https://github.com/owner/repo/pull/123
 /schovi:review owner/repo#123
 /schovi:review #123
-/schovi:review #123 --quick
 /schovi:review EC-1234
 /schovi:review ./spec.md
 /schovi:review this branch
 ```
+
+For a faster, shallower pass, lower the session effort rather than asking for a lighter review.
+
+## Codex
+
+If custom subagents are unavailable, run the fetch inline with the `gh` commands in `plugins/schovi/agents/gh-pr-reviewer/AGENT.md`, then review as written below.
+
+---
+
+## 1. Get the code
+
+**GitHub PR** (URL, `owner/repo#123`, or `#123`). For a bare number, resolve the repo from conversation history, then `git remote get-url origin`, then ask.
+
+- **PR is in the current repo**: read it directly. `gh pr diff <N>` plus `gh pr view <N> --json title,body,reviews,comments` and `gh pr checks <N>`. Faster than a subagent round-trip and you keep full fidelity
+- **PR is in another repo, or is very large**: spawn `schovi:gh-pr-reviewer:gh-pr-reviewer`
+
+**Jira ID**: spawn `schovi:jira-analyzer:jira-analyzer`.
+
+**Local branch** (`this branch` or no argument): `git diff` against the base branch.
+
+**File path**: read it.
+
+## 2. Read enough to be right
+
+The diff alone hides most real bugs. Open the files it touches in full, so you can see the function the changed line sits in and the invariants around it. Then follow what the change actually depends on: what the changed code imports, and what imports the changed code. A caller that now gets a different return shape is the bug the diff can't show you.
+
+Read what the change warrants. A one-line config edit needs its call sites; a refactor across a service needs the surface it touches. Skip lock files and generated output. If you stopped short of something relevant, say so in the review rather than reviewing it blind.
+
+## 3. Analyze
+
+Across every dimension:
+
+- **Functionality**: edge cases, error handling, return values, does it do what the PR says it does
+- **Security**: injection, XSS, auth and authorization gaps, data leaks, missing input validation, CSRF
+- **Performance**: N+1 queries, leaks, wrong complexity, unnecessary re-renders
+- **Testing**: is the changed behavior covered, which scenarios are missing, are the tests meaningful
+- **Architecture**: coupling, cohesion, separation of concerns, whether this fits how the repo already works
+- **Quality**: readability, duplication, single responsibility, complexity
+
+And scan for the recurring ones: TODO/FIXME left behind, debug logging, commented-out code, hardcoded values and magic numbers, inconsistent naming, unhandled async errors, race conditions, leaked resources.
+
+Every finding carries `file:line` and the evidence that makes it a finding. If you're unsure whether something is real, say it's uncertain and what would settle it. Don't drop it, and don't state it as fact.
+
+## 4. Output
+
+Terminal only. No files.
+
+```markdown
+# Code Review: [identifier]
+
+## Summary
+
+[2-3 sentences: what this does and where it stands.]
+
+## Risk Assessment
+
+**Risk Level:** [Low / Low-Medium / Medium / Medium-High / High]
+
+- [Technical risk, test coverage, data/schema changes, deployment risk]
+
+## Security Review
+
+[Always present. Concerns get file:line, classification, impact, recommendation.
+Nothing found: say what you actually verified, don't just say "no issues".]
+
+## Performance Impact
+
+[Always present. Same shape.]
+
+## Key Changes
+
+- **[2-5 word title]**
+  - [detail with file:line]
+
+## Issues Found
+
+### Must Fix
+1. **[Title]** (file:line)
+   - [What's wrong, with the code as evidence]
+   - [Why it blocks]
+   - **Action:** [the fix]
+
+### Should Fix
+### Consider
+
+## Recommendations
+
+1. **[Title]** (file:line)
+   - [Explanation and expected benefit]
+
+## Verdict
+
+**[Approve / Approve with changes / Needs work / Blocked]**
+
+[1-2 sentences of reasoning.]
+
+**Merge Criteria:**
+- [ ] [from Must Fix and Should Fix]
+```
+
+Omit sections with nothing in them, except Security and Performance, which always get an answer.
+
+## Failure modes
+
+PR not found: check the number and repo. Auth failure: `gh auth login`. Bare `#123` with no resolvable repo: ask for `owner/repo#123`. Nothing to review: say so rather than reviewing an empty diff.

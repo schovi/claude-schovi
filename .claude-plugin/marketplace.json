@@ -10,13 +10,13 @@
     {
       "name": "schovi",
       "description": "Workflow automation for software engineering: publish (GitHub PR), review, feedback, address, debug, Jira/GitHub/Datadog auto-detection",
-      "version": "1.21.0",
+      "version": "1.22.0",
       "source": "./plugins/schovi"
     },
     {
       "name": "homebrew",
       "description": "CI-gated GitHub release workflow for Homebrew-distributed projects - SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "source": "./plugins/homebrew"
     },
     {

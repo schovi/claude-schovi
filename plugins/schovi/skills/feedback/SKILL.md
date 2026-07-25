@@ -300,12 +300,9 @@ I implemented the review feedback and pushed it. Reply to each open thread
 with what we changed. Keep it short.
 ```
 
-## Implementation Notes
+## Why this skill is shaped the way it is
 
-1. **Always preview, never same-turn post.** Drafting and posting are separate turns gated by the user's yes. This is the safety net for an irreversible, outward-facing action.
-2. **Context first, fetch only when needed.** Reuse the `file:line` from the review in context. Only hit `gh pr diff` / the comments API when anchoring is ambiguous, the file moved, or replying to a thread.
-3. **Voice over completeness.** The value is short, human, peer-level comments with optional vs blocking made obvious in the sentence. Suggestion blocks only when the exact replacement is known.
-4. **Verdicts are conservative.** Default `COMMENT`. `APPROVE` / `REQUEST_CHANGES` only on a clear user signal.
-5. **Verdicts ride on reviews.** Even in individual mode, a verdict is a final body-only review submission — GitHub has no other place to attach one.
-6. **Author replies are evidence-gated.** In author mode, never claim a thread is "Done" without a commit/diff that backs it. No evidence → neutral reply or ask. This is the difference between a useful response and a confidently wrong one.
-7. **Never resolve threads.** Author mode posts replies only; the user resolves threads themselves. Don't call the resolve mutation.
+1. **Voice over completeness.** The value is short, human, peer-level comments where optional vs blocking is obvious from the sentence. Anyone can generate a report; this generates a note a colleague would write.
+2. **Never post in the same turn as drafting.** Posting to a PR is irreversible and public. The preview gate is the only safety net there is.
+3. **Author replies are evidence-gated.** Never claim "Done" without a commit or diff behind it. No evidence means a neutral reply or a question back to the user. That's the difference between a useful response and a confidently wrong one on someone else's PR.
+4. **Never resolve threads.** Replies only; the user resolves. Don't call the resolve mutation. (`/schovi:address` is the skill that resolves, and only what it actually addressed.)

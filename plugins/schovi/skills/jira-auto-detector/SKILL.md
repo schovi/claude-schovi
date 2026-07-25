@@ -44,14 +44,7 @@ Scan the message for issue keys and Atlassian URLs. For each match, apply the fe
 
 ### Step 2: Fetch
 
-Acknowledge detection first:
-
-```markdown
-🎯 **[Jira Auto-Detector]** Detected issue reference: [ISSUE-KEY]
-⏳ Fetching issue details...
-```
-
-Then spawn the subagent:
+Spawn the subagent. Don't announce the detection or narrate the fetch; the answer is what the user wants.
 
 ```
 Tool: Agent
@@ -67,7 +60,7 @@ Expected output: structured summary (~800 tokens) with core info (type, status, 
 
 ### Step 3: Integrate Naturally
 
-Confirm completion (`✅ **[Jira Auto-Detector]** Issue details fetched successfully`), then answer using the relevant parts of the summary. Acknowledge you fetched it ("Based on EC-1234..."), don't regurgitate the whole summary.
+Answer using the relevant parts of the summary. Ground the answer in the issue ("Based on EC-1234...") so it's clear where it came from, but don't regurgitate the whole summary.
 
 ### Step 4: Multiple Issues
 
@@ -77,7 +70,7 @@ Confirm completion (`✅ **[Jira Auto-Detector]** Issue details fetched successf
 
 ## Session Memory
 
-Track what you've fetched this conversation (look for "Jira Issue Summary: [KEY]" in the transcript). Reuse existing context instead of re-fetching.
+Track which issue keys you've already fetched this conversation. Reuse that context instead of re-fetching; only fetch again if the user asks for fresh data.
 
 ## Error Handling
 
