@@ -9,8 +9,8 @@
  * wins over everything. Serves a single-page Kanban
  * at http://127.0.0.1:8787. Add drafts and edit/move draft & ready cards from the
  * UI; each write auto-commits in its repo. Open tabs live-update via SSE fed by a
- * filesystem watch on the main workflow/ dir, with a client-side safety poll that
- * also catches commits made inside worktrees.
+ * filesystem watch on every workflow/ dir, worktrees included, re-synced after each
+ * board build; a client-side safety poll backs it up.
  *
  *   bunx github:schovi/claude-schovi                 # run straight from GitHub
  *   bun run board.ts [--port N] [--root DIR ...]     # local, default root: ~/work
@@ -22,7 +22,7 @@
  */
 import {
   readdirSync, readFileSync, writeFileSync, existsSync, mkdirSync, mkdtempSync,
-  rmSync, realpathSync, statSync, watch,
+  rmSync, realpathSync, statSync, watch, type FSWatcher,
 } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir, tmpdir } from "node:os";
@@ -125,11 +125,15 @@ type TaskState = { section: string; path: string; origin: string | null; ts: num
 // `git worktree add` stamps every file with the checkout time, which would make a
 // stale worktree falsely win. Tie -> main, so an untouched worktree never overrides.
 // An uncommitted move outranks any commit time: it is the newest state that exists.
-function resolveStates(repo: string): Record<number, TaskState> {
+// `seen` collects every workflow/ dir consulted, so the server can keep its
+// filesystem watches in step with worktrees appearing and disappearing.
+function resolveStates(repo: string, seen?: Set<string>): Record<number, TaskState> {
   const locations = [{ path: repo, origin: null as string | null }]
     .concat(worktreesOf(repo).map((wt) => ({ path: wt, origin: basename(wt) as string | null })));
   const best: Record<number, TaskState> = {};
   for (const loc of locations) {
+    // realpath: git reports worktrees resolved, findRepos doesn't — key watches on one form.
+    seen?.add(realpath(join(loc.path, "workflow")));
     const ts = taskTimestamps(loc.path);
     const dirty = dirtyTaskIds(loc.path);
     for (const section of SECTIONS)
@@ -147,9 +151,9 @@ function resolveStates(repo: string): Record<number, TaskState> {
   return best;
 }
 
-function buildBoard(repos: string[]) {
+function buildBoard(repos: string[], seen?: Set<string>) {
   return repos.map((repo) => {
-    const states = resolveStates(repo);
+    const states = resolveStates(repo, seen);
     const doneIds = new Set<number>();
     for (const [id, s] of Object.entries(states)) if (s.section === "done") doneIds.add(parseInt(id, 10));
     // ponytail: done included so the UI can reveal/search history. Reads every done
@@ -226,10 +230,31 @@ function serve(roots: string[], port: number) {
   // One debounced broadcast for a burst of file events (a git mv is several).
   let timer: ReturnType<typeof setTimeout> | null = null;
   const onChange = () => { if (timer) clearTimeout(timer); timer = setTimeout(broadcast, 250); };
-  for (const repo of repos) {
-    try { watch(join(repo, "workflow"), { recursive: true }, onChange); }
-    catch { /* watch unsupported here; the client's safety poll still refreshes */ }
-  }
+
+  // Watch every workflow/ dir the last build consulted — main checkouts and worktrees
+  // alike, since a /work run moves task files inside a worktree. The set is re-synced
+  // after each build, so a worktree added or removed mid-session is picked up.
+  const watchers = new Map<string, FSWatcher>();
+  const syncWatches = (dirs: Set<string>) => {
+    for (const [dir, w] of watchers) if (!dirs.has(dir)) { w.close(); watchers.delete(dir); }
+    for (const dir of dirs) {
+      if (watchers.has(dir)) continue;
+      try {
+        const w = watch(dir, { recursive: true }, onChange);
+        // A removed worktree kills its watcher; drop it instead of crashing the server.
+        w.on("error", () => { w.close(); watchers.delete(dir); });
+        watchers.set(dir, w);
+      } catch { /* watch unsupported here; the client's safety poll still refreshes */ }
+    }
+  };
+
+  const board = (): any[] => {
+    const dirs = new Set<string>();
+    const data = buildBoard(repos, dirs);
+    syncWatches(dirs);
+    return data;
+  };
+  board();  // seed the watches before the first request
 
   Bun.serve({
     port, hostname: "127.0.0.1",
@@ -238,7 +263,7 @@ function serve(roots: string[], port: number) {
       if (req.method === "GET" && url.pathname === "/")
         return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       if (req.method === "GET" && url.pathname === "/api/board")
-        return Response.json(buildBoard(repos));
+        return Response.json(board());
       if (req.method === "GET" && url.pathname === "/api/events") {
         let self: ReadableStreamDefaultController;
         const stream = new ReadableStream({
@@ -333,7 +358,15 @@ function selftest() {
     const t41d = b3.tasks.find((t: any) => t.id === 41);
     assert(t41d.section === "in-progress", "uncommitted worktree move wins: " + t41d.section);
     assert(t41d.worktree[0] === "via demo-wt", "worktree origin badge (dirty): " + t41d.worktree);
+
+    // The server watches exactly the dirs a build consulted, so worktrees must be in there.
+    const dirs = new Set<string>();
+    buildBoard(repos, dirs);
+    assert(dirs.has(realpath(wf)) && dirs.has(realpath(join(wt, "workflow"))), "watch targets: " + [...dirs]);
     git(["worktree", "remove", "--force", wt], repo);
+    const after = new Set<string>();
+    buildBoard(repos, after);
+    assert(!after.has(realpath(join(wt, "workflow"))), "removed worktree drops out of watch targets");
 
     let rejected = false;
     try { saveTask(repo, "ready", name, body, "done"); } catch { rejected = true; }
