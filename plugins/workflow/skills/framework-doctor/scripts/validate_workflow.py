@@ -3,7 +3,7 @@
 
 Layout: workflow/{draft,ready,in-progress,blocked,done}/NNN-slug.md — the
 folder IS the status. Task file: first line `# NNN — Title`, then optional
-`priority:` / `gate:` / `done:` metadata lines.
+`priority:` / `tags:` / `gate:` / `done:` metadata lines.
 
 Usage: validate_workflow.py [repo-root]
 Exit codes: 0 = valid, 1 = structural issues (one per line on stderr),
@@ -25,7 +25,7 @@ def pad(task_id):
 def parse_meta(lines):
     meta = {}
     for line in lines[1:10]:
-        match = re.match(r"^(priority|depends|gate|done):\s*(.+?)\s*$", line.strip())
+        match = re.match(r"^(priority|depends|tags|gate|done):\s*(.+?)\s*$", line.strip())
         if match:
             meta[match.group(1)] = match.group(2)
     return meta
@@ -42,6 +42,14 @@ def parse_depends(value):
             return [], False
         ids.append(int(part))
     return ids, True
+
+
+TAG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+
+
+def bad_tags(value):
+    """Tokens in a `tags:` line that aren't lowercase slugs (grouping needs one spelling)."""
+    return [t.strip() for t in value.split(",") if t.strip() and not TAG.match(t.strip())]
 
 
 def find_dependency_cycle(edges):
@@ -177,6 +185,10 @@ def main():
                     issues.append(f"{rel}: task cannot depend on itself")
                 else:
                     depends_edges.append((rel, task_id, dep_ids))
+            if "tags" in meta:
+                bad = bad_tags(meta["tags"])
+                if bad or not meta["tags"].strip():
+                    issues.append(f"{rel}: 'tags:' must be comma-separated lowercase slugs (e.g. tags: api, ui-polish){': ' + ', '.join(bad) if bad else ''}")
 
             body = re.sub(r"```.*?```", "", text, flags=re.S)
             for _, target in LINK.findall(body):

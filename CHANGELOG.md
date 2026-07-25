@@ -5,6 +5,14 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.1.0] - 2026-07-25
+
+### Added
+- **Task tags** — optional `tags: api, ui-polish` metadata line, valid in any status folder: comma-separated lowercase slugs for searching and grouping. Validator rejects non-slug tags; `groom` sets 1–3 tags per task, reusing the vocabulary already on the board
+- `./workflow/status`: `--tag NAME` (repeatable, ANDed) filters the board, `--tags` prints the tag vocabulary in use with counts, and tasks show their `#tag`s. No tag registry file — the vocabulary is derived from the task files, so it can't drift
+- Dashboard: `#tag` badges on cards (click to filter), tag filter chips in the header (AND across selections, persisted), and tags included in the text filter
+- `framework-doctor`: backfills missing `tags:` on live tasks (proposals from the existing vocabulary, report → approve → apply, `done/` untouched) and flags single-use or near-duplicate tags for consolidation
+
 ## workflow [3.0.0] - 2026-07-16
 
 ### Changed (breaking)

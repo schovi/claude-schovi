@@ -17,7 +17,7 @@ Run only after the user explicitly requests initialization. Never inherit invoca
 
 Scaffold the workflow framework in a fresh repo. Templates live next to this skill in `templates/`. The folder a task sits in IS its status — there is no board file.
 
-1. **Detect**: `workflow/AGENTS.md` exists → already initialized, route to `/workflow:framework-doctor` for a health check. A legacy markdown board (`docs/board.md` or `workflow/board.md`) exists → stop and tell the user to migrate it to status folders by hand first (the automated migrator was retired); don't scaffold a second system over it.
+1. **Detect**: `workflow/AGENTS.md` exists → already initialized, route to `/workflow:framework-doctor` for a health check. Doctor owns every re-run concern (refreshing drifted shipped files, backfilling missing `tags:`, contract drift); this skill only ever scaffolds a repo that has no framework. A legacy markdown board (`docs/board.md` or `workflow/board.md`) exists → stop and tell the user to migrate it to status folders by hand first (the automated migrator was retired); don't scaffold a second system over it.
 2. **Create `workflow/`**:
    - status folders `draft/`, `ready/`, `in-progress/`, `blocked/`, `done/`, plus `reports/` — each with a `.gitkeep` (git doesn't track empty dirs; the folders must exist for `mv` and the validator)
    - `TEMPLATE.md` from `templates/TEMPLATE.md`

@@ -27,6 +27,7 @@ Task file format — first line is the identity, metadata lines sit under it, on
 
 priority: 20            # ready/ only; sparse (10, 20, 30), lowest = next
 depends: 041, 043       # optional; task IDs that must reach done/ first
+tags: rng, engine       # optional, any folder; lowercase slugs for search/grouping
 gate: upstream API v2   # blocked/ only; an observable fact
 done: 2026-07-10        # added on completion
 
@@ -36,7 +37,7 @@ done: 2026-07-10        # added on completion
 ## Notes                 # never an execution log — git history is
 ```
 
-No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history). When other git worktrees exist, `status` also scans them and flags tasks in flight elsewhere (different section or uncommitted edits) that this checkout's folders don't yet reflect.
+No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history; `--tag NAME`, repeatable, keeps only tasks carrying every named tag; `--tags` lists the tag vocabulary in use with counts, so tags get reused rather than reinvented). When other git worktrees exist, `status` also scans them and flags tasks in flight elsewhere (different section or uncommitted edits) that this checkout's folders don't yet reflect.
 
 ## Lifecycle
 
@@ -51,7 +52,7 @@ idea ──/groom──> draft/ ──spec + priority──> ready/ ──/work�
 - **`/workflow:status`** — default: a decision-oriented overview of the *current* repo (in progress, next up, batchable now, blockers ranked by how many tasks clearing them frees). `all`: one-row-per-repo table across every repo with a `workflow/`. Read-only.
 - **`/workflow:decision`** — append a `D<N>` record to the repo's decision log.
 - **`/workflow:framework-init`** — scaffold all of the above in a fresh repo (folders + `.gitkeep`s, status script, contract pre-filled by repo inspection, AGENTS.md routing).
-- **`/workflow:framework-doctor`** — validator + cleanup for an initialized repo: run the bundled zero-dependency `validate_workflow.py` (exit 0 valid / 1 issues / 2 no-framework), refresh shipped files that drifted from the plugin templates (`status`, `TEMPLATE.md`), sanity-check the contract, and check Codex agent parity. Reports first, applies on approval, re-runnable. Not a migrator — initialize a fresh repo with `/workflow:framework-init`.
+- **`/workflow:framework-doctor`** — validator + cleanup for an initialized repo: run the bundled zero-dependency `validate_workflow.py` (exit 0 valid / 1 issues / 2 no-framework), refresh shipped files that drifted from the plugin templates (`status`, `TEMPLATE.md`), propose `tags:` for untagged live tasks from the vocabulary already in use, sanity-check the contract, and check Codex agent parity. Reports first, applies on approval, re-runnable. Not a migrator — initialize a fresh repo with `/workflow:framework-init`.
 
 Codex invocation: `use $groom`, `use $work`, etc.
 
@@ -90,7 +91,8 @@ Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root D
 - **Columns** `draft / ready / in-progress / blocked / done`. Done is collapsed to a count with a **show all** toggle (it's git history).
 - **Filter** by repo (click a chip to isolate, click again to clear; persisted) and a top text/number box that searches titles and IDs across every column — including done, even while it's collapsed.
 - **Card detail** opens on any card: editable for draft/ready, read-only for in-progress/blocked/done.
-- **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, and a worktree flag when a task is in flight in a sibling worktree.
+- **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, `#tag`s, and a worktree flag when a task is in flight in a sibling worktree.
+- **Tag chips** in the header filter the board (AND across selected tags, same semantics as `./workflow/status --tag`); clicking a `#tag` badge on a card toggles that tag. Tags also match the text filter.
 - **Write** is deliberately narrow — add a draft, edit a draft/ready card body, edit its `priority:`, and move draft↔ready. Each write auto-commits in that repo (`task NNN: … (dashboard)`). It does **not** touch in-progress/blocked/done — those transitions are `/work` and the acceptance gate, not file moves.
 - **Live updates**: the server watches each `workflow/` dir and pushes changes to open tabs over SSE, so any edit (yours, an agent's, another tab's) refreshes every board instantly. A 30s poll backs it up if a watch event drops.
 - **Change notifications**: each refresh diffs against the previous board and pops a toast for every new / moved / changed / done task. Click 🔔 to also get desktop notifications (so you see an agent finish a task while the tab is in the background).
@@ -108,7 +110,7 @@ Self-check: `bun run plugins/workflow/tools/board.ts --selftest`.
 codex plugin marketplace add ~/work/claude-schovi
 ```
 
-Then per repo: `/workflow:framework-init` (fresh), and `/workflow:framework-doctor` any time to validate and keep the shipped files current.
+Then per repo: `/workflow:framework-init` (fresh), and `/workflow:framework-doctor` any time to validate, backfill missing tags, and keep the shipped files current.
 
 ## Rules the framework enforces
 

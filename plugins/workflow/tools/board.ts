@@ -28,7 +28,7 @@ import { homedir, tmpdir } from "node:os";
 
 const SECTIONS = ["draft", "ready", "in-progress", "blocked", "done"] as const;
 const EDITABLE = ["draft", "ready"];
-const META = /^(priority|depends|gate|done):\s*(.+?)\s*$/;
+const META = /^(priority|depends|tags|gate|done):\s*(.+?)\s*$/;
 const FILENAME = /^\d+-[a-z0-9][a-z0-9-]*\.md$/;
 const enc = new TextEncoder();
 
@@ -144,6 +144,7 @@ function buildBoard(repos: string[]) {
       const t: any = parseTask(s.path, s.section);
       const deps = (t.meta.depends ?? "").split(",").map((x: string) => x.trim()).filter((x: string) => /^\d+$/.test(x));
       t.waits = deps.filter((d: string) => !doneIds.has(parseInt(d, 10)));
+      t.tags = (t.meta.tags ?? "").split(",").map((x: string) => x.trim()).filter(Boolean);
       t.worktree = s.origin ? [`via ${s.origin}`] : [];
       t.repo = basename(repo);
       return t;
@@ -265,7 +266,7 @@ function selftest() {
     const wf = join(repo, "workflow");
     for (const s of SECTIONS) mkdirSync(join(wf, s), { recursive: true });
     writeFileSync(join(wf, "next-task-id"), "042\n");
-    writeFileSync(join(wf, "ready", "041-existing.md"), "# 041 — Existing\n\npriority: 10\ndepends: 099\n");
+    writeFileSync(join(wf, "ready", "041-existing.md"), "# 041 — Existing\n\npriority: 10\ndepends: 099\ntags: api, ui\n");
     writeFileSync(join(wf, "done", "007-old.md"), "# 007 — Old\n\ndone: 2026-01-01\n");
     git(["init", "-q"], repo);
     git(["config", "user.email", "t@t"], repo);
@@ -282,6 +283,7 @@ function selftest() {
     const ready = board.tasks.find((t: any) => t.section === "ready");
     assert(ready.meta.priority === "10", "priority");
     assert(JSON.stringify(ready.waits) === JSON.stringify(["099"]), "waits " + ready.waits);
+    assert(JSON.stringify(ready.tags) === JSON.stringify(["api", "ui"]), "tags " + ready.tags);
 
     const name = createDraft(repo, "New Thing!", "because reasons");
     assert(name === "042-new-thing.md", "draft name " + name);

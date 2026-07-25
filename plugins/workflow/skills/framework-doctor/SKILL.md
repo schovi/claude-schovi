@@ -1,8 +1,8 @@
 ---
 name: framework-doctor
 description: >
-  Validate an initialized workflow repo and keep its shipped files current. Use
-  when the user says "/workflow:framework-doctor", "check the board", "validate
+  Validate an initialized workflow repo and keep its shipped files and task
+  metadata current. Use when the user says "/workflow:framework-doctor", "check the board", "validate
   work tracking", or when another workflow skill hits an inconsistent structure.
   Reports findings first; refreshes drifted files only after the user approves.
   Not a migrator — for a repo with no board use /workflow:framework-init.
@@ -10,7 +10,7 @@ description: >
 
 # Framework Doctor
 
-Diagnose an initialized workflow repo and heal what's safe to heal: run the deterministic validator, refresh shipped files that fell behind the plugin, sanity-check the contract. Report → approve → apply. Read-only until the user approves a fix. Re-runnable any time.
+Diagnose an initialized workflow repo and heal what's safe to heal: run the deterministic validator, refresh shipped files that fell behind the plugin, backfill missing task tags, sanity-check the contract. Report → approve → apply. Read-only until the user approves a fix. Re-runnable any time.
 
 Not a migrator. No `workflow/` framework here → point at `/workflow:framework-init`. An old markdown board (`docs/board.md`, `workflow/board.md`) is migrated by hand now — the automated migration was retired once all repos moved to the folder model.
 
@@ -22,7 +22,7 @@ Run the bundled validator from the repo root:
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/framework-doctor/scripts/validate_workflow.py"
 ```
 
-(Codex: resolve the script relative to this skill file.) Exit codes: `0` valid, `1` structural issues (one per line — task filename/heading, missing acceptance, stray `status:`/frontmatter, bad `priority:`/`gate:`/`done:`, unknown or cyclic `depends:`, missing `TEMPLATE.md`/`reports/`/`next-task-id`), `2` no framework here → `/workflow:framework-init`. The validator tolerates an uncommitted in-progress move — normal mid-work state.
+(Codex: resolve the script relative to this skill file.) Exit codes: `0` valid, `1` structural issues (one per line — task filename/heading, missing acceptance, stray `status:`/frontmatter, bad `priority:`/`gate:`/`done:`/`tags:`, unknown or cyclic `depends:`, missing `TEMPLATE.md`/`reports/`/`next-task-id`), `2` no framework here → `/workflow:framework-init`. The validator tolerates an uncommitted in-progress move — normal mid-work state.
 
 ## 2. Refresh shipped files
 
@@ -35,11 +35,22 @@ diff -u workflow/TEMPLATE.md "${CLAUDE_PLUGIN_ROOT}/skills/framework-init/templa
 
 (Codex: resolve the template paths relative to this skill file.) Show the diff in the report so a deliberate local edit is visible before it's overwritten. On approval, overwrite with the current template and re-`chmod +x workflow/status`.
 
-## 3. Contract sanity
+## 3. Backfill missing tags
+
+A half-tagged board groups nothing, and tags accumulate late (the line is optional, and older tasks predate it). List the vocabulary in use and the live tasks without a `tags:` line:
+
+```bash
+./workflow/status --tags
+grep -rLs "^tags:" workflow/draft workflow/ready workflow/in-progress workflow/blocked
+```
+
+Skip `done/` — it's the archive, and tagging history buys nothing. For each untagged task, read its title and `## What & why` and propose 1–3 tags, preferring the vocabulary already in use; coin a new tag only when several untagged tasks share a theme nothing existing covers. Leave a task untagged when no tag adds signal — that's a valid outcome, not a gap. Report as a `task → proposed tags` table; on approval insert the line into each task's metadata block. Also flag tags used exactly once and near-duplicates of each other (`ui` vs `ui-polish`) as consolidation candidates, with the merge left to the user.
+
+## 4. Contract sanity
 
 Check `workflow/AGENTS.md` exists and its facts still match reality: validation commands resolve (package.json scripts / Makefile targets exist), verify-mapping skills still exist, doc-routing leaves still exist. Flag anything stale — the fix is the user's to confirm.
 
-## 4. Codex parity (dual-runtime repos only)
+## 5. Codex parity (dual-runtime repos only)
 
 Skip entirely in a Claude-only repo. Otherwise every kept repo-local `.claude/agents/<name>.md` needs a `.codex/agents/<name>.toml` twin, and the Codex skills symlink (`.codex/skills` or `.agents/skills` → `.claude/skills`) must exist and resolve. Pairing rules: `references/codex-agents.md`. Generate a missing twin on approval, then check the TOMLs parse:
 
@@ -47,8 +58,8 @@ Skip entirely in a Claude-only repo. Otherwise every kept repo-local `.claude/ag
 python3 -c 'import pathlib, tomllib; [tomllib.loads(p.read_text()) for p in pathlib.Path(".codex/agents").glob("*.toml")]'
 ```
 
-## 5. Report and apply
+## 6. Report and apply
 
-Print findings grouped: validator issues, drifted shipped files (with diffs), contract gaps, Codex parity gaps — each with the exact fix. Ask once for approval before touching anything (call out any overwrite of a locally-edited shipped file explicitly). On approval: apply with `git mv`/overwrite, re-run the validator (must exit 0), and commit the fixes as `workflow: framework-doctor`. A clean bill of health changes and commits nothing.
+Print findings grouped: validator issues, drifted shipped files (with diffs), tag backfill proposals, contract gaps, Codex parity gaps — each with the exact fix. Ask once for approval before touching anything (call out any overwrite of a locally-edited shipped file explicitly). On approval: apply with `git mv`/overwrite, re-run the validator (must exit 0), and commit the fixes as `workflow: framework-doctor`. A clean bill of health changes and commits nothing.
 
 Codex: invoke as `use $framework-doctor`; identical flow.
