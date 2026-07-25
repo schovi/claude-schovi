@@ -5,7 +5,8 @@
  * Reads task files directly from every repo's workflow/ folders (the folder IS
  * the status). A task can also exist in a git worktree in a different folder; the
  * authoritative state is the most recently committed occurrence, so a worktree that
- * moved a task forward wins over an unmerged main. Serves a single-page Kanban
+ * moved a task forward wins over an unmerged main, and an uncommitted move there
+ * wins over everything. Serves a single-page Kanban
  * at http://127.0.0.1:8787. Add drafts and edit/move draft & ready cards from the
  * UI; each write auto-commits in its repo. Open tabs live-update via SSE fed by a
  * filesystem watch on the main workflow/ dir, with a client-side safety poll that
@@ -93,6 +94,17 @@ function taskTimestamps(loc: string): Record<number, number> {
   return ts;
 }
 
+// Task ids with uncommitted changes under workflow/ in this checkout. A /work run
+// stages the `git mv` long before it commits, so without this the move is invisible.
+function dirtyTaskIds(loc: string): Set<number> {
+  const ids = new Set<number>();
+  for (const line of git(["status", "--porcelain", "--", "workflow/"], loc).split("\n")) {
+    const m = /workflow\/[\w-]+\/(\d+)/.exec(line.slice(3));
+    if (m) ids.add(parseInt(m[1], 10));
+  }
+  return ids;
+}
+
 function mtimeSeconds(path: string): number {
   try { return statSync(path).mtimeMs / 1000; } catch { return 0; }
 }
@@ -112,19 +124,21 @@ type TaskState = { section: string; path: string; origin: string | null; ts: num
 // main, so it wins even though main hasn't merged yet. Commit time, not mtime:
 // `git worktree add` stamps every file with the checkout time, which would make a
 // stale worktree falsely win. Tie -> main, so an untouched worktree never overrides.
+// An uncommitted move outranks any commit time: it is the newest state that exists.
 function resolveStates(repo: string): Record<number, TaskState> {
   const locations = [{ path: repo, origin: null as string | null }]
     .concat(worktreesOf(repo).map((wt) => ({ path: wt, origin: basename(wt) as string | null })));
   const best: Record<number, TaskState> = {};
   for (const loc of locations) {
     const ts = taskTimestamps(loc.path);
+    const dirty = dirtyTaskIds(loc.path);
     for (const section of SECTIONS)
       for (const f of mdFiles(join(loc.path, "workflow", section))) {
         const m = /^(\d+)/.exec(f);
         if (!m) continue;
         const id = parseInt(m[1], 10);
         const path = join(loc.path, "workflow", section, f);
-        const when = ts[id] ?? mtimeSeconds(path);
+        const when = dirty.has(id) ? Infinity : (ts[id] ?? mtimeSeconds(path));
         const prev = best[id];
         if (!prev || when > prev.ts || (when === prev.ts && loc.origin === null))
           best[id] = { section, path, origin: loc.origin, ts: when };
@@ -309,6 +323,16 @@ function selftest() {
     assert(t41.section === "done", "worktree state wins: " + t41.section);
     assert(t41.worktree[0] === "via demo-wt", "worktree origin badge: " + t41.worktree);
     assert(b2.tasks.filter((t: any) => t.id === 41).length === 1, "task 41 not duplicated across locations");
+
+    // An uncommitted move in the worktree (staged `git mv`, the state /work leaves
+    // behind mid-task) wins too — commit times are equal there, so a tie would
+    // otherwise hand the task back to main.
+    mkdirSync(join(wt, "workflow", "in-progress"), { recursive: true });  // empty dirs aren't in git
+    git(["mv", "workflow/done/041-existing.md", "workflow/in-progress/041-existing.md"], wt);
+    const b3 = buildBoard(repos)[0];
+    const t41d = b3.tasks.find((t: any) => t.id === 41);
+    assert(t41d.section === "in-progress", "uncommitted worktree move wins: " + t41d.section);
+    assert(t41d.worktree[0] === "via demo-wt", "worktree origin badge (dirty): " + t41d.worktree);
     git(["worktree", "remove", "--force", wt], repo);
 
     let rejected = false;
