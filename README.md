@@ -43,18 +43,20 @@ Fetch external data in isolated context windows and return condensed summaries, 
 
 Available in both runtimes: Claude Code registers them from the plugin; Codex uses generated `agent.toml` twins symlinked into `~/.codex/agents/` — run `python3 scripts/sync-codex-agents.py` once after install and after agent changes.
 
-| Agent | What it does |
-|-------|--------------|
-| `jira-analyzer` | Jira issue → ~1k token summary |
-| `gh-pr-reviewer` | GitHub PR (diff, reviews, CI) → max 15k token summary |
-| `datadog-analyzer` | Datadog logs/traces/metrics → ~1.2k token summary |
-| `debug-executor` | Full debug workflow (fetch + explore + diagnose) → ~2.5k token result |
+Each agent is pinned to the cheapest tier that does its job (Claude only; Codex twins inherit the session model).
+
+| Agent | Model | What it does |
+|-------|-------|--------------|
+| `jira-analyzer` | sonnet | Jira issue → ~1k token summary |
+| `gh-pr-reviewer` | haiku | GitHub PR (diff, reviews, CI) → max 15k token summary |
+| `datadog-analyzer` | sonnet | Datadog logs/traces/metrics → ~1.2k token summary |
+| `debug-executor` | inherit | Full debug workflow (fetch + explore + diagnose) → ~2.5k token result |
 
 ### Subagents (workflow)
 
-| Agent | What it does |
-|-------|--------------|
-| `acceptance-verifier` | Fresh-context adversarial check of a task's acceptance criteria before the completion commit → per-criterion verdict with evidence, ~800 tokens. Used by `/workflow:work` and `/workflow:batch-work`; report-only |
+| Agent | Model | What it does |
+|-------|-------|--------------|
+| `acceptance-verifier` | sonnet | Fresh-context adversarial check of a task's acceptance criteria before the completion commit → per-criterion verdict with evidence, ~800 tokens. Used by `/workflow:work` and `/workflow:batch-work`; report-only |
 
 ## Installation
 

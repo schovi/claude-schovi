@@ -72,6 +72,8 @@ def main():
         case("valid tags pass", ready("010-a.md", "# 010 — A\n\npriority: 10\ntags: api, ui-polish\n\n## Acceptance criteria\n- x\n"), 0),
         case("uppercase tag fails", ready("010-a.md", "# 010 — A\n\npriority: 10\ntags: API\n\n## Acceptance criteria\n- x\n"), 1),
         case("multi-word tag fails", ready("010-a.md", "# 010 — A\n\npriority: 10\ntags: ui polish\n\n## Acceptance criteria\n- x\n"), 1),
+        case("valid model passes", ready("010-a.md", "# 010 — A\n\npriority: 10\nmodel: sonnet\n\n## Acceptance criteria\n- x\n"), 0),
+        case("unknown model fails", ready("010-a.md", "# 010 — A\n\npriority: 10\nmodel: gpt-5\n\n## Acceptance criteria\n- x\n"), 1),
         case("legacy-named done task passes", lambda wf: task(wf, "done", "M12-legacy.md", "# M12: Legacy thing\n\ndone: 2026-01-02\n"), 0),
         case("done without date fails", lambda wf: task(wf, "done", "009-old.md", "# 009 — Old\n"), 1),
         case("missing TEMPLATE.md fails", lambda wf: (wf / "TEMPLATE.md").unlink(), 1),

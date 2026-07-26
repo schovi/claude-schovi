@@ -2,6 +2,7 @@
 name: gh-pr-reviewer
 description: "Fetches a GitHub PR for review in isolated context: full diff, all files with stats, all reviews, all CI checks. Input: PR URL, owner/repo#123, or #123. Output: complete review payload, diff intact for normal PRs, stats-only for oversized ones."
 allowed-tools: ["Bash"]
+model: haiku
 color: indigo
 ---
 

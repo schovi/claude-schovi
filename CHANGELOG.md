@@ -5,6 +5,20 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.3.0] - 2026-07-26
+
+### Added
+- **Per-task model routing** — optional `model: haiku|sonnet|opus` metadata line on a task file. `groom` sets it only on a task its reconnaissance proved mechanical (doc sync, rename, config bump, established pattern, no surviving judgment call); `batch-work` dispatches that unit's worker on the named tier and everything else inherits the session's model. The tier is frozen into the batch plan at selection time, because the task file leaves `ready/` the moment its unit starts and the grep can't be repeated. Claude-only; the Codex adapter ignores the line. Validator accepts the four aliases and rejects anything else
+
+### Changed
+- `acceptance-verifier` pinned to `sonnet`. It is read-only, evidence-per-verdict, and capped at 800 tokens of output, so it does not need the session's top tier. Revert by deleting one frontmatter line if a gap ever slips the gate
+- `work`'s delegation rule names a tier per dispatch kind — `haiku` for bounded find/summarize, `sonnet` for mechanical edits and test generation — instead of inheriting the session model for every subagent. A dispatch needing a design call isn't bounded and stays inline
+
+## schovi [1.23.0] - 2026-07-26
+
+### Changed
+- Analyzer agents pinned to the cheapest tier that does their job instead of inheriting the session model: `gh-pr-reviewer` → `haiku` (a `gh` passthrough with no judgment beyond the oversize branch, emitting up to 15k output tokens), `jira-analyzer` and `datadog-analyzer` → `sonnet` (fetch and condense). `debug-executor` keeps `inherit` — it makes root-cause calls
+
 ## workflow [3.2.2] - 2026-07-26
 
 ### Fixed

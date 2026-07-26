@@ -4,7 +4,7 @@ Use this adapter only when `spawn_agent` and `wait_agent` are callable. The shar
 
 For each unit:
 
-1. Call `spawn_agent` with a unique lower-snake-case `task_name`, `fork_turns: "none"`, and the complete self-contained worker request from the shared skill as `message`.
+1. Call `spawn_agent` with a unique lower-snake-case `task_name`, `fork_turns: "none"`, and the complete self-contained worker request from the shared skill as `message`. `model:` tiers in the plan are Claude aliases with no Codex equivalent — ignore them here and let every worker inherit the session's model.
 2. Because no conversation turns are forked, the message must include the absolute repository path, the absolute sibling `../work/SKILL.md` path for normal task units, the unit id and kind, any validated dependency note, and the exact response schema.
 3. Keep only one batch worker active. Use `wait_agent` until its final-status notification arrives, then consume only the separately delivered final structured response. A timeout or unrelated mailbox update is not completion; continue waiting. Agent failure or termination fails the unit. If the worker goes idle with no final structured response delivered, apply the shared skill's watchdog rule: resume that *same* worker once with `followup_task` to finish its loop before treating it as a failure. This is the only permitted `followup_task` use — never reuse a worker to run a *different* unit.
 4. Create a new agent for the next unit. All units use the current repository worktree; do not create a separate worktree or run units in parallel.

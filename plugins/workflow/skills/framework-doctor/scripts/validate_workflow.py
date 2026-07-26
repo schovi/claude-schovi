@@ -3,7 +3,7 @@
 
 Layout: workflow/{draft,ready,in-progress,blocked,done}/NNN-slug.md — the
 folder IS the status. Task file: first line `# NNN — Title`, then optional
-`priority:` / `tags:` / `gate:` / `done:` metadata lines.
+`priority:` / `depends:` / `tags:` / `model:` / `gate:` / `done:` metadata lines.
 
 Usage: validate_workflow.py [repo-root]
 Exit codes: 0 = valid, 1 = structural issues (one per line on stderr),
@@ -25,7 +25,7 @@ def pad(task_id):
 def parse_meta(lines):
     meta = {}
     for line in lines[1:10]:
-        match = re.match(r"^(priority|depends|tags|gate|done):\s*(.+?)\s*$", line.strip())
+        match = re.match(r"^(priority|depends|tags|model|gate|done):\s*(.+?)\s*$", line.strip())
         if match:
             meta[match.group(1)] = match.group(2)
     return meta
@@ -45,6 +45,8 @@ def parse_depends(value):
 
 
 TAG = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+# Aliases both runtimes resolve; a version-pinned id would rot as models are retired.
+MODELS = ("haiku", "sonnet", "opus", "inherit")
 
 
 def bad_tags(value):
@@ -188,6 +190,8 @@ def main():
                     issues.append(f"{rel}: task cannot depend on itself")
                 else:
                     depends_edges.append((rel, task_id, dep_ids))
+            if "model" in meta and meta["model"].strip() not in MODELS:
+                issues.append(f"{rel}: 'model:' must be one of {', '.join(MODELS)} (omit the line to inherit)")
             if "tags" in meta:
                 bad = bad_tags(meta["tags"])
                 if bad or not meta["tags"].strip():

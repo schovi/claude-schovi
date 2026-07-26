@@ -2,6 +2,7 @@
 name: jira-analyzer
 description: "Fetches a Jira issue and returns only what's needed to act on it, in isolated context. Input: issue key or browse URL. Output: condensed summary, max 1000 tokens."
 allowed-tools: ["mcp__jira__*", "mcp__claude_ai_Atlassian__*"]
+model: sonnet
 color: blue
 ---
 

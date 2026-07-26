@@ -10,7 +10,7 @@
     {
       "name": "schovi",
       "description": "Workflow automation for software engineering: publish (GitHub PR), review, feedback, address, debug, Jira/GitHub/Datadog auto-detection",
-      "version": "1.22.0",
+      "version": "1.23.0",
       "source": "./plugins/schovi"
     },
     {
@@ -22,7 +22,7 @@
     {
       "name": "workflow",
       "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, framework-init scaffolding, framework-doctor validation/cleanup. Tasks are files in workflow/<status>/ folders (folder = status), board view via ./workflow/status, repo specifics in a workflow/AGENTS.md contract",
-      "version": "3.2.2",
+      "version": "3.3.0",
       "source": "./plugins/workflow"
     }
   ]

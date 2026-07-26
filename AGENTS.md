@@ -59,9 +59,9 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects: green CI on the exact release commit, then an approval gate on version + notes before the tag push, then verification and a follow-up documentation-sync PR (`disable-model-invocation: true`) |
-| groom | workflow | `/workflow:groom [id]` | Refine a board task through intent interview and bounded codebase reconnaissance; Ready means one cohesive, independently deliverable outcome sized for one work loop, with known ownership surfaces and load-bearing contracts; capture mode (no id, findings already in context) mints one task per outcome, reuses the exploration instead of re-reading, and a four-part readiness gate decides ready vs draft-with-`## Open questions` per task; one interview round and one groom commit per session |
+| groom | workflow | `/workflow:groom [id]` | Refine a board task through intent interview and bounded codebase reconnaissance; Ready means one cohesive, independently deliverable outcome sized for one work loop, with known ownership surfaces and load-bearing contracts; capture mode (no id, findings already in context) mints one task per outcome, reuses the exploration instead of re-reading, and a four-part readiness gate decides ready vs draft-with-`## Open questions` per task; one interview round and one groom commit per session. Pins an optional `model:` tier on a task it finished recon confident is mechanical, which is the only place with both the spec and the code to make that call |
 | work | workflow | `/workflow:work [id]` | Implement one Ready task, or an ad-hoc ask when explicitly invoked: dependency gate, routed-doc read, plan in chat, `task NNN:` commits, acceptance-verifier gate, atomic completion commit; hand material scope divergence back for re-grooming |
-| batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner (main context just plans + dispatches + records condensed returns; all task work in isolated subagents), sequential, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: deps-before-dependents ordering, pulls whole Ready deps in, drops any dep it can't satisfy in-batch (draft/in-progress not pullable whole, or blocked/external) and reports |
+| batch-work | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner (main context just plans + dispatches + records condensed returns; all task work in isolated subagents), sequential, stop-on-failure, report to `workflow/reports/`. `auto` builds the batch from the `depends:` graph: deps-before-dependents ordering, pulls whole Ready deps in, drops any dep it can't satisfy in-batch (draft/in-progress not pullable whole, or blocked/external) and reports. Dispatches each worker on the tier its task's `model:` line pinned (Claude only), frozen into the plan since the file leaves `ready/` when its unit starts |
 | status | workflow | `/workflow:status` | Default: decision-oriented overview of the current repo (in progress, next up, batchable now, blockers ranked by unblock value). `all`: combined one-row-per-repo table across every repo's `workflow/` folders. Underlying per-repo dump: `./workflow/status` (done hidden by default, `--done N\|all` to list, `--tag NAME` to filter, `--tags` for the tag vocabulary) |
 | decision | workflow | `/workflow:decision` | Append a `D<N>` entry to the repo's decision log |
 | framework-init | workflow | `/workflow:framework-init` | Explicit-only scaffold of `workflow/` + contract + docs skeleton in a fresh repo; never runs as a missing-framework fallback |
@@ -84,15 +84,17 @@ Commands are thin wrappers: parse arguments → spawn subagent → handle output
 
 ### Registry and Token Budgets (strict)
 
-| Agent (full subagent_type) | Purpose | Max output tokens |
-|----------------------------|---------|-------------------|
-| `schovi:jira-analyzer:jira-analyzer` | Fetch & summarize Jira issues | 1000 |
-| `schovi:gh-pr-reviewer:gh-pr-reviewer` | Fetch GitHub PRs for review, diff intact | 15000 normal, 3000 oversized (>150 files or >20k lines, diff omitted) |
-| `schovi:datadog-analyzer:datadog-analyzer` | Fetch & summarize Datadog data | 1200 |
-| `schovi:debug-executor:debug-executor` | Execute debug workflow | 2500 |
-| `workflow:acceptance-verifier:acceptance-verifier` | Adversarially verify a task's acceptance criteria before the completion commit (report-only, fresh context) | 800 |
+| Agent (full subagent_type) | Model | Purpose | Max output tokens |
+|----------------------------|-------|---------|-------------------|
+| `schovi:jira-analyzer:jira-analyzer` | sonnet | Fetch & summarize Jira issues | 1000 |
+| `schovi:gh-pr-reviewer:gh-pr-reviewer` | haiku | Fetch GitHub PRs for review, diff intact | 15000 normal, 3000 oversized (>150 files or >20k lines, diff omitted) |
+| `schovi:datadog-analyzer:datadog-analyzer` | sonnet | Fetch & summarize Datadog data | 1200 |
+| `schovi:debug-executor:debug-executor` | inherit | Execute debug workflow | 2500 |
+| `workflow:acceptance-verifier:acceptance-verifier` | sonnet | Adversarially verify a task's acceptance criteria before the completion commit (report-only, fresh context) | 800 |
 
 Never return raw payloads to the main context. Condense analyzer output; `gh-pr-reviewer` is the exception, since a summarized diff can't be reviewed.
+
+Every agent carries an explicit `model:` in its AGENT.md frontmatter, because the default is inherit and a session on the largest model would otherwise pay top tier for a `gh` passthrough. Pin the cheapest tier that does the job: `haiku` for mechanical fetch and passthrough with no judgment, `sonnet` for fetch-and-condense and for bounded read-only verification, `inherit` when the agent makes design or root-cause calls. The Codex twins omit it (`references/codex-agents.md`) and `sync-codex-agents.py` ignores the key, so the pin is Claude-only and needs no twin regeneration. Task files carry the same idea one level up: an optional `model:` metadata line lets `/workflow:groom` route a mechanical task's `batch-work` worker to a cheaper tier.
 
 Write agents and skills for a model that already verifies its own work and delegates readily. No self-verification checklists, no per-section token budgets, no "❌ NEVER / ✅ ALWAYS" blocks, no templated error messages for every failure mode, no ASCII banners or self-reported token counts. State the contract and the judgment calls; let the model handle the rest. Prefer one subagent over a chain, and never spawn one to check another's work (the `acceptance-verifier` is deliberate: it verifies written criteria in fresh context, which is a gate, not a self-check).
 

@@ -69,7 +69,7 @@ Everything downstream (isolated subagent per unit, clean-tree gate between units
 1. **Resume check** — glob `workflow/reports/batch-*.md` (date-agnostic: an overnight batch can span midnight, so don't scope to today). If any carries `Status: in-progress`, this is a resumed batch — take the most recent one: adopt its frozen plan verbatim, skip selection and the rest of these preconditions, and go to Execution at its `next=` unit. Do **not** recompute selection — board state may have shifted mid-batch and the frozen order is the decision of record. Otherwise continue below to start a fresh batch.
 2. `git status --porcelain` — if it prints anything, stop and report the dirty paths. Do not stash, reset, clean, or commit the existing worktree.
 3. Run the bundled validator: `python3 <plugin>/skills/framework-doctor/scripts/validate_workflow.py` (resolve `<plugin>` via `${CLAUDE_PLUGIN_ROOT}`, or relative to this skill file). Stop if the framework is inconsistent.
-4. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`) — the orchestrator's only reads. Selection by mode: no arg → priority order (lowest `priority:` first, ties by id); `auto` → the runnable, dependency-ordered set from **`auto` selection** above; explicit IDs → the given order, all must be in `ready/`. Apply **Dependency handling** to any selected task with an unmet `depends:`, in every mode.
+4. Read `workflow/AGENTS.md` (contract) and the Ready queue (`./workflow/status`) — the orchestrator's only reads. Collect the per-task model tiers with one cheap grep over the queue (`grep -H '^model:' workflow/ready/*.md`, empty output is normal) — a metadata scrape, not a task-file read, so it stays inside the orchestrator's budget. Selection by mode: no arg → priority order (lowest `priority:` first, ties by id); `auto` → the runnable, dependency-ordered set from **`auto` selection** above; explicit IDs → the given order, all must be in `ready/`. Apply **Dependency handling** to any selected task with an unmet `depends:`, in every mode.
 5. Resolve the report path: `workflow/reports/batch-<YYYY-MM-DD>.md`, appending `-2`, `-3`, … when a *completed or stopped* report already occupies the path (never overwrite a finished run's record). Write the report file now with the full plan and `Status: in-progress | next=<first unit>` (see **Report**), **commit it** (`batch-work: <date> plan`) so the tree is clean before the first unit, then print the same plan: the ordered units (task id + title), any dropped tasks and why, report path.
 
 ## Execution
@@ -86,6 +86,8 @@ Work the plan's units in order, one isolated subagent at a time. The orchestrato
 A compaction between any two of these steps is harmless: step 1 reloads the truth on the next turn. The report is committed at every checkpoint, so the tree is clean whenever a worker starts.
 
 **A worker that yields control without emitting its final structured return is not done.** It may have parked while a child subagent (validation, acceptance-verifier, a contract-named helper) was still running, then stopped once the child finished without resuming its own loop. This is a stall, not a completion or a failure. Resume the *same* worker once to finish its loop and produce the structured return; only a second yield with still no structured return is a real failure (step 3 below). Do not open a new worker for the unit — that duplicates its work on the shared tree.
+
+Dispatch each unit on the model tier its plan entry records: a task that carried a `model:` line runs its worker on that tier, everything else inherits the host's model. The tier is frozen into the plan at precondition 4 because the grep can't be repeated later — the task file moves out of `ready/` the moment its unit starts. A resumed batch reads the tier from the report like every other plan decision; never re-derive it, and never downgrade a unit the plan didn't mark.
 
 Resolve the absolute path to the sibling `../work/SKILL.md`, then send this self-contained request for the unit through the selected runtime adapter. It carries only what `/work` can't know on its own — which task, that the run is unattended, and the return schema. Don't re-list `/work`'s steps here: a partial restatement reads as the authoritative loop and the worker follows it over the skill.
 
@@ -121,7 +123,7 @@ The report is created at plan time and updated in place as the batch runs — it
 
 Status: in-progress | next=185
 
-Tasks: 184, 185, 186
+Tasks: 184, 185 (model: sonnet), 186                                 # tier only where the task pinned one
 Dropped: 187 (dep 191 blocked/ on external gate)                     # omit if none
 
 ## Per task

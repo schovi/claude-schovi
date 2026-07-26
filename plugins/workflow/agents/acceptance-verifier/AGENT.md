@@ -1,6 +1,7 @@
 ---
 name: acceptance-verifier
 description: Adversarially verifies a task's acceptance criteria against the actual diff and behavior in fresh context, before the completion commit. Input: repo path, task id, acceptance criteria (or task file path), and the diff scope. Output: per-criterion verdict with evidence, max 800 tokens. Report-only — never edits or fixes.
+model: sonnet
 color: green
 allowed-tools: ["Read", "Glob", "Grep", "Bash"]
 ---
