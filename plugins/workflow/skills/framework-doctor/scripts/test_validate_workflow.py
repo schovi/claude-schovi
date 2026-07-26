@@ -26,7 +26,6 @@ def scaffold(tmp):
     status.write_text("#!/usr/bin/env python3\n")
     status.chmod(0o755)
     (wf / "TEMPLATE.md").write_text("# NNN — Title\n")
-    (wf / "next-task-id").write_text("100\n")
     return root, wf
 
 
@@ -76,6 +75,7 @@ def main():
         case("unknown model fails", ready("010-a.md", "# 010 — A\n\npriority: 10\nmodel: gpt-5\n\n## Acceptance criteria\n- x\n"), 1),
         case("legacy-named done task passes", lambda wf: task(wf, "done", "M12-legacy.md", "# M12: Legacy thing\n\ndone: 2026-01-02\n"), 0),
         case("done without date fails", lambda wf: task(wf, "done", "009-old.md", "# 009 — Old\n"), 1),
+        case("stale next-task-id counter fails", lambda wf: (wf / "next-task-id").write_text("100\n"), 1),
         case("missing TEMPLATE.md fails", lambda wf: (wf / "TEMPLATE.md").unlink(), 1),
         case("missing reports/ fails", lambda wf: (wf / "reports").rmdir(), 1),
         case("missing status folder is missing/legacy (exit 2)", lambda wf: shutil.rmtree(wf / "ready"), 2),

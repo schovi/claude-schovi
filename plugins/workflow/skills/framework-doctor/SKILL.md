@@ -22,7 +22,7 @@ Run the bundled validator from the repo root:
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/framework-doctor/scripts/validate_workflow.py"
 ```
 
-(Codex: resolve the script relative to this skill file.) Exit codes: `0` valid, `1` structural issues (one per line — task filename/heading, missing acceptance, stray `status:`/frontmatter, bad `priority:`/`gate:`/`done:`/`tags:`, unknown or cyclic `depends:`, missing `TEMPLATE.md`/`reports/`/`next-task-id`), `2` no framework here → `/workflow:framework-init`. The validator tolerates an uncommitted in-progress move — normal mid-work state.
+(Codex: resolve the script relative to this skill file.) Exit codes: `0` valid, `1` structural issues (one per line — task filename/heading, missing acceptance, stray `status:`/frontmatter, bad `priority:`/`gate:`/`done:`/`tags:`, unknown or cyclic `depends:`, missing `TEMPLATE.md`/`reports/`, leftover `next-task-id` counter to delete), `2` no framework here → `/workflow:framework-init`. The validator tolerates an uncommitted in-progress move — normal mid-work state.
 
 ## 2. Refresh shipped files
 

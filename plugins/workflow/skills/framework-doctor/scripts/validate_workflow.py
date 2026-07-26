@@ -215,16 +215,11 @@ def main():
         chain = " -> ".join(pad(i) for i in cycle)
         issues.append(f"depends: cycle {chain} — these tasks can never start; break it in groom")
 
-    highest = max(seen, default=0)
-    counter = workflow / "next-task-id"
-    if not counter.exists():
-        issues.append("workflow/next-task-id: required task ID counter is missing")
-    else:
-        raw = counter.read_text(encoding="utf-8").strip()
-        if not raw.isdigit():
-            issues.append("workflow/next-task-id: must contain one integer")
-        elif int(raw) <= highest:
-            issues.append(f"workflow/next-task-id: {int(raw)} must be greater than highest known task ID {highest}")
+    # Retired: ids come from `./workflow/status --next-id`, which derives them from
+    # files here, in sibling worktrees, and in history. A stored counter conflicted on
+    # every merge and handed the same id to two worktrees.
+    if (workflow / "next-task-id").exists():
+        issues.append("workflow/next-task-id: stale counter file — delete it; ids come from ./workflow/status --next-id")
 
     if issues:
         print(f"Workflow validation failed with {len(issues)} issue(s):", file=sys.stderr)

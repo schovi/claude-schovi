@@ -182,18 +182,36 @@ function resolveRepo(repos: string[], name: string): string {
   return repo;
 }
 
+// Next free task id, derived instead of stored. Three sources, because no single one
+// is enough across worktrees: task files here, task files in every sibling worktree
+// (uncommitted drafts included), and every id ever committed under workflow/ on any
+// ref (merged elsewhere, renamed, or living only on a branch this checkout can't
+// see). Mirrors `workflow/status --next-id`; a stored counter conflicts on every
+// merge and still hands the same number to two worktrees minting in parallel.
+function nextTaskId(repo: string): number {
+  const ids = new Set<number>();
+  for (const loc of [repo, ...worktreesOf(repo)])
+    for (const section of SECTIONS)
+      for (const f of mdFiles(join(loc, "workflow", section))) {
+        const m = /^(\d+)/.exec(f);
+        if (m) ids.add(parseInt(m[1], 10));
+      }
+  for (const line of git(["log", "--all", "--name-only", "--pretty=format:", "--", "workflow/"], repo).split("\n")) {
+    const m = /^workflow\/[\w-]+\/(\d+)/.exec(line);
+    if (m) ids.add(parseInt(m[1], 10));
+  }
+  return Math.max(0, ...ids) + 1;
+}
+
 function createDraft(repo: string, title: string, what: string): string {
-  const counter = join(repo, "workflow", "next-task-id");
-  const nextId = parseInt(readFileSync(counter, "utf-8").trim(), 10);
-  const padded = String(nextId).padStart(3, "0");
+  const padded = String(nextTaskId(repo)).padStart(3, "0");
   const name = `${padded}-${slugify(title)}.md`;
   const path = join(repo, "workflow", "draft", name);
   writeFileSync(path,
     `# ${padded} — ${title}\n\n## What & why\n\n${what.trim()}\n\n` +
     `## Spec\n\n## Acceptance criteria\n\n- \n\n## Notes\n`);
-  writeFileSync(counter, `${String(nextId + 1).padStart(3, "0")}\n`);
-  git(["add", "--", path, counter], repo);
-  git(["commit", "-m", `task ${padded}: add draft (dashboard)`, "--", path, counter], repo);
+  git(["add", "--", path], repo);
+  git(["commit", "-m", `task ${padded}: add draft (dashboard)`, "--", path], repo);
   return name;
 }
 
@@ -304,7 +322,6 @@ function selftest() {
     const repo = join(tmp, "demo");
     const wf = join(repo, "workflow");
     for (const s of SECTIONS) mkdirSync(join(wf, s), { recursive: true });
-    writeFileSync(join(wf, "next-task-id"), "042\n");
     writeFileSync(join(wf, "ready", "041-existing.md"), "# 041 — Existing\n\npriority: 10\ndepends: 099\ntags: api, ui\n");
     writeFileSync(join(wf, "done", "007-old.md"), "# 007 — Old\n\ndone: 2026-01-01\n");
     git(["init", "-q"], repo);
@@ -327,7 +344,6 @@ function selftest() {
     const name = createDraft(repo, "New Thing!", "because reasons");
     assert(name === "042-new-thing.md", "draft name " + name);
     assert(existsSync(join(wf, "draft", name)), "draft file");
-    assert(readFileSync(join(wf, "next-task-id"), "utf-8").trim() === "043", "counter bump");
 
     const body = readFileSync(join(wf, "draft", name), "utf-8").replace("## Notes", "priority: 30\n\n## Notes");
     saveTask(repo, "draft", name, body, "ready");
@@ -358,6 +374,18 @@ function selftest() {
     const t41d = b3.tasks.find((t: any) => t.id === 41);
     assert(t41d.section === "in-progress", "uncommitted worktree move wins: " + t41d.section);
     assert(t41d.worktree[0] === "via demo-wt", "worktree origin badge (dirty): " + t41d.worktree);
+
+    // An id must never be handed out twice, and neither of these is visible to a
+    // counter file in this checkout: a task minted (even uncommitted) in a worktree,
+    // and a task whose file no longer exists anywhere but is in some ref's history.
+    mkdirSync(join(wt, "workflow", "draft"), { recursive: true });
+    writeFileSync(join(wt, "workflow", "draft", "050-in-worktree.md"), "# 050 — In worktree\n");
+    assert(nextTaskId(repo) === 51, "next id sees an uncommitted worktree task: " + nextTaskId(repo));
+    git(["add", "-A"], wt);
+    git(["commit", "-qm", "task 050: add"], wt, future);
+    git(["rm", "-q", "workflow/draft/050-in-worktree.md"], wt);
+    git(["commit", "-qm", "drop 050"], wt, future);
+    assert(nextTaskId(repo) === 51, "next id still counts an id only history remembers: " + nextTaskId(repo));
 
     // The server watches exactly the dirs a build consulted, so worktrees must be in there.
     const dirs = new Set<string>();

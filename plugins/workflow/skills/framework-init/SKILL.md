@@ -21,8 +21,7 @@ Scaffold the workflow framework in a fresh repo. Templates live next to this ski
 2. **Create `workflow/`**:
    - status folders `draft/`, `ready/`, `in-progress/`, `blocked/`, `done/`, plus `reports/` — each with a `.gitkeep` (git doesn't track empty dirs; the folders must exist for `mv` and the validator)
    - `TEMPLATE.md` from `templates/TEMPLATE.md`
-   - `status` from `templates/status`, then `chmod +x workflow/status` — the board view is `./workflow/status`
-   - `next-task-id` containing `001`
+   - `status` from `templates/status`, then `chmod +x workflow/status` — the board view is `./workflow/status`, and `./workflow/status --next-id` is where task ids come from (derived from files, worktrees, and git history; there is no counter file)
 3. **Write the contract** `workflow/AGENTS.md` from `templates/AGENTS.md`, pre-filled by inspecting the repo — project one-liner from the README, validation commands from `package.json` scripts / Makefile / existing CI, verify skills and doc leaves from what exists under `.claude/skills/` and `docs/`. Confirm the guesses with one question round (AskUserQuestion on Claude; plain chat questions on Codex): validation commands, verify mapping, decision log yes/no — defaults from the inspection.
 4. **Docs skeleton** (only what's missing, only if the user opted in during the question round): `docs/style.md` stub (one job per file, cross-link don't duplicate, no execution logs), empty `docs/areas/` and `docs/spec/` with a one-line README each. Content stays the repo's job.
 5. **Route the repo instructions**: add a `## Work tracking` section to the root `AGENTS.md` (create it, plus a `CLAUDE.md` containing `@AGENTS.md`, if missing — but follow the repo's existing pattern, e.g. `AGENTS.md` as a symlink to `CLAUDE.md`):

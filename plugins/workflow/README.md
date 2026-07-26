@@ -11,7 +11,6 @@ workflow/
 ├── AGENTS.md          # repo contract (see below)
 ├── TEMPLATE.md        # task file template
 ├── status             # executable board view: ./workflow/status
-├── next-task-id       # monotonic ID counter
 ├── draft/             # groom before pickup
 ├── ready/             # ordered queue — priority: line, lowest = next
 ├── in-progress/
@@ -38,7 +37,9 @@ done: 2026-07-10        # added on completion
 ## Notes                 # never an execution log — git history is
 ```
 
-No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history; `--tag NAME`, repeatable, keeps only tasks carrying every named tag; `--tags` lists the tag vocabulary in use with counts, so tags get reused rather than reinvented). When other git worktrees exist, `status` also scans them and flags tasks in flight elsewhere (different section or uncommitted edits) that this checkout's folders don't yet reflect.
+No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history; `--tag NAME`, repeatable, keeps only tasks carrying every named tag; `--tags` lists the tag vocabulary in use with counts, so tags get reused rather than reinvented; `--next-id` prints the id to mint the next task with). When other git worktrees exist, `status` also scans them and flags tasks in flight elsewhere (different section or uncommitted edits) that this checkout's folders don't yet reflect.
+
+Task ids are **derived, not stored**: `--next-id` takes the highest id across this checkout's task files, every sibling worktree's (uncommitted drafts included), and every id ever committed under `workflow/` on any ref, then adds one. So an id minted in another worktree or on a branch that never merged is never handed out twice, and there is no counter file to conflict on every merge.
 
 ## Lifecycle
 

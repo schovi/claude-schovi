@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Print the board from the workflow/ status folders.
 
-Usage: workflow/status [--done N|all] [--tag NAME ...] [--tags]
+Usage: workflow/status [--done N|all] [--tag NAME ...] [--tags] [--next-id]
        (default: done hidden, count only; --tag keeps only tasks with every named
-       tag; --tags prints the tag vocabulary in use with counts, then exits)
+       tag; --tags prints the tag vocabulary in use with counts, then exits;
+       --next-id prints the id to mint the next task with, then exits)
 Folder = status. Task file: first line `# NNN — Title`, then optional
 `priority:` (ready), `depends:` (task IDs), `tags:` (lowercase slugs), `gate:`
 (blocked), `done:` (done) lines.
@@ -111,6 +112,28 @@ def show_worktrees():
             print("    (board matches this checkout)")
 
 
+def print_next_task_id():
+    """Print the next free task id, derived instead of stored.
+
+    Three sources, because no single one is enough across worktrees: task files in
+    this checkout, task files in every sibling worktree (uncommitted drafts
+    included), and every id ever committed under workflow/ on any ref (an id whose
+    file was merged elsewhere, renamed, or lives only on a branch this checkout
+    can't see). A stored counter file conflicts on every merge and still hands the
+    same number to two worktrees minting in parallel.
+    """
+    ids = set()
+    for root in [ROOT] + [wt / "workflow" for wt in other_worktrees()]:
+        for section in SECTIONS:
+            for path in (root / section).glob("*.md"):
+                match = re.match(r"(\d+)", path.name)
+                if match:
+                    ids.add(int(match.group(1)))
+    log = git(["log", "--all", "--name-only", "--pretty=format:", "--", "workflow/"])
+    ids |= {int(m.group(1)) for m in re.finditer(r"^workflow/[\w-]+/(\d+)", log, re.M)}
+    print(f"{max(ids, default=0) + 1:03d}")
+
+
 def print_tag_vocabulary():
     """Tags actually in use, with counts — the vocabulary to reuse instead of coining a synonym."""
     counts = {}
@@ -125,6 +148,10 @@ def print_tag_vocabulary():
 
 
 def main():
+    if "--next-id" in sys.argv:
+        print_next_task_id()
+        return
+
     done_limit = 0  # done is history, not a decision input — hidden unless asked
     if "--done" in sys.argv:
         value = sys.argv[sys.argv.index("--done") + 1]

@@ -5,6 +5,11 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.4.0] - 2026-07-26
+
+### Changed
+- **Task ids are derived, not stored.** `workflow/next-task-id` is retired; `./workflow/status --next-id` computes the next id from the highest one across this checkout's task files, every sibling worktree's (uncommitted drafts included), and every id ever committed under `workflow/` on any ref. The counter conflicted on every merge and still handed the same number to two worktrees minting in parallel, so ids had to be rewritten by hand after a merge. `groom` and the board dashboard both mint this way; `framework-doctor` flags a leftover counter file for deletion
+
 ## workflow [3.3.0] - 2026-07-26
 
 ### Added
