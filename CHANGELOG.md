@@ -5,6 +5,12 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.2.2] - 2026-07-26
+
+### Fixed
+- `status` triggers on an explicit `/workflow:status` even when the invocation carries a follow-up question (tag scope, what can run in parallel, what a chain waits on). The old "do not use for work-prioritization questions" exclusion read as an opt-out for exactly those asks; it now excludes only generic project-status questions unrelated to the board
+- `status` answers a question carried by the invocation directly, keeping only the sections that bear on it, instead of emitting the full five-section overview
+
 ## workflow [3.2.1] - 2026-07-25
 
 ### Fixed

@@ -2,17 +2,22 @@
 name: status
 description: >
   Show a decision-oriented overview of tracked workflow-board work in the
-  current repo, or a one-line-per-repo table with "all". Use when the user
-  explicitly invokes "/workflow:status" or "use $status". When
-  workflow/AGENTS.md exists, also use for an unmistakable question about that
-  board's queue, progress, dependencies, or gates. Do not use for generic
-  project-status or work-prioritization questions. Read-only; never edits,
+  current repo, or a one-line-per-repo table with "all". Always use when the
+  user explicitly invokes "/workflow:status" or "use $status", including when
+  that invocation carries a follow-up question (scoped to a tag, which tasks
+  can run in parallel, what a chain waits on) — the question is the request,
+  not a reason to skip the skill. When workflow/AGENTS.md exists in this
+  initialized repo, also use for an unmistakable question about that board's
+  queue, progress, dependencies, or gates. Do not use for generic
+  project-status questions unrelated to that board. Read-only; never edits,
   moves, commits, or initializes the framework.
 ---
 
 # Status
 
 Two modes. Read-only — never edit, move, or commit. Point at `/workflow:framework-doctor` for inconsistencies.
+
+If the invocation carries a question (a tag scope, "what can run in parallel to this", "what does this chain wait on"), still read the board the same way, then answer that question directly instead of emitting the full overview. Keep only the sections that bear on the answer.
 
 ## Default (no arg): current-repo overview
 
