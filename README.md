@@ -31,7 +31,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `status` | workflow | `/workflow:status` | Current-repo work overview by default (next up, batchable, blockers ranked by unblock value); `all` for a combined across-repos table. Per-repo dump: `./workflow/status` |
 | `decision` | workflow | `/workflow:decision` | Appends a `D<N>` record to the repo's decision log |
 | `framework-init` | workflow | `/workflow:framework-init` | Scaffolds `workflow/` + repo contract + docs skeleton in a fresh repo |
-| `framework-doctor` | workflow | `/workflow:framework-doctor` | Validates an initialized repo (bundled script), refreshes drifted shipped files, backfills missing task `tags:`, and checks contract + Codex parity; reports first, applies on approval |
+| `framework-doctor` | workflow | `/workflow:framework-doctor` | Validates an initialized repo (bundled script), refreshes drifted shipped files, backfills missing task `tags:`, and checks contract health, duplicated process docs, and Codex parity; reports first, applies on approval |
 
 In Codex, invoke skills as `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`, `use $groom`, `use $work`, etc.
 

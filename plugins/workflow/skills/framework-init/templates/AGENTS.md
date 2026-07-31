@@ -2,6 +2,8 @@
 
 Read by the `workflow` plugin skills (`/workflow:groom`, `/workflow:work`, `/workflow:batch-work`) before acting. This file holds repo-specific facts only; the process lives in the plugin. Keep it short and current.
 
+Rules that govern every agent session, not just carded work (autonomy limits, fix-vs-ask on a failed check, git and worktree safety), belong in the root `AGENTS.md`: that one loads once per session, this one is read per workflow command. Don't restate them here, and don't keep a separate process doc that restates either — a second copy drifts from the first.
+
 ## Project
 
 <One-liner used to brief subagents: what the app is, stack, where sources and docs live.>
@@ -39,4 +41,4 @@ Read the doc leaf before editing mapped paths — behavior and invariants live i
 
 ## Local notes
 
-<Anything else the loop must respect: design-system skill to invoke first, balance changelog, repo agents like test-writer, autonomy limits. Delete if empty.>
+<Anything else the loop must respect: design-system skill to invoke first, balance changelog, repo agents like test-writer. Delete if empty.>

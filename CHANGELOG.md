@@ -5,6 +5,13 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.5.0] - 2026-07-31
+
+### Changed
+- **The contract owns repo facts, the root `AGENTS.md` owns session-wide rules.** The contract template said "autonomy limits" belong in its Local notes, which is the wrong audience twice over: the contract is read per workflow command, so a plain session gets none of it, and `work` already carries the fix-and-continue vs stop-and-ask rule. The template header now routes autonomy, fix-vs-ask, and git/worktree safety to the root `AGENTS.md` and says not to keep a separate process doc restating either
+- `framework-doctor`'s contract check also reports a second copy of the process: contract sections restating plugin-owned lifecycle or session-wide rules, and a rival `docs/workflow.md`-style process doc beside the contract (found by grepping for board references, not by guessing filenames). Reports line-level overlap against plugin, contract, and root `AGENTS.md`, names the residue owned nowhere else, and proposes deleting the copy rather than linking it — with any contradiction between the copies shown as evidence that the drift already happened. Residue is judged against the committed repo only: a rule living in a personal `~/.claude/CLAUDE.md` counts as uncovered, since teammates and other runtimes never see it, so it moves to the root `AGENTS.md` instead of being deleted as a duplicate
+- `framework-doctor` also checks the root `AGENTS.md` still carries the `## Work tracking` pointer `framework-init` writes, and may edit that file when residue moves there (previously it only ever ran `git mv` or overwrote shipped files)
+
 ## workflow [3.4.0] - 2026-07-26
 
 ### Changed
