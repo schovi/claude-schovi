@@ -44,6 +44,8 @@ The unit of work is a **task** — one `NNN-slug.md` file whose status is the fo
     ```
 11. **Commit once per session**, at the end, covering every task groomed: `groom: 054, 055`. Don't commit per task; don't leave groom output uncommitted (batch-work needs a clean tree).
 
+Tool discipline: read files with `Read`, search with `Grep`/`Glob`. A shell read (`cat`, `sed -n`, `head`) dumps the body into the transcript raw, doesn't deduplicate against a copy already in context, and is re-read on every remaining turn of the session; Bash is for state changes and process control (git, `./workflow/status`, the contract's checks). Route long command output to a scratchpad file and `Grep` that instead of piping it into the transcript.
+
 Delegation: at most one bounded read-only subagent, only when an open question spans more files than you've read; give it the contract's project one-liner, the doc leaf paths, and one bounded question. Decisions stay here.
 
 Codex: invoke as `use $groom`; run the read/search steps inline instead of spawning a subagent.

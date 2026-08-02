@@ -5,6 +5,11 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.6.0] - 2026-07-31
+
+### Changed
+- **Read files with `Read`, not `cat`/`sed -n`.** A transcript audit of 146 board sessions found shell reads to be the single largest token driver: the same contract, template, and source files re-read with `cat`/`sed -n` dump their bodies into the transcript raw, so they never deduplicate against the copy already in context and are re-read on every remaining turn. `work` and `groom` now carry a one-line tool-discipline rule (Bash is for state changes and process control; long output goes to a scratchpad file and gets `Grep`ed), and `batch-work`'s orchestrator allowance is bounded to shell that changes or reports state, closing the "cheap shell" loophole that let the orchestrator read files it was already forbidden to open
+
 ## workflow [3.5.0] - 2026-07-31
 
 ### Changed
