@@ -5,6 +5,14 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.7.0] - 2026-08-02
+
+### Fixed
+- **`batch-work` workers lost their structured return when dispatched as named agents.** Passing `name` to the `Agent` tool turns a worker into an addressable teammate — a peer session rather than a subagent — so the call stops blocking, the tool result is a spawn acknowledgement, and the worker's final message goes to its own session and is never delivered upstream. A transcript audit found this in four sessions: 13/13 named dispatches returned a 307-byte ack and no return, while 18/18 unnamed foreground dispatches returned the full `final_status` block. The orchestrator then reconstructed each unit's outcome from commit bodies, which records that code landed but silently drops the acceptance-gate verdict. The Claude adapter now states the two async-shaping arguments explicitly (no `name`, `run_in_background: false`) and why each alternative has no return channel
+
+### Changed
+- **The batch-work stall rule is now a dispatch-failure rule.** Its old wording told the orchestrator to resume a stalled worker "via `SendMessage`" — a recovery that only exists for addressable teammates, which is what pushed the model to name its workers and break the return path in the first place. A missing structured return is now diagnosed as a malformed dispatch first, the retry mechanism is delegated to the adapter (Claude re-dispatches, Codex's mailbox model legitimately resumes the same worker), and reconstructing a unit's outcome from its commits is explicitly not a substitute for the return
+
 ## workflow [3.6.0] - 2026-07-31
 
 ### Changed
