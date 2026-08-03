@@ -30,9 +30,23 @@ button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 .badge.tag{background:transparent;border:1px dashed var(--line);color:var(--muted)}
 .done{color:var(--muted);font-size:12px;padding:4px 6px}
 #overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center}
-#modal{background:var(--card);border-radius:8px;padding:16px;width:min(680px,92vw);max-height:90vh;overflow:auto}
-#modal textarea{width:100%;height:340px;font:13px/1.5 ui-monospace,Menlo,monospace;padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:inherit}
+#modal{background:var(--card);border-radius:8px;padding:20px 24px;width:min(1040px,95vw);max-height:92vh;overflow:auto}
+#modal h3{margin:0 0 12px;font-size:14px}
+#modal textarea{width:100%;height:min(64vh,720px);font:13px/1.5 ui-monospace,Menlo,monospace;padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:inherit}
 #modal .row{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.md{font-size:15px;line-height:1.55;max-height:74vh;overflow:auto}
+.md h1{font-size:19px;margin:0 0 12px}
+.md h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:20px 0 6px}
+.md h3,.md h4{font-size:14px;margin:14px 0 4px}
+.md p{margin:8px 0}
+.md ul,.md ol{margin:8px 0;padding-left:24px}
+.md li{margin:3px 0}
+.md a{color:var(--accent)}
+.md hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+.md code{background:var(--col);padding:1px 5px;border-radius:3px;font:13px/1.4 ui-monospace,Menlo,monospace}
+.md pre{background:var(--col);padding:10px 12px;border-radius:4px;overflow-x:auto;font:13px/1.5 ui-monospace,Menlo,monospace}
+.md blockquote{margin:8px 0;padding-left:12px;border-left:3px solid var(--line);color:var(--muted)}
+.md input[type=checkbox]{margin-right:6px}
 select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--card);color:inherit}
 .err{color:var(--warn);font-size:12px}
 #toasts{position:fixed;bottom:16px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:10}
@@ -51,16 +65,81 @@ select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background
 <div id="board"></div>
 <div id="overlay"><div id="modal"></div></div>
 <div id="toasts"></div>
+<script id="md">
+// Minimal markdown for task bodies: headings, bullet/numbered lists, checkboxes,
+// fenced + inline code, links, bold, quotes, rules. Escapes first, so task text can
+// never inject HTML. Flat by design — task files don't nest lists. DOM-free so
+// `board.ts --selftest` can eval this block; keep it that way.
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function inlineMd(s){
+  return s.replace(/`([^`]+)`/g,"<code>$1</code>")
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+}
+
+function md(src){
+  const out=[];let list=null,code=false,para=[];
+  // <br> not " ": task bodies are line-oriented notes (meta lines, one-per-line
+  // criteria), so collapsing their newlines the way markdown would reads worse.
+  const flush=()=>{if(para.length){out.push("<p>"+inlineMd(para.join("<br>"))+"</p>");para=[]}};
+  const endList=()=>{if(list){out.push("</"+list+">");list=null}};
+  for(const line of esc(src).split("\n")){
+    if(/^\s*```/.test(line)){flush();endList();code=!code;out.push(code?"<pre>":"</pre>");continue}
+    if(code){out.push(line);continue}
+    let m;
+    if(m=/^(#{1,6})\s+(.*)$/.exec(line)){flush();endList();const n=m[1].length;out.push(`<h${n}>${inlineMd(m[2])}</h${n}>`);continue}
+    if(/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)){flush();endList();out.push("<hr>");continue}
+    if(m=/^\s*(?:[-*+]|\d+\.)\s+(.*)$/.exec(line)){
+      flush();
+      const kind=/^\s*\d/.test(line)?"ol":"ul";
+      if(list!==kind){endList();out.push("<"+kind+">");list=kind}
+      out.push("<li>"+inlineMd(m[1]).replace(/^\[([ xX])\]\s*/,(_,c)=>`<input type="checkbox" disabled${c===" "?"":" checked"}> `)+"</li>");
+      continue;
+    }
+    if(m=/^\s*&gt;\s?(.*)$/.exec(line)){flush();endList();out.push("<blockquote>"+inlineMd(m[1])+"</blockquote>");continue}
+    if(!line.trim()){flush();endList();continue}
+    para.push(line.trim());
+  }
+  flush();endList();if(code)out.push("</pre>");
+  return out.join("\n");
+}
+</script>
 <script>
 const COLS=["draft","ready","in-progress","blocked","done"];
 const EDITABLE=["draft","ready"];
-let DATA=[], selected=localStorage.getItem("wboard.repo")||null, prev=null;  // selected: null=show all; prev: last snapshot for change diff
-let showDone=localStorage.getItem("wboard.showDone")==="1";  // done column collapsed by default
-let activeTags=new Set(JSON.parse(localStorage.getItem("wboard.tags")||"[]"));  // AND across selected tags, same as `./workflow/status --tag`
+let DATA=[], prev=null;  // prev: last snapshot for change diff
+let selected=null;       // null = show all repos
+let showDone=false;      // done column collapsed by default
+let activeTags=new Set();// AND across selected tags, same as `./workflow/status --tag`
+let openTask=null;       // "repo/id" of the card in the modal
+let modalKey=null;       // which card the modal actually shows, so a refresh can't clobber an edit
+
+// The URL is the only place view state lives: ?repo=&tags=&q=&done=1&task=repo/41.
+// Query, not hash — the server routes on pathname alone, so a shared link works as is,
+// and pushState on open means Back closes the card.
+function readURL(){
+  const p=new URLSearchParams(location.search);
+  selected=p.get("repo")||null;
+  activeTags=new Set((p.get("tags")||"").split(",").filter(Boolean));
+  showDone=p.get("done")==="1";
+  openTask=p.get("task")||null;
+  document.getElementById("q").value=p.get("q")||"";
+}
+function writeURL(push){
+  const p=new URLSearchParams();
+  if(selected)p.set("repo",selected);
+  if(activeTags.size)p.set("tags",[...activeTags].join(","));
+  const q=document.getElementById("q").value.trim(); if(q)p.set("q",q);
+  if(showDone)p.set("done","1");
+  if(openTask)p.set("task",openTask);
+  const s=p.toString(), url=location.pathname+(s?"?"+s:"");
+  push?history.pushState(null,"",url):history.replaceState(null,"",url);
+}
 
 function toggleTag(tag){
   activeTags.has(tag)?activeTags.delete(tag):activeTags.add(tag);
-  localStorage.setItem("wboard.tags",JSON.stringify([...activeTags]));
+  writeURL();
   render();
 }
 
@@ -100,13 +179,12 @@ async function load(){
   for(const r of DATA){
     const b=document.createElement("button");
     b.textContent=r.repo;
-    b.onclick=()=>{selected=selected===r.repo?null:r.repo;selected?localStorage.setItem("wboard.repo",selected):localStorage.removeItem("wboard.repo");render()};  // click to isolate, click again to clear
+    b.onclick=()=>{selected=selected===r.repo?null:r.repo;writeURL();render()};  // click to isolate, click again to clear
     f.appendChild(b);
   }
   render();
+  syncModal();
 }
-
-function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
 
 function matches(t,q){return (t.title+" "+t.repo+" "+t.id+" "+(t.tags||[]).join(" ")).toLowerCase().includes(q)}
 
@@ -151,7 +229,7 @@ function render(){
       h.textContent=`done (${q?cards.done.length+" matched":doneTotal})`;
       const btn=document.createElement("button");
       btn.textContent=reveal?"hide":"show all"; btn.style.cssText="float:right;font-size:11px;padding:0 6px";
-      btn.onclick=()=>{showDone=!showDone;localStorage.setItem("wboard.showDone",showDone?"1":"");render()};
+      btn.onclick=()=>{showDone=!showDone;writeURL();render()};
       h.appendChild(btn); col.appendChild(h);
       if(reveal)for(const t of cards.done)col.appendChild(cardEl(t));
       else{const d=document.createElement("div");d.className="done";d.textContent=`${doneTotal} completed — history, see git`;col.appendChild(d)}
@@ -182,24 +260,44 @@ function cardEl(t){
 }
 
 function openModal(html){document.getElementById("modal").innerHTML=html;document.getElementById("overlay").style.display="flex"}
-function close(){document.getElementById("overlay").style.display="none"}
+function hideModal(){modalKey=null;document.getElementById("overlay").style.display="none"}
+function close(){openTask=null;writeURL();hideModal()}
 
-function openCard(t){EDITABLE.includes(t.section)?edit(t):view(t)}
+function findTask(key){
+  const i=key.indexOf("/"), repo=key.slice(0,i), id=key.slice(i+1);
+  for(const r of DATA)if(r.repo===repo)for(const t of r.tasks)if(String(t.id)===id)return t;
+  return null;
+}
+
+// Reconcile the modal with ?task= after a load or a Back/Forward. Equal keys mean
+// nothing to do, which also leaves the New-draft dialog (both null) alone.
+function syncModal(){
+  if(openTask===modalKey)return;
+  const t=openTask&&findTask(openTask);
+  if(t)view(t); else {openTask=null;writeURL();hideModal()}
+}
+
+function openCard(t){openTask=t.repo+"/"+t.id;writeURL(true);view(t)}
 
 function view(t){
-  openModal(`<h3>${esc(t.repo)} · ${esc(t.file)} — <span style="color:var(--muted)">${t.section} (read-only)</span></h3>
-    <textarea readonly>${esc(t.body)}</textarea>
-    <div class="row"><button id="cancel">Close</button></div>`);
+  modalKey=openTask;
+  const editable=EDITABLE.includes(t.section);
+  openModal(`<h3>${esc(t.repo)} · ${esc(t.file)} <span style="color:var(--muted);font-weight:400">— ${esc(t.section)}</span></h3>
+    <div class="md">${md(t.body)}</div>
+    <div class="row">${editable?`<button class="primary" id="editbtn">Edit</button>`
+      :`<span style="color:var(--muted);font-size:12px">read-only — /work and the acceptance gate own ${esc(t.section)}</span>`}
+    <button id="cancel">Close</button></div>`);
   document.getElementById("cancel").onclick=close;
+  if(editable)document.getElementById("editbtn").onclick=()=>edit(t);
 }
 
 function edit(t){
-  openModal(`<h3>${esc(t.repo)} · ${esc(t.file)}</h3>
+  openModal(`<h3>${esc(t.repo)} · ${esc(t.file)} <span style="color:var(--muted);font-weight:400">— raw markdown</span></h3>
     <textarea id="body">${esc(t.body)}</textarea>
     <div class="row">status: <select id="to">${EDITABLE.map(s=>`<option ${s===t.section?"selected":""}>${s}</option>`).join("")}</select>
     <button class="primary" id="save">Save & commit</button><button id="cancel">Cancel</button>
     <span class="err" id="err"></span></div>`);
-  document.getElementById("cancel").onclick=close;
+  document.getElementById("cancel").onclick=()=>view(t);
   document.getElementById("save").onclick=async()=>{
     const r=await post("/api/save",{repo:t.repo,section:t.section,file:t.file,to:document.getElementById("to").value,body:document.getElementById("body").value});
     if(r.ok){close();load()}else document.getElementById("err").textContent=r.error;
@@ -225,11 +323,13 @@ function addDraft(){
 
 async function post(url,body){return (await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}
 
-document.getElementById("q").oninput=render;
+document.getElementById("q").oninput=()=>{writeURL();render()};
 document.getElementById("add").onclick=addDraft;
 document.getElementById("refresh").onclick=load;
 document.getElementById("bell").onclick=()=>window.Notification&&Notification.requestPermission();
 document.getElementById("overlay").onclick=e=>{if(e.target.id==="overlay")close()};
+window.onpopstate=()=>{readURL();render();syncModal()};
+readURL();
 load();
 // Live updates: server pushes on any workflow/ file change. Safety poll covers
 // the rare case a filesystem watch event is dropped.

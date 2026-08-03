@@ -91,8 +91,9 @@ bun run plugins/workflow/tools/board.ts          # local checkout
 Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root DIR` (repeatable) to scan elsewhere. Requires [Bun](https://bun.sh); no install step, no dependencies.
 
 - **Columns** `draft / ready / in-progress / blocked / done`. Done is collapsed to a count with a **show all** toggle (it's git history).
-- **Filter** by repo (click a chip to isolate, click again to clear; persisted) and a top text/number box that searches titles and IDs across every column — including done, even while it's collapsed.
-- **Card detail** opens on any card: editable for draft/ready, read-only for in-progress/blocked/done.
+- **Filter** by repo (click a chip to isolate, click again to clear) and a top text/number box that searches titles and IDs across every column — including done, even while it's collapsed.
+- **Card detail** opens on any card as rendered markdown in a wide panel. Draft/ready cards have an **Edit** button that swaps in the raw file for editing; in-progress/blocked/done are read-only.
+- **State is the URL** — `?repo=&tags=&q=&done=1&task=repo/59`. Every filter and the open card are in the query string, so a board view is a link you can share or bookmark, and Back closes the card.
 - **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, `#tag`s, and a worktree flag when a task is in flight in a sibling worktree.
 - **Tag chips** in the header filter the board (AND across selected tags, same semantics as `./workflow/status --tag`); clicking a `#tag` badge on a card toggles that tag. Tags also match the text filter.
 - **Write** is deliberately narrow — add a draft, edit a draft/ready card body, edit its `priority:`, and move draft↔ready. Each write auto-commits in that repo (`task NNN: … (dashboard)`). It does **not** touch in-progress/blocked/done — those transitions are `/work` and the acceptance gate, not file moves.

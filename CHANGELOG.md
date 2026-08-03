@@ -5,6 +5,12 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.8.0] - 2026-08-03
+
+### Changed
+- **Dashboard card detail reads instead of only editing.** Cards open as rendered markdown in a panel roughly twice the old width; draft/ready cards flip to the raw file behind an **Edit** button, so a groomed spec is readable without the reader parsing `##` and backticks. The renderer is ~30 lines inline (headings, lists, checkboxes, code, links, quotes, rules), escapes before it converts, and lives in a DOM-free `<script id="md">` block that `board.ts --selftest` evals and asserts against
+- **Dashboard view state moved to the query string** — `?repo=&tags=&q=&done=1&task=repo/59`. A board view is now a shareable, bookmarkable link instead of per-browser `localStorage`, opening a card pushes history so Back closes it, and the open card survives a refresh
+
 ## workflow [3.7.0] - 2026-08-02
 
 ### Fixed

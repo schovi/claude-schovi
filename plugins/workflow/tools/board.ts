@@ -7,8 +7,10 @@
  * authoritative state is the most recently committed occurrence, so a worktree that
  * moved a task forward wins over an unmerged main, and an uncommitted move there
  * wins over everything. Serves a single-page Kanban
- * at http://127.0.0.1:8787. Add drafts and edit/move draft & ready cards from the
- * UI; each write auto-commits in its repo. Open tabs live-update via SSE fed by a
+ * at http://127.0.0.1:8787. Cards open as rendered markdown; draft & ready ones flip
+ * to a raw editor on demand, and drafts can be added from the UI. Each write
+ * auto-commits in its repo. All view state (repo, tags, text filter, done toggle, open
+ * card) lives in the query string, so a board view is a shareable link. Open tabs live-update via SSE fed by a
  * filesystem watch on every workflow/ dir, worktrees included, re-synced after each
  * board build; a client-side safety poll backs it up.
  *
@@ -317,6 +319,19 @@ function serve(roots: string[], port: number) {
 function assert(cond: any, msg: string) { if (!cond) throw new Error("selftest FAILED: " + msg); }
 
 function selftest() {
+  // The card renderer lives in the page's DOM-free `<script id="md">` block; eval it
+  // here so a regex regression fails the selftest instead of only looking wrong in a tab.
+  const mdSrc = /<script id="md">([\s\S]*?)<\/script>/.exec(
+    readFileSync(new URL("./board.html", import.meta.url), "utf-8"))?.[1];
+  assert(mdSrc, "board.html has a <script id=\"md\"> block");
+  const render: (s: string) => string = new Function(mdSrc + "\nreturn md")();
+  assert(render("# 041 — T") === "<h1>041 — T</h1>", "md heading: " + render("# 041 — T"));
+  assert(render("- [ ] a\n- [x] b") ===
+    '<ul>\n<li><input type="checkbox" disabled> a</li>\n<li><input type="checkbox" disabled checked> b</li>\n</ul>',
+    "md checkboxes: " + render("- [ ] a\n- [x] b"));
+  assert(render("see `src/a.ts:12`") === "<p>see <code>src/a.ts:12</code></p>", "md code span: " + render("see `x`"));
+  assert(render('<img src=x onerror="1">').startsWith("<p>&lt;img"), "md escapes html: " + render("<img>"));
+
   const tmp = mkdtempSync(join(tmpdir(), "wfboard-"));
   try {
     const repo = join(tmp, "demo");
