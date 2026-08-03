@@ -9,8 +9,8 @@
  * wins over everything. Serves a single-page Kanban
  * at http://127.0.0.1:8787. Cards open as rendered markdown; draft & ready ones flip
  * to a raw editor on demand, and drafts can be added from the UI. Each write
- * auto-commits in its repo. All view state (repo, tags, text filter, done toggle, open
- * card) lives in the query string, so a board view is a shareable link. Open tabs live-update via SSE fed by a
+ * auto-commits in its repo. All view state (repo, tags, text filter, card order, done
+ * toggle, open card) lives in the query string, so a board view is a shareable link. Open tabs live-update via SSE fed by a
  * filesystem watch on every workflow/ dir, worktrees included, re-synced after each
  * board build; a client-side safety poll backs it up.
  *

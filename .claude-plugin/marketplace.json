@@ -22,7 +22,7 @@
     {
       "name": "workflow",
       "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, framework-init scaffolding, framework-doctor validation/cleanup. Tasks are files in workflow/<status>/ folders (folder = status), board view via ./workflow/status, repo specifics in a workflow/AGENTS.md contract",
-      "version": "3.8.0",
+      "version": "3.9.0",
       "source": "./plugins/workflow"
     }
   ]

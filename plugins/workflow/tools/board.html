@@ -57,6 +57,7 @@ select{padding:4px 8px;border:1px solid var(--line);border-radius:4px;background
   <div id="filters"></div>
   <div id="tagfilters"></div>
   <input type="text" id="q" placeholder="filter text…">
+  <select id="sort" title="card order"><option value="id">by id</option><option value="priority">by priority</option></select>
   <button id="add">+ Draft</button>
   <button id="refresh">↻</button>
   <button id="bell" title="Enable desktop notifications">🔔</button>
@@ -115,7 +116,7 @@ let activeTags=new Set();// AND across selected tags, same as `./workflow/status
 let openTask=null;       // "repo/id" of the card in the modal
 let modalKey=null;       // which card the modal actually shows, so a refresh can't clobber an edit
 
-// The URL is the only place view state lives: ?repo=&tags=&q=&done=1&task=repo/41.
+// The URL is the only place view state lives: ?repo=&tags=&q=&sort=&done=1&task=repo/41.
 // Query, not hash — the server routes on pathname alone, so a shared link works as is,
 // and pushState on open means Back closes the card.
 function readURL(){
@@ -125,12 +126,14 @@ function readURL(){
   showDone=p.get("done")==="1";
   openTask=p.get("task")||null;
   document.getElementById("q").value=p.get("q")||"";
+  document.getElementById("sort").value=p.get("sort")==="priority"?"priority":"id";
 }
 function writeURL(push){
   const p=new URLSearchParams();
   if(selected)p.set("repo",selected);
   if(activeTags.size)p.set("tags",[...activeTags].join(","));
   const q=document.getElementById("q").value.trim(); if(q)p.set("q",q);
+  const sort=document.getElementById("sort").value; if(sort!=="id")p.set("sort",sort);
   if(showDone)p.set("done","1");
   if(openTask)p.set("task",openTask);
   const s=p.toString(), url=location.pathname+(s?"?"+s:"");
@@ -190,6 +193,11 @@ function matches(t,q){return (t.title+" "+t.repo+" "+t.id+" "+(t.tags||[]).join(
 
 function hasTags(t){for(const tag of activeTags)if(!(t.tags||[]).includes(tag))return false;return true}
 
+// priority: sparse ints, lowest is next (same as `./workflow/status`). Only ready
+// carries one, so elsewhere this degrades to id order — a task without a priority
+// sorts after every task that has one. Server already hands cards over id-sorted.
+function byPriority(a,b){const p=t=>{const n=parseInt(t.meta.priority,10);return isNaN(n)?1e9:n};return p(a)-p(b)||a.id-b.id}
+
 function renderTagChips(visible){
   const box=document.getElementById("tagfilters"); box.innerHTML="";
   const all=new Set(visible.flatMap(t=>t.tags||[]));
@@ -220,6 +228,7 @@ function render(){
     }
   }
   renderTagChips(inRepo);
+  if(document.getElementById("sort").value==="priority")for(const c of COLS)cards[c].sort(byPriority);
   const board=document.getElementById("board"); board.innerHTML="";
   for(const c of COLS){
     const col=document.createElement("div"); col.className="column";
@@ -324,6 +333,7 @@ function addDraft(){
 async function post(url,body){return (await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})).json()}
 
 document.getElementById("q").oninput=()=>{writeURL();render()};
+document.getElementById("sort").onchange=()=>{writeURL();render()};
 document.getElementById("add").onclick=addDraft;
 document.getElementById("refresh").onclick=load;
 document.getElementById("bell").onclick=()=>window.Notification&&Notification.requestPermission();

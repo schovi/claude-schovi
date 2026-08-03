@@ -5,6 +5,11 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [3.9.0] - 2026-08-03
+
+### Added
+- **Dashboard card sorting** — a header select orders every column by task id (default) or by `priority:`, matching `./workflow/status`: lowest first, a task without a priority sorts last, id breaks ties. Lives in the query string as `?sort=priority`, so a prioritised view is as shareable as a filtered one
+
 ## workflow [3.8.0] - 2026-08-03
 
 ### Changed
