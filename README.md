@@ -8,7 +8,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, four plugins, bot
 |--------|---------|
 | `schovi` | Everyday engineering workflows: PR publishing, code review, debugging, Jira/GitHub/Datadog context detection |
 | `homebrew` | CI-gated GitHub release workflow for Homebrew-distributed repos. Install only where it applies |
-| `codex` | Claude Code only. Delegate self-contained tasks to Codex (GPT-5.6) subagents: a bundled `codex-delegate.sh` wrapper hides the event stream and returns only the final message plus a resumable session id. Routing guidance in [plugins/codex/docs/delegation.md](plugins/codex/docs/delegation.md), meant to be copied into your `~/.claude/CLAUDE.md` |
+| `codex` | Claude Code only. Delegate self-contained tasks to Codex (GPT-5.6) subagents: a bundled `codex-delegate.sh` wrapper hides the event stream and returns only the final message plus a resumable session id. Routing guidance in [plugins/codex/docs/delegation.md](plugins/codex/docs/delegation.md), meant to be copied into your `~/.claude/CLAUDE.md`. Overview: [plugins/codex/README.md](plugins/codex/README.md) |
 | `workflow` | Task-board work framework for hobby/solo repos: tasks are files in `workflow/<status>/` folders (folder = status, moves are `git mv`), board view via `./workflow/status` or a cross-repo web Kanban (`bunx github:schovi/claude-schovi`), repo specifics in a `workflow/AGENTS.md` contract. Full model and lifecycle: [plugins/workflow/README.md](plugins/workflow/README.md) |
 
 ## Tools
