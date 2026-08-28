@@ -1,9 +1,9 @@
 {
   "name": "schovi",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "description": "Workflow automation for software engineering: publish (GitHub PR), review, feedback, address, debug, Jira/GitHub/Datadog auto-detection",
   "author": {
     "name": "David Schovanec",
-    "email": "david.schovanec@productboard.com"
+    "email": "schovi@users.noreply.github.com"
   }
 }

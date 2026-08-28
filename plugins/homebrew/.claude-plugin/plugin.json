@@ -4,6 +4,6 @@
   "description": "CI-gated GitHub release workflow for Homebrew-distributed projects: SemVer version selection, release notes, optional GoReleaser, tag publishing, release verification, and a follow-up documentation-sync pull request",
   "author": {
     "name": "David Schovanec",
-    "email": "david.schovanec@productboard.com"
+    "email": "schovi@users.noreply.github.com"
   }
 }

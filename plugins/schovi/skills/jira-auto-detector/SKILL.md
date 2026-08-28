@@ -1,6 +1,6 @@
 ---
 name: jira-auto-detector
-description: "Auto-detection: when user mentions Jira issues (EC-1234, IS-8046, PROJ-567, Atlassian URLs) and needs context (asking about issue, requesting implementation, analyzing, comparing), automatically fetches condensed summary via jira-analyzer subagent. Skips auto-fetch for past tense mentions ('I fixed EC-1234'), passive listings, technical identifiers (endpoint names), already-fetched issues, or casual references."
+description: "Auto-detection: when user mentions Jira issues (PROJ-123, ABC-456, XY-789, Atlassian URLs) and needs context (asking about issue, requesting implementation, analyzing, comparing), automatically fetches condensed summary via jira-analyzer subagent. Skips auto-fetch for past tense mentions ('I fixed PROJ-123'), passive listings, technical identifiers (endpoint names), already-fetched issues, or casual references."
 user-invocable: false
 ---
 
@@ -8,7 +8,7 @@ user-invocable: false
 
 Seamlessly integrates Jira issue context into conversations without polluting the main context window. You decide WHEN to fetch; the jira-analyzer subagent decides HOW to fetch and what to condense.
 
-When an explicit skill is invoked with a Jira ID as argument (`/schovi:publish EC-1234`, `/schovi:review EC-1234`, `/schovi:debug EC-1234`), that skill owns the fetching. Don't activate on top of it.
+When an explicit skill is invoked with a Jira ID as argument (`/schovi:publish PROJ-123`, `/schovi:review PROJ-123`, `/schovi:debug PROJ-123`), that skill owns the fetching. Don't activate on top of it.
 
 ## Codex Compatibility
 
@@ -16,24 +16,24 @@ If a Claude-style `Agent` tool or custom `subagent_type` is unavailable, use the
 
 ## Pattern Recognition
 
-- **Issue keys**: `[A-Z]{2,10}-\d{1,6}` (EC-1234, IS-8046, PROJ-567)
-- **URLs**: `https://productboard.atlassian.net/browse/[KEY]`
-- **Multiple mentions**: "Compare EC-1234 and IS-8046"
+- **Issue keys**: `[A-Z]{2,10}-\d{1,6}` (PROJ-123, ABC-456, XY-789)
+- **URLs**: `https://<site>.atlassian.net/browse/[KEY]`, or your tracker's own issue URL shape
+- **Multiple mentions**: "Compare PROJ-123 and ABC-456"
 
 ## When to Fetch
 
-- Direct questions: "What is EC-1234 about?", "Tell me about IS-8046"
-- Analysis requests: "Analyze EC-1234", "Investigate IS-8046"
-- Implementation requests: "Implement EC-1234", "Fix IS-8046"
-- Problem-solving: "How should I approach EC-1234?"
-- Comparisons: "Compare EC-1234 and IS-8046"
+- Direct questions: "What is PROJ-123 about?", "Tell me about ABC-456"
+- Analysis requests: "Analyze PROJ-123", "Investigate ABC-456"
+- Implementation requests: "Implement PROJ-123", "Fix ABC-456"
+- Problem-solving: "How should I approach PROJ-123?"
+- Comparisons: "Compare PROJ-123 and ABC-456"
 
 ## When to Skip
 
-- Past tense: "I fixed EC-1234 yesterday", "EC-1234 was released last week"
-- Passive listing: "Released with EC-1234, EC-1235, IS-8046", "Changelog: EC-1234"
-- Technical identifiers: "The EC-1234 endpoint returns JSON", "table PROJ_567_users"
-- Casual reference: "Similar to EC-1234 but different", "like we did in PROJ-567"
+- Past tense: "I fixed PROJ-123 yesterday", "PROJ-123 was released last week"
+- Passive listing: "Released with PROJ-123, PROJ-124, ABC-456", "Changelog: PROJ-123"
+- Technical identifiers: "The PROJ-123 endpoint returns JSON", "table XY_789_users"
+- Casual reference: "Similar to PROJ-123 but different", "like we did in XY-789"
 - Already fetched this session (check transcript for previous jira-analyzer calls)
 
 ## Workflow
@@ -50,17 +50,17 @@ Spawn the subagent. Don't announce the detection or narrate the fetch; the answe
 Tool: Agent
 Parameters:
   subagent_type: "schovi:jira-analyzer:jira-analyzer"
-  prompt: "Fetch and summarize https://productboard.atlassian.net/browse/[ISSUE-KEY]"
+  prompt: "Fetch and summarize [ISSUE-KEY] at [BROWSE-URL]"
   description: "Fetching Jira issue context"
 ```
 
-Always pass the FULL browse URL, not the bare key, so the subagent parses the issue reliably.
+Pass the full browse URL whenever the message or the session gives you one, so the subagent doesn't have to resolve the site. With only a bare key, pass the key and say which site you resolved (or that you couldn't), and let the analyzer resolve or ask. Never fabricate a site host.
 
 Expected output: structured summary (~800 tokens) with core info (type, status, priority), condensed description, acceptance criteria, key comments, technical context.
 
 ### Step 3: Integrate Naturally
 
-Answer using the relevant parts of the summary. Ground the answer in the issue ("Based on EC-1234...") so it's clear where it came from, but don't regurgitate the whole summary.
+Answer using the relevant parts of the summary. Ground the answer in the issue ("Based on PROJ-123...") so it's clear where it came from, but don't regurgitate the whole summary.
 
 ### Step 4: Multiple Issues
 
@@ -74,14 +74,14 @@ Track which issue keys you've already fetched this conversation. Reuse that cont
 
 ## Error Handling
 
-- **Issue not found**: "I couldn't fetch EC-1234, it might not exist or you may not have access. Can you verify the issue key?"
+- **Issue not found**: "I couldn't fetch PROJ-123, it might not exist or you may not have access. Can you verify the issue key?"
 - **API error**: Ask the user for the key details manually; never block on a failed fetch
 - **Timeout**: Ask clarifying questions in the meantime, incorporate the summary when it arrives
 
 ## Examples
 
-- "What is EC-1234 about?" → fetch, answer from summary
-- "Implement IS-8046" → fetch, plan implementation from acceptance criteria
-- "I finished EC-1234 yesterday, now working on EC-1235" → fetch neither; ask what help they need with EC-1235
-- "The EC-1234 endpoint is returning 500 errors" → no fetch (endpoint name), debug the endpoint
-- "Can you also check if EC-1234 affects the login flow?" (fetched earlier) → reuse previous summary
+- "What is PROJ-123 about?" → fetch, answer from summary
+- "Implement ABC-456" → fetch, plan implementation from acceptance criteria
+- "I finished PROJ-123 yesterday, now working on PROJ-124" → fetch neither; ask what help they need with PROJ-124
+- "The PROJ-123 endpoint is returning 500 errors" → no fetch (endpoint name), debug the endpoint
+- "Can you also check if PROJ-123 affects the login flow?" (fetched earlier) → reuse previous summary

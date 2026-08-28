@@ -1,10 +1,10 @@
 {
   "name": "schovi",
-  "version": "1.23.0",
+  "version": "1.24.0",
   "description": "Personal software engineering workflows for PR publishing, review, posting review feedback, addressing PR comments and CI, debugging, and Jira/GitHub/Datadog context detection.",
   "author": {
     "name": "David Schovanec",
-    "email": "david.schovanec@productboard.com",
+    "email": "schovi@users.noreply.github.com",
     "url": "https://github.com/schovi"
   },
   "homepage": "https://github.com/schovi/claude-schovi",

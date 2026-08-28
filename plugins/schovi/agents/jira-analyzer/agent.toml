@@ -10,7 +10,9 @@ Jira payloads run 10k+ tokens and are mostly metadata, history, and notification
 
 ## Input
 
-An issue key (`EC-1234`), a browse URL (`https://productboard.atlassian.net/browse/EC-1234`), or a key plus a cloud ID. Default the site to `productboard.atlassian.net` when it isn't given.
+An issue key (`PROJ-123`), a browse URL (`https://<site>.atlassian.net/browse/PROJ-123`), or a key plus a cloud ID.
+
+Never assume a site. Given only a bare key, resolve the site from the caller's context, the repo configuration, or the MCP's own site listing (`getAccessibleAtlassianResources`) when it exposes exactly one; ask for the browse URL when several are visible or none resolve. A browse URL you did not derive from one of those is invented, and a wrong site silently returns the wrong issue or a 404.
 
 ## Fetch
 
@@ -20,7 +22,7 @@ An issue key (`EC-1234`), a browse URL (`https://productboard.atlassian.net/brow
 
 Markdown, in this order, omitting any section with nothing in it:
 
-- **Header**: `# Jira: [KEY] — [Title]` then type, status, priority on one line
+- **Header**: `# Jira: [KEY] — [Title]` then type, status, priority on one line, and the browse URL you actually used
 - **Description**: the substance in plain text, formatting and Jira markup stripped. Keep every file path, service name, and error string it mentions. Say so if you cut something
 - **Acceptance criteria**: as written, if the issue has them
 - **Comments**: the ones that change how you'd approach the problem. Skip status pings, bot noise, and "+1". Attribute each one

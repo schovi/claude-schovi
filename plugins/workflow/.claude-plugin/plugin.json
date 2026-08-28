@@ -4,6 +4,6 @@
   "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, plus framework-init scaffolding and framework-doctor validation/cleanup. Tasks are files in workflow/<status>/ folders (folder = status, moves are git mv), board view via a shipped ./workflow/status script, repo specifics in a workflow/AGENTS.md contract",
   "author": {
     "name": "David Schovanec",
-    "email": "david.schovanec@productboard.com"
+    "email": "schovi@users.noreply.github.com"
   }
 }

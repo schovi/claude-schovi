@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "Deep root cause analysis with fix proposal. Use when the user says \"/schovi:debug\", \"debug this issue\", \"find the root cause\", or \"investigate this bug\", with a Jira ID, GitHub issue/PR, Datadog URL, error description, or stack trace file. Returns problem summary, root cause, fix proposal, testing strategy, and rollout plan."
+description: "Deep root cause analysis with fix proposal. Use when the user says \"/schovi:debug\", \"debug this issue\", \"find the root cause\", or \"investigate this bug\", with a ticket key, GitHub issue/PR, observability or any other source URL, error description, or stack trace file. Returns problem summary, root cause, fix proposal, testing strategy, and rollout plan."
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -13,7 +13,7 @@ Conversational observability questions ("what's the error rate of X?", a pasted 
 
 ## Codex Compatibility
 
-If a Claude-style custom subagent is unavailable, execute the workflow directly with available Codex tools. Use `plugins/schovi/agents/debug-executor/AGENT.md`, `plugins/schovi/agents/datadog-analyzer/AGENT.md`, and `plugins/schovi/agents/jira-analyzer/AGENT.md` as reference instructions. For codebase exploration, use Codex's available exploration tools or built-in subagents.
+If a Claude-style custom subagent is unavailable, execute the workflow directly with available Codex tools. Use `plugins/schovi/agents/debug-executor/AGENT.md` plus `plugins/schovi/references/sources.md` and the matching analyzer AGENT.md as reference instructions. For codebase exploration, use Codex's available exploration tools or built-in subagents.
 
 ## Trigger
 
@@ -28,16 +28,16 @@ If a Claude-style custom subagent is unavailable, execute the workflow directly 
 
 Parse single positional argument (or none). Detect input type in this order:
 
-1. **Jira pattern**: Matches `[A-Z]{2,10}-\d{1,6}` (e.g., EC-1234, PROJ-567)
-2. **Datadog URL**: Contains `datadoghq.com` (logs, traces, metrics, etc.)
-3. **GitHub PR**: URL, `owner/repo#123`, or `#123` containing "pull"
-4. **GitHub Issue**: URL or `owner/repo#123` containing "issues"
-5. **File path**: Path exists and is a file (error log, stack trace)
+1. **GitHub PR**: URL, `owner/repo#123`, or `#123` containing "pull"
+2. **GitHub Issue**: URL or `owner/repo#123` containing "issues"
+3. **File path**: Path exists and is a file (error log, stack trace)
+4. **Ticket key**: Matches `[A-Z][A-Z0-9]{1,9}-\d{1,6}` (e.g. PROJ-123, ABC-456)
+5. **URL**: Anything else starting with `http` (observability vendor, doc, dashboard, incident page)
 6. **Plain text**: Everything else (error description)
 
-Store: `INPUT_TYPE` and `INPUT_VALUE`
+Store: `INPUT_TYPE` and `INPUT_VALUE`. The executor resolves the reference through the plugin's `../../references/sources.md`, so any host works, not a fixed list of vendors.
 
-**At least one input source required.** If none provided, ask for a Jira ID, GitHub URL, Datadog URL, or error description.
+**At least one input source required.** If none provided, ask for a ticket key, a link to the failure (issue, dashboard, incident), or an error description.
 
 ### Phase 2: Execute Debug (Isolated Context)
 
@@ -56,7 +56,7 @@ Agent tool configuration:
     - input_type: [INPUT_TYPE]
 
     Execute complete debugging workflow:
-    1. Fetch external context (Jira/GitHub/Datadog if applicable)
+    1. Fetch external context for the reference if applicable (per plugins/schovi/references/sources.md)
     2. Deep debugging & root cause analysis (Explore subagent, very thorough mode)
     3. Generate fix proposal (location, code changes, testing, rollout)
 
@@ -95,17 +95,18 @@ Ready to implement the fix.
 
 ## Error Handling
 
-- **No input provided**: Ask user for Jira ID, GitHub URL, Datadog URL, or error description
+- **No input provided**: Ask user for a ticket key, a source URL, or an error description
 - **Invalid format**: Report error, show format examples
 - **File not found**: Report error, ask for correct path
 - **Executor failed**: Report error with details from subagent
-- **External fetch failed** (Jira/GitHub/Datadog inside executor): Report error, suggest checking auth or MCP server config
+- **External fetch failed** (any source inside executor): Report error, suggest checking auth or MCP server config
 
 ## Example Usage
 
 ```bash
-/schovi:debug EC-1234                                    # from Jira issue
-/schovi:debug https://app.datadoghq.com/apm/trace/abc123 # from Datadog trace
+/schovi:debug PROJ-123                                   # from a tracker ticket
+/schovi:debug https://app.datadoghq.com/apm/trace/abc123 # from an APM trace
+/schovi:debug https://any/incident/or/doc/url            # from any other source
 /schovi:debug https://github.com/owner/repo/issues/456   # from GitHub issue
 /schovi:debug "NullPointerException in UserService.authenticate at line 123"
 /schovi:debug ./error.log                                # from stack trace file

@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Structured code review with risk, security, and performance assessment. Use when the user says \"/schovi:review\", \"review this PR\", \"review #123\", \"code review\", or asks for a review of a GitHub PR, Jira ticket, branch, or local files."
+description: "Structured code review with risk, security, and performance assessment. Use when the user says \"/schovi:review\", \"review this PR\", \"review #123\", \"code review\", or asks for a review of a GitHub PR, a tracker ticket, any source URL, a branch, or local files."
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -17,7 +17,8 @@ Casual PR mentions ("what is #123 about?") belong to `gh-pr-auto-detector`, not 
 /schovi:review https://github.com/owner/repo/pull/123
 /schovi:review owner/repo#123
 /schovi:review #123
-/schovi:review EC-1234
+/schovi:review PROJ-123
+/schovi:review https://any/source/url
 /schovi:review ./spec.md
 /schovi:review this branch
 ```
@@ -37,7 +38,7 @@ If custom subagents are unavailable, run the fetch inline with the `gh` commands
 - **PR is in the current repo**: read it directly. `gh pr diff <N>` plus `gh pr view <N> --json title,body,reviews,comments` and `gh pr checks <N>`. Faster than a subagent round-trip and you keep full fidelity
 - **PR is in another repo, or is very large**: spawn `schovi:gh-pr-reviewer:gh-pr-reviewer`
 
-**Jira ID**: spawn `schovi:jira-analyzer:jira-analyzer`.
+**Ticket key or any other source URL**: read the plugin's `../../references/sources.md` and follow it. It resolves the reference against whatever tracker, doc tool, or vendor owns the host, and returns the criteria to review against.
 
 **Local branch** (`this branch` or no argument): `git diff` against the base branch.
 

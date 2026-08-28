@@ -1,6 +1,6 @@
 ---
 name: publish
-description: Create GitHub pull request with smart description generation. Use when the user says "/schovi:publish", asks to "create a PR", "publish", "open a pull request", or wants to push and create/update a GitHub PR. Auto-commits uncommitted changes first.
+description: Create GitHub pull request with smart description generation. Use when the user says "/schovi:publish", asks to "create a PR", "publish", "open a pull request", or wants to push and create/update a GitHub PR. Takes the change's source from a ticket key, a GitHub reference, any source URL, a local spec file or folder, plain text, or the commit history. Auto-commits uncommitted changes first.
 disable-model-invocation: false
 ---
 
@@ -11,14 +11,16 @@ Owns the whole "I'm done, ship it" pipeline: commit whatever is pending, push, t
 Always: draft PR, default branch as base (from `origin/HEAD`), auto-push, auto-commit pending changes first.
 
 ```bash
-/schovi:publish              # from commit history
-/schovi:publish EC-1234      # from a Jira issue
-/schovi:publish #123         # from a GitHub issue/PR
+/schovi:publish                 # from commit history
+/schovi:publish PROJ-123        # from a tracker ticket key
+/schovi:publish #123            # from a GitHub issue/PR
 /schovi:publish owner/repo#45
-/schovi:publish ./spec.md    # or ./folder/
-/schovi:publish https://...
+/schovi:publish ./spec.md       # or ./folder/
+/schovi:publish https://any/source/url
 /schovi:publish "some text"
 ```
+
+Any link is a valid source: a ticket, a doc, a dashboard, a spec page. The plugin's shared `references/sources.md` (`../../references/sources.md` from this skill folder) resolves it, whatever the host.
 
 ## Codex
 
@@ -30,15 +32,15 @@ If custom subagents are unavailable, commit inline and gather context with avail
 
 One optional positional argument. Detect its type in this order, most specific first:
 
-1. **Jira**: `[A-Z]{2,10}-\d{1,6}`
-2. **GitHub**: `#\d+`, `owner/repo#\d+`, or a GitHub URL
-3. **File**: the path exists and is a file
-4. **Folder**: the path exists and is a directory
-5. **URL**: starts with `http`
+1. **GitHub**: `#\d+`, `owner/repo#\d+`, or a GitHub URL
+2. **File**: the path exists and is a file
+3. **Folder**: the path exists and is a directory
+4. **Ticket**: `[A-Z][A-Z0-9]{1,9}-\d{1,6}`
+5. **URL**: anything else starting with `http`
 6. **Text**: anything else
 7. **None**
 
-With no Jira ID in the input, take one from the branch name (`EC-1234-add-auth` gives `EC-1234`, `feature/IS-5678-fix-bug` gives `IS-5678`).
+With no ticket key in the input, take one from the branch name (`PROJ-123-add-auth` gives `PROJ-123`, `feature/ABC-456-fix-bug` gives `ABC-456`). Store it as `TICKET_KEY`.
 
 ## 2. Check the git state
 
@@ -70,24 +72,21 @@ Never push with a `local:different-remote` refspec.
 
 ## 4. Gather context
 
-- **Jira**: read `references/jira.md` in this skill folder and follow it
-- **GitHub**: spawn `schovi:gh-pr-reviewer:gh-pr-reviewer` with the reference
-- **File**: read it
-- **Folder**: read the main document, preferring `spec*.md`, then `plan*.md`, then `README.md`, then the first `.md`
-- **URL**: WebFetch it
-- **Text**: use it as-is
+- **Any source type except `None`**: read `../../references/sources.md` and follow it. It picks the fetcher (ticket tracker, GitHub, observability vendor, doc tool, plain web page, local file) and hands back a canonical URL, a title, the what and why, and any acceptance criteria
 - **None**: read the commits
+
+A `TICKET_KEY` off the branch is also a source. Resolve it the same way when the input itself gave nothing, and keep publishing if it can't be resolved.
 
 ```bash
 git log origin/$DEFAULT_BRANCH..HEAD --format="%s%n%b" --reverse
 git diff origin/$DEFAULT_BRANCH..HEAD --stat
 ```
 
-**The Context section needs at least one real link.** Collect candidates from the input source, the `JIRA_ID` off the branch, and any links in the commits or fetched content (Datadog, Productboard, related PRs, design docs). If you come up empty, ask for one before writing the description:
+**The Context section needs at least one real link.** Collect candidates from the input source, the `TICKET_KEY` off the branch, and any links in the commits or fetched content (dashboards, related PRs, specs, design docs). If you come up empty, ask for one before writing the description:
 
 ```
-No source link found for this change. Paste a relevant link (Jira, Datadog,
-related PR, Productboard, design doc) so reviewers have context, or reply
+No source link found for this change. Paste a relevant link (ticket, dashboard,
+related PR, spec, design doc) so reviewers have context, or reply
 "skip" to publish without one.
 ```
 
@@ -108,11 +107,11 @@ Classify it as Bug, New Feature, Enhancement, or Chore, then:
 ```markdown
 ## [Bug | New Feature | Enhancement | Chore]
 
-[1-2 sentences on the problem or feature. Link to the spec/Jira/doc rather than restating it.]
+[1-2 sentences on the problem or feature. Link to the spec/ticket/doc rather than restating it.]
 
 ## Context
 
-[Links that give a reviewer the full picture: Jira, Datadog, related PRs, Productboard entity, design doc, Slack thread. One per line with a short label.]
+[Links that give a reviewer the full picture: the ticket, a dashboard, related PRs, the product spec, a design doc, a Slack thread. One per line with a short label.]
 
 ## Decisions (only if applicable)
 
@@ -135,7 +134,7 @@ Be short. Cut anything the diff already shows.
 
 **Review Notes** is addressed to the reviewer about reviewing and merging. Test every bullet: could they get this from the diff or the sections above? Then cut it. What survives is required actions, merge sequencing, follow-ups, the single riskiest spot, and looks-wrong-but-intentional gotchas. Upgrade steps for consumers go under Notes > Migration instead.
 
-**Title**: `EC-1234: Description` with a Jira ID, otherwise just the description. 50-80 characters, active voice (Add, Fix, Implement, Update), no trailing period. Source it from the spec title, the Jira summary, or the theme of the commits.
+**Title**: `PROJ-123: Description` with a ticket key, otherwise just the description. 50-80 characters, active voice (Add, Fix, Implement, Update), no trailing period. Source it from the spec title, the source's own title, or the theme of the commits.
 
 ## 6. Ship it
 

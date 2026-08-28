@@ -51,11 +51,11 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 
 | Skill | Plugin | Invocation | Purpose |
 |-------|--------|------------|---------|
-| publish | schovi | `/schovi:publish` | Create/update GitHub PRs with auto-commit. Jira integration loads conditionally from `references/jira.md` |
-| review | schovi | `/schovi:review` | Structured code review of PRs, Jira tickets, branches, or local files |
+| publish | schovi | `/schovi:publish` | Create/update GitHub PRs with auto-commit. Source context (ticket key, GitHub reference, any URL, local spec file/folder, text) resolves through the shared `plugins/schovi/references/sources.md` |
+| review | schovi | `/schovi:review` | Structured code review of PRs, tracker tickets, any source URL, branches, or local files |
 | feedback | schovi | `/schovi:feedback` | Post feedback to a PR as reviewer (findings/comments inline + general, optional verdict) or as author (reply to change-request threads with what changed, evidence-gated, never resolves). Previews before posting; outputs as text when no PR link is given |
 | address | schovi | `/schovi:address [PR] [--auto]` | Drive an open PR to green: triage every unresolved review thread (FIX, DECLINE with evidence, or SKIP to a human) and every failing CI job, implement on approval (or unattended with `--auto`), then reply with what changed or why not and resolve the threads it addressed (FIX + DECLINE). Gates before touching code; delegates commit/push/description rewrite to `/schovi:publish`; never resolves a SKIP or an unfixed thread |
-| debug | schovi | `/schovi:debug` | Root cause analysis with fix proposal via debug-executor |
+| debug | schovi | `/schovi:debug` | Root cause analysis with fix proposal via debug-executor, from a ticket, GitHub reference, observability or any other source URL, stack-trace file, or error text |
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
@@ -115,7 +115,8 @@ Subagent types use **three-part format** `plugin:parent:agent`:
 - Code references use `file:line` format: `src/api/controller.ts:123`, not just the path
 - New workflows go in `plugins/<name>/skills/<skill>/SKILL.md`; new agents in `plugins/<name>/agents/<agent>/AGENT.md`
 - Naming: `-analyzer` suffix for data fetchers, `-executor` suffix for workflow executors, `-auto-detector` suffix for auto-detection skills, `-verifier` suffix for report-only quality gates
-- Source-specific integration steps inside a generic skill live in `references/*.md` within the skill folder, read only when that input type is detected. Each reference file must include a graceful-degradation path so the skill never blocks when the integration is unavailable
+- Source-specific integration steps inside a generic skill live in `references/*.md` within the skill folder, read only when that input type is detected. Integration steps shared by several skills live one level up, in `plugins/<name>/references/*.md`. Each reference file must include a graceful-degradation path so the skill never blocks when the integration is unavailable
+- No vendor host, tenant, project key, or account is hardcoded anywhere in a plugin. Examples use placeholders (`PROJ-123`, `https://<site>.atlassian.net/...`, `owner/repo#123`), and a real host is resolved at runtime from the user's input, repo config, or the MCP's own site listing. `plugins/schovi/references/sources.md` owns that resolution order
 
 ## Development
 

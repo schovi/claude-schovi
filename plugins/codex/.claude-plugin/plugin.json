@@ -4,6 +4,6 @@
   "description": "Delegate self-contained tasks to Codex (GPT-5.6) subagents: bundled codex-delegate.sh wrapper returns only the final message with a resumable session id and optional contract-marker check, codex-runner agent for native-subagent dispatch, plus model/effort routing guidance (luna/terra/sol)",
   "author": {
     "name": "David Schovanec",
-    "email": "david.schovanec@productboard.com"
+    "email": "schovi@users.noreply.github.com"
   }
 }

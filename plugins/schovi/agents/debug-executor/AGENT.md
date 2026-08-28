@@ -1,6 +1,6 @@
 ---
 name: debug-executor
-description: "Runs a full debug pass in isolated context: fetches external context (Jira, GitHub, Datadog), traces the failure through the codebase to its root cause, and returns a fix proposal. Input: problem reference. Output: max 2500 tokens."
+description: "Runs a full debug pass in isolated context: fetches external context for the reference (ticket, GitHub, observability vendor, any source URL), traces the failure through the codebase to its root cause, and returns a fix proposal. Input: problem reference. Output: max 2500 tokens."
 color: red
 allowed-tools: ["*"]
 ---
@@ -15,10 +15,13 @@ Classify the reference and fetch what you need:
 
 | Reference | Action |
 |---|---|
-| Jira key (`EC-1234`) | `schovi:jira-analyzer:jira-analyzer` |
+| Ticket key (`PROJ-123`) | `schovi:jira-analyzer:jira-analyzer` |
 | Datadog URL | `schovi:datadog-analyzer:datadog-analyzer` |
 | GitHub PR or issue | `schovi:gh-pr-reviewer:gh-pr-reviewer` |
+| Any other URL | the MCP server owning that host, else WebFetch |
 | Error text, stack trace, file path | read it directly |
+
+`plugins/schovi/references/sources.md` has the full resolution rules: how to turn a bare ticket key into a URL without guessing a host, and how to match an arbitrary URL to a connected MCP server.
 
 Pull out the error, the stack trace, how it reproduces, and how bad it is. If the fetch fails, work from the reference text and say in the output that external context was unavailable.
 
