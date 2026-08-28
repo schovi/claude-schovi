@@ -1,6 +1,6 @@
 {
   "name": "schovi-workflows",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "David Schovanec's personal Claude Code workflow plugins",
   "owner": {
     "name": "David Schovanec",
@@ -24,6 +24,12 @@
       "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, framework-init scaffolding, framework-doctor validation/cleanup. Tasks are files in workflow/<status>/ folders (folder = status), board view via ./workflow/status, repo specifics in a workflow/AGENTS.md contract",
       "version": "3.9.0",
       "source": "./plugins/workflow"
+    },
+    {
+      "name": "codex",
+      "description": "Delegate self-contained tasks to Codex (GPT-5.6) subagents - codex-delegate.sh wrapper returns only the final message with a resumable session id and optional contract-marker check, codex-runner agent for native-subagent dispatch, model/effort routing guidance (luna/terra/sol)",
+      "version": "1.1.0",
+      "source": "./plugins/codex"
     }
   ]
 }

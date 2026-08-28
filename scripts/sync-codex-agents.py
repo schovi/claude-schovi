@@ -18,6 +18,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 CODEX_AGENTS = Path.home() / ".codex" / "agents"
+# Claude-only plugins get no Codex twins (the codex plugin wraps codex itself)
+CLAUDE_ONLY_PLUGINS = {"codex"}
 GENERATED_MARK = "# Generated from AGENT.md by scripts/sync-codex-agents.py — edit AGENT.md instead"
 
 
@@ -79,6 +81,8 @@ def main():
     generated, linked, problems = [], [], []
 
     for agent_md in sorted(REPO.glob("plugins/*/agents/*/AGENT.md")):
+        if agent_md.relative_to(REPO).parts[1] in CLAUDE_ONLY_PLUGINS:
+            continue
         fields, body = parse_agent_md(agent_md)
         if "name" not in fields or "description" not in fields:
             problems.append(f"{agent_md}: frontmatter needs name and description")

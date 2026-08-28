@@ -1,6 +1,6 @@
 # Schovi Workflows
 
-Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both runtimes install from the same local marketplace.
+Personal workflow plugins for Claude Code and Codex. One repo, four plugins, both runtimes install from the same local marketplace.
 
 ## Plugins
 
@@ -8,6 +8,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 |--------|---------|
 | `schovi` | Everyday engineering workflows: PR publishing, code review, debugging, Jira/GitHub/Datadog context detection |
 | `homebrew` | CI-gated GitHub release workflow for Homebrew-distributed repos. Install only where it applies |
+| `codex` | Claude Code only. Delegate self-contained tasks to Codex (GPT-5.6) subagents: a bundled `codex-delegate.sh` wrapper hides the event stream and returns only the final message plus a resumable session id. Routing guidance in [plugins/codex/docs/delegation.md](plugins/codex/docs/delegation.md), meant to be copied into your `~/.claude/CLAUDE.md` |
 | `workflow` | Task-board work framework for hobby/solo repos: tasks are files in `workflow/<status>/` folders (folder = status, moves are `git mv`), board view via `./workflow/status` or a cross-repo web Kanban (`bunx github:schovi/claude-schovi`), repo specifics in a `workflow/AGENTS.md` contract. Full model and lifecycle: [plugins/workflow/README.md](plugins/workflow/README.md) |
 
 ## Tools
@@ -25,6 +26,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, two plugins, both
 | `datadog-auto-detector` | schovi | automatic | Fetches condensed Datadog context when observability resources are mentioned |
 | `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, an approval gate before the tag push, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
+| `delegate` | codex | `/codex:delegate` | Runs a self-contained task on a Codex subagent (`gpt-5.6-luna`/`terra`/`sol`, efforts low–max), returning only the final message plus a resumable session id and full-log path for follow-ups |
 | `groom` | workflow | `/workflow:groom [id]` | Uses an intent interview and bounded codebase reconnaissance to produce a Ready task with one cohesive, independently deliverable outcome sized for one work loop, then moves it to `ready/` or `blocked/`. With no id and exploration findings already in context, captures them as one task per outcome and promotes only those that pass the readiness gate, leaving the rest in `draft/` with their open questions |
 | `work` | workflow | `/workflow:work [id]` | Implements the top Ready task, or an ad-hoc ask when explicitly invoked, validates it through the acceptance-verifier gate, and hands material scope divergence back for re-grooming |
 | `batch-work` | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner: main context plans + dispatches, all task work in isolated subagents; sequential, stop-on-failure, consolidated report. `auto` orders deps before dependents by the `depends:` graph, dropping any it can't satisfy in-batch |
@@ -58,6 +60,12 @@ Each agent is pinned to the cheapest tier that does its job (Claude only; Codex 
 |-------|-------|--------------|
 | `acceptance-verifier` | sonnet | Fresh-context adversarial check of a task's acceptance criteria before the completion commit → per-criterion verdict with evidence, ~800 tokens. Used by `/workflow:work` and `/workflow:batch-work`; report-only |
 
+### Subagents (codex)
+
+| Agent | Model | What it does |
+|-------|-------|--------------|
+| `codex-runner` | haiku | Runs one `codex-delegate.sh` call as a native subagent: enforces contract markers, resumes the codex session at most twice (print-only deltas), returns the final message verbatim under a verdict line. For workflows, batch orchestration, and parallel fan-out; direct script calls stay the default |
+
 ## Installation
 
 ### Claude Code
@@ -67,6 +75,7 @@ Each agent is pinned to the cheapest tier that does its job (Claude only; Codex 
 /plugin install schovi@schovi-workflows
 /plugin install homebrew@schovi-workflows   # only in Homebrew-distributed repos
 /plugin install workflow@schovi-workflows   # only in repos using the workflow/ status folders
+/plugin install codex@schovi-workflows      # requires the codex CLI (codex login)
 ```
 
 Requires: `gh` CLI authenticated; Jira MCP server for Jira features; Datadog MCP server (optional) for observability features.

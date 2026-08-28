@@ -10,6 +10,7 @@ This repository hosts **dual plugins for Claude Code and Codex**. Both runtimes 
 |--------|------|---------|
 | `schovi` | `plugins/schovi/` | Main workflow plugin: PR publishing, code review, debugging, Jira/GitHub/Datadog context detection |
 | `homebrew` | `plugins/homebrew/` | Standalone release workflow for Homebrew-distributed repos. Single skill `release`, explicit invocation only. Installable separately so it can be added only where it applies |
+| `codex` | `plugins/codex/` | Delegate self-contained tasks to Codex (GPT-5.6) subagents. Single skill `delegate` wrapping `codex exec` via a bundled script that returns only the final message plus a resumable session id, and a `codex-runner` agent for spawning that call as a native subagent (workflows, batch orchestration, parallel fan-out). **Claude-only**: no `.codex-plugin` manifest and no Codex marketplace entry (Codex delegating to itself is pointless), so the dual-runtime sync rules don't apply to it. `docs/delegation.md` is the canonical routing block, meant to be copied into a user's `CLAUDE.md` (copy, not `@`-import: the import path would break on repo moves) |
 | `workflow` | `plugins/workflow/` | Task-board work framework for hobby/solo repos. Tasks are files in `workflow/<status>/` folders (the folder IS the status; moves are `git mv`); board view via a shipped `./workflow/status` script; repo-specific facts (validation, verify skills, doc routing) live in a `workflow/AGENTS.md` contract the skills read first. Install in repos that track work this way |
 
 Core design: **selective context isolation**. External payloads (Jira ~10-15k tokens, GitHub PRs 20-50k, Datadog 10-50k) can be fetched by subagents in isolated windows and condensed before returning.
@@ -29,7 +30,7 @@ This is a judgment call, not a default. On a 1M-token context a 30k PR is 3% of 
 
 ## Dual-Runtime Sync Rules
 
-Every change must keep both runtimes in sync. Never update one side and leave the other stale.
+Every change must keep both runtimes in sync. Never update one side and leave the other stale. Exception: the `codex` plugin is Claude-only (single `.claude-plugin` manifest, Claude marketplace entry only).
 
 1. **Manifests stay in sync**: version bumps, skill additions/removals, and description changes apply to BOTH `plugin.json` files of the affected plugin. A version bump has THREE places: `plugins/<name>/.claude-plugin/plugin.json`, `plugins/<name>/.codex-plugin/plugin.json`, and the plugin's entry in `.claude-plugin/marketplace.json` (which carries its own `version`). All three must match. The Codex marketplace (`.agents/plugins/marketplace.json`) is path-only with no version field, so it needs no bump. Grep the old version across the repo before committing to catch a stale copy
 2. **Skills serve both runtimes**: `/<plugin>:<skill>` syntax and `Agent` tool / `subagent_type` references are Claude-native. When adding or changing a skill, make sure it degrades gracefully in Codex (trigger text works, subagent steps have a Codex-compatible path or are clearly Claude-only)
@@ -42,7 +43,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 - Skills are invoked as `use $<skill>`: `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`
 - Documented `/<plugin>:<skill>` commands are Claude-native syntax. In Codex they work as trigger text for the skills, not as shell or TUI slash commands
 - Keep shared workflow behavior tool-neutral. Put runtime-specific generic-worker dispatch in conditional `references/claude-instructions.md` and `references/codex-instructions.md` files selected by callable capability. When a workflow references a custom Claude `subagent_type`, adapt it to Codex's available tools and built-in subagents
-- Codex plugins cannot register agents natively (plugin.json has `skills` but no `agents` key). Bridge: each `AGENT.md` gets a generated `agent.toml` twin, symlinked into `~/.codex/agents/` by `scripts/sync-codex-agents.py` so Codex can spawn the agents in any session. The AGENT.md is the single source of truth — never edit `agent.toml` by hand
+- Codex plugins cannot register agents natively (plugin.json has `skills` but no `agents` key). Bridge: each `AGENT.md` gets a generated `agent.toml` twin, symlinked into `~/.codex/agents/` by `scripts/sync-codex-agents.py` so Codex can spawn the agents in any session (Claude-only plugins like `codex` are excluded via `CLAUDE_ONLY_PLUGINS`). The AGENT.md is the single source of truth — never edit `agent.toml` by hand
 - After adding or editing an AGENT.md, rerun `python3 scripts/sync-codex-agents.py` (CI-style validation: `--check`). Codex picks up agent changes on a new task/restart. If a future Codex release adds plugin-native agents, retire the script and the symlinks
 - Sandbox mapping in generated twins: MCP-only tool lists → `sandbox_mode = "read-only"`; anything broader (Bash/gh, full access) → `workspace-write` with `network_access = true`
 
@@ -58,6 +59,7 @@ Every change must keep both runtimes in sync. Never update one side and leave th
 | jira-auto-detector | schovi | auto-detect only | Fetch Jira context when issues are mentioned |
 | datadog-auto-detector | schovi | auto-detect only | Fetch Datadog context when observability resources are mentioned |
 | gh-pr-auto-detector | schovi | auto-detect only | Fetch GitHub PR context when PRs are mentioned |
+| delegate | codex | `/codex:delegate` | Run a self-contained task on a Codex (GPT-5.6) subagent via bundled `codex-delegate.sh`: hides the event stream, returns only the final message plus a resumable session id and log path. Routes across `gpt-5.6-luna` (haiku-class), `gpt-5.6-terra` (opus-class default), `gpt-5.6-sol` (strongest) with reasoning efforts low–max. Degrades to native subagents when the `codex` CLI is missing |
 | release | homebrew | `/homebrew:release` only | CI-gated GitHub release for Homebrew-distributed projects: green CI on the exact release commit, then an approval gate on version + notes before the tag push, then verification and a follow-up documentation-sync PR (`disable-model-invocation: true`) |
 | groom | workflow | `/workflow:groom [id]` | Refine a board task through intent interview and bounded codebase reconnaissance; Ready means one cohesive, independently deliverable outcome sized for one work loop, with known ownership surfaces and load-bearing contracts; capture mode (no id, findings already in context) mints one task per outcome, reuses the exploration instead of re-reading, and a four-part readiness gate decides ready vs draft-with-`## Open questions` per task; one interview round and one groom commit per session. Pins an optional `model:` tier on a task it finished recon confident is mechanical, which is the only place with both the spec and the code to make that call |
 | work | workflow | `/workflow:work [id]` | Implement one Ready task, or an ad-hoc ask when explicitly invoked: dependency gate, routed-doc read, plan in chat, `task NNN:` commits, acceptance-verifier gate, atomic completion commit; hand material scope divergence back for re-grooming |
@@ -91,6 +93,7 @@ Commands are thin wrappers: parse arguments → spawn subagent → handle output
 | `schovi:datadog-analyzer:datadog-analyzer` | sonnet | Fetch & summarize Datadog data | 1200 |
 | `schovi:debug-executor:debug-executor` | inherit | Execute debug workflow | 2500 |
 | `workflow:acceptance-verifier:acceptance-verifier` | sonnet | Adversarially verify a task's acceptance criteria before the completion commit (report-only, fresh context) | 800 |
+| `codex:codex-runner:codex-runner` | haiku | Dispatch one `codex-delegate.sh` run, enforce `-x` contract markers, bounded resume (max 2, progress-gated, print-only deltas), return the final message verbatim under a verdict line | passthrough — the codex prompt's output contract is the cap |
 
 Never return raw payloads to the main context. Condense analyzer output; `gh-pr-reviewer` is the exception, since a summarized diff can't be reviewed.
 
@@ -141,6 +144,7 @@ python3 -m json.tool plugins/homebrew/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool plugins/homebrew/.codex-plugin/plugin.json >/dev/null
 python3 -m json.tool plugins/workflow/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool plugins/workflow/.codex-plugin/plugin.json >/dev/null
+python3 -m json.tool plugins/codex/.claude-plugin/plugin.json >/dev/null
 python3 -m json.tool .claude-plugin/marketplace.json >/dev/null
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 ```
