@@ -22,11 +22,11 @@ Codex runs on a separate, much larger token budget. Spend it on volume; keep Cla
 "${CLAUDE_PLUGIN_ROOT}/skills/delegate/scripts/codex-delegate.sh" [-m MODEL] [-e EFFORT] [-s SANDBOX] [-C DIR] [-r SESSION_ID] [-x MARKERS] "PROMPT"
 ```
 
-- Output: `session: <id>` and `log: <path>` header, then `---`, then the final message. Nothing else reaches your context.
-- `-x "## Findings,## Files"`: deterministic contract check — comma-separated literal strings that must appear in the final message. A miss prints `contract: missing: ...` and exits 3 (message still printed). Pair it with a prompt that requires those exact headings.
+- Output: a `session: <id>`, `log: <path>` and `context: <model> / <effort> / <sandbox> in <workdir>` header, then `---`, then the final message. Nothing else reaches your context. Check the `context:` line when a run behaves oddly; it is codex's own banner, so a wrong workspace shows up there.
+- `-x "## Findings,## Files"`: deterministic contract check — comma-separated literal strings that must appear in the final message. A miss prints `contract: missing: ...` and exits 3 (message still printed). Pair it with a prompt that requires those exact headings. It proves shape, not substance: a run that reports "no tests ran" under `## Test results` still passes, so read the section.
 - Long or quote-heavy prompts: pass `-` (or omit the prompt) and pipe via stdin with a heredoc.
 - Failure: non-zero exit, log tail on stderr. The full event stream (reasoning, tool calls) is always in the log file; read it when the final message has gaps.
-- Runs are synchronous and can take minutes. Use the Bash tool's `run_in_background` for anything likely over ~5 minutes, and dispatch independent runs in parallel.
+- Runs are synchronous and can take minutes. Use the Bash tool's `run_in_background` for anything likely over ~5 minutes, and dispatch independent runs in parallel. A backgrounded run's output file stays empty until it exits; for progress, tail the log file instead.
 
 ## Model and effort routing
 
@@ -50,6 +50,7 @@ Codex sees nothing of this session. Every prompt must be self-contained, and the
 - For anything beyond a one-liner, structure the prompt with blocks: `<task>` (job + repo paths + context), `<output_contract>` (exact shape of the final message), `<verification>` (what to run and to report results), `<constraints>` (stay narrow, no unrelated refactors).
 - Write tasks must be told to run the repo's build/lint/test and report the outcome in the final message.
 - Tell it to proceed on routine judgment calls instead of asking; it cannot ask you anything.
+- Say what to do when a repo check blocks the narrow change (a class-length cop firing on the file it touched): report the conflict in the final message, don't refactor unrelated code to satisfy it. Otherwise it buys compliance with scope you have to revert.
 
 ## Sandbox
 
@@ -68,6 +69,7 @@ Give it the full dispatch spec: script path (`${CLAUDE_PLUGIN_ROOT}/skills/deleg
 ## Follow-ups and gaps
 
 - Resume with `-r <session id>` and send only the delta instruction ("also cover X", "your final message omitted the file list, print it"). Don't restate the whole prompt unless direction changed materially.
+- A resume replays the session's own workspace, model, effort and sandbox, so `-r` alone is right for the common case. `codex exec resume` itself has no `-C`/`-s` and would otherwise take the workspace from your cwd; the wrapper reads them back from the session rollout. Pass `-C`/`-m`/`-e`/`-s` with `-r` only to deliberately override one.
 - For missing detail that a resume can't answer cheaply, read the printed log file: it holds the full reasoning and tool-call stream.
 
 ## Degradation

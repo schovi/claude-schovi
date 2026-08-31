@@ -27,7 +27,8 @@ If markers are missing from the spec, run without `-x` and skip the resume loop 
 1. Run: `<script> -m <model> -e <effort> -s <sandbox> [-C <workdir>] -x "<markers>" -` with the prompt on stdin (heredoc).
 2. **Exit 0**: verdict `complete`. Done.
 3. **Exit 3** (contract miss — the `contract: missing:` line names the markers): resume with a print-only delta:
-   `<script> -m <model> -e <effort> -r <session id> -x "<missing markers only>" "Do not modify any files. Your previous final message omitted required sections. Print the missing sections now: <missing markers>. Your final message is the only output returned."`
+   `<script> -r <session id> -x "<missing markers only>" "Do not modify any files. Your previous final message omitted required sections. Print the missing sections now: <missing markers>. Your final message is the only output returned."`
+   - `-r` alone is correct: the wrapper replays the session's own workspace, model, effort and sandbox. Don't re-pass `-m`/`-e`/`-s`/`-C`.
    - **At most 2 resumes.** A second resume is allowed only if the first one shrank the missing-marker set (progress rule). No progress twice, or still missing after resume 2: verdict `incomplete`, stop.
 4. **Any other non-zero exit** (codex error, auth, missing CLI): verdict `failed`, include the log-tail stderr the script printed. Never resume an errored run.
 

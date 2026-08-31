@@ -75,7 +75,7 @@ codex-delegate.sh [-m MODEL] [-e EFFORT] [-s SANDBOX] [-C DIR] [-r SESSION_ID] [
 - `-m` / `-e`: model and reasoning effort (defaults `gpt-5.6-terra`, `medium`)
 - `-s`: `read-only` for review and research, `workspace-write` (default) for implementation
 - `-C DIR`: point Codex at another repo without changing your own cwd
-- `-r SESSION_ID`: resume a run and send only a delta instruction
+- `-r SESSION_ID`: resume a run and send only a delta instruction, replaying the session's own workspace, model, effort and sandbox (pass `-C`/`-m`/`-e`/`-s` alongside it only to override one)
 - `-x "## Findings,## Files"`: contract check. Literal strings the final message must contain; a miss prints `contract: missing: ...` and exits 3, the message still prints
 
 Prompts must be self-contained, Codex sees nothing of the Claude session, and the final message is the only output that comes back, so it has to carry the whole deliverable.
