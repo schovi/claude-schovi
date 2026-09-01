@@ -32,6 +32,12 @@ Codex runs on a separate, much larger token budget. When delegating, prefer Code
 - **Native Claude subagents**: the task needs session context too large to restate, MCP tools (Jira, Datadog, Slack), plugin-registered agents, or mid-task steering
 - **Inline (you)**: judgment. Architecture, tradeoffs, decisions, and reviewing whatever a delegate returned
 
+### Sizing and acceptance
+
+- Make the contract unsatisfiable by a half-done job. Move, extract and replace are create *and* delete; if every check passes with only the create half done, that is where the run stops and it reports success honestly. Require one assertion the halfway state cannot meet (`grep -c "def <name>" <old file>` must print 0), and slice so each run ends at a state you can assert. A bigger model or higher effort does not fix this
+- Never poll a backgrounded run. Wait on its output file with one `Monitor` call; each poll costs a full context read and learns nothing
+- The final message is a report, not proof. Re-run the checks you can run yourself and read the diff. Unverified "byte-identical" claims and junk left inside passing code are the two recurring misses
+
 ### Models and efforts
 
 All models accept reasoning efforts `low | medium | high | xhigh | max`. What an effort buys differs by model:

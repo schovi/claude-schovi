@@ -28,7 +28,7 @@
     {
       "name": "codex",
       "description": "Delegate self-contained tasks to Codex (GPT-5.6) subagents - codex-delegate.sh wrapper returns only the final message with a resumable session id and optional contract-marker check, codex-runner agent for native-subagent dispatch, model/effort routing guidance (luna/terra/sol)",
-      "version": "1.1.1",
+      "version": "1.2.0",
       "source": "./plugins/codex"
     }
   ]

@@ -26,7 +26,14 @@ Codex runs on a separate, much larger token budget. Spend it on volume; keep Cla
 - `-x "## Findings,## Files"`: deterministic contract check — comma-separated literal strings that must appear in the final message. A miss prints `contract: missing: ...` and exits 3 (message still printed). Pair it with a prompt that requires those exact headings. It proves shape, not substance: a run that reports "no tests ran" under `## Test results` still passes, so read the section.
 - Long or quote-heavy prompts: pass `-` (or omit the prompt) and pipe via stdin with a heredoc.
 - Failure: non-zero exit, log tail on stderr. The full event stream (reasoning, tool calls) is always in the log file; read it when the final message has gaps.
-- Runs are synchronous and can take minutes. Use the Bash tool's `run_in_background` for anything likely over ~5 minutes, and dispatch independent runs in parallel. A backgrounded run's output file stays empty until it exits; for progress, tail the log file instead.
+- Runs are synchronous and can take minutes. Background anything likely over ~5 minutes with the Bash tool's `run_in_background`, and dispatch independent runs in parallel.
+- **Wait with one `Monitor` call; never poll.** A backgrounded run's output file stays empty until it exits, so a poll loop learns nothing and pays a full context re-read per check. Block on the file instead:
+
+  ```bash
+  until [ -s <background task output file> ]; do sleep 20; done; echo "<run> finished"
+  ```
+
+  Tail the log only when you have a reason to look inside a run (it looks stuck, or you want the reasoning), not to track progress.
 
 ## Model and effort routing
 
@@ -49,8 +56,21 @@ Codex sees nothing of this session. Every prompt must be self-contained, and the
 - Say what done looks like: expected end state, not just the activity.
 - For anything beyond a one-liner, structure the prompt with blocks: `<task>` (job + repo paths + context), `<output_contract>` (exact shape of the final message), `<verification>` (what to run and to report results), `<constraints>` (stay narrow, no unrelated refactors).
 - Write tasks must be told to run the repo's build/lint/test and report the outcome in the final message.
+- **Make the contract unsatisfiable by a half-done job.** Two-sided work (move, extract, replace, consolidate, migrate) is create *and* delete. If every check you list passes with only the create half done, that is where the run stops, and it reports success honestly because it met the contract you wrote. Require at least one assertion the halfway state cannot satisfy: `grep -c "def <name>" <old file>` must print 0, `test ! -f <old file>`, the old symbol absent from the build graph. A green build and an unchanged output artifact are precisely the checks a half-done move passes.
+- **Verification must be mechanical and pasted**, not summarized: name the exact commands and require their raw output in the final message. For a "no behaviour change" claim, demand a before/after artifact diff. Asking it to "confirm nothing changed" buys a confident sentence and no evidence.
+- **Slice so each run ends at a state you can assert.** The risk isn't volume as such, it's the distance to the first meaningful check: the more a run must produce before anything is verifiable, the more room it has to stop somewhere that still passes. Raising model or effort does not fix a contract a partial job satisfies.
+- Don't read the implementation files into your own context to write the prompt. If you need an inventory first (what lives where, what moves), that is a `-s read-only` run of its own: hand the prompt file paths and let codex do the reading.
 - Tell it to proceed on routine judgment calls instead of asking; it cannot ask you anything.
 - Say what to do when a repo check blocks the narrow change (a class-length cop firing on the file it touched): report the conflict in the final message, don't refactor unrelated code to satisfy it. Otherwise it buys compliance with scope you have to revert.
+
+## Accepting the result
+
+The final message is a report, not proof. Codex will say plainly when it knows it skipped a required step, but it also states claims it never verified as fact.
+
+- Re-run the checks you can run yourself. Build, tests and `git diff --stat` are cheap on your side, and a claimed-green suite that isn't gets expensive later.
+- Check the claim it was most motivated to make: the ones asserting an absence, like "no behaviour change", "output unchanged", "only these files touched".
+- Read the diff for junk, not only for correctness. Code contorted to satisfy a check, dead parameters left by a signature change, and retyped near-duplicates all pass and still need cleaning.
+- Treat anything the diff shows and the report doesn't mention as the first thing to look at.
 
 ## Sandbox
 
