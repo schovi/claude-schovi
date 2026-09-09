@@ -9,7 +9,7 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 SKILL_PATHS = {
     name: REPOSITORY_ROOT / "plugins" / "workflow" / "skills" / name / "SKILL.md"
-    for name in ("framework-init", "work", "groom", "status")
+    for name in ("framework-init", "run", "groom", "status")
 }
 FRAMEWORK_INIT_CODEX_CONFIG_PATH = (
     REPOSITORY_ROOT / "plugins" / "workflow" / "skills" / "framework-init" / "agents" / "openai.yaml"
@@ -25,6 +25,7 @@ FORBIDDEN_PHRASES = {
     "what should i work on",
     "what's blocked",
     "another workflow skill finds no workflow/agents.md",
+    "another workflow skill found no workflow/ board",
 }
 FORBIDDEN_AUTO_INIT_PATTERN = re.compile(
     r"\b(?:automatically\s+)?(?:route|dispatch|hand\s+off|handoff|continue|switch)\b"
@@ -81,10 +82,10 @@ def has_exclusion_word(description):
 
 
 def has_initialized_repository_constraint(description):
-    has_contract = "workflow/agents.md" in description
+    has_board = "workflow/ board" in description or "workflow/agents.md" in description
     requires_initialized = re.search(r"\binitialized\b", description) is not None
-    requires_existing_contract = "workflow/agents.md exists" in description
-    return has_contract and (requires_initialized or requires_existing_contract)
+    requires_existing_board = re.search(r"workflow/ board exists|workflow/agents.md exists", description) is not None
+    return has_board and (requires_initialized or requires_existing_board)
 
 
 def main():
@@ -117,14 +118,14 @@ def main():
         if "explicit" not in description or "only" not in description:
             problems.append("framework-init: description must say that invocation is explicit-only")
 
-    for name in ("work", "groom", "status"):
+    for name in ("run", "groom", "status"):
         if name not in parsed:
             continue
         fields, _ = parsed[name]
         description = fields.get("description", "").lower()
         if not has_initialized_repository_constraint(description):
             problems.append(
-                f"{name}: description must require an initialized repo with workflow/AGENTS.md"
+                f"{name}: description must require an initialized repo with a workflow/ board"
             )
         if "generic" not in description or not has_exclusion_word(description):
             problems.append(f"{name}: description must exclude generic requests")

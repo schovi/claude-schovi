@@ -1,42 +1,35 @@
 ---
 name: framework-init
 description: >
-  Explicit invocation only. Initialize the workflow framework in a repo that
-  does not have one: create the workflow/ status folders, install the board-view
-  script, write the repo contract, scaffold the docs skeleton, and route
-  AGENTS.md to the plugin. Use only when the user explicitly invokes
-  "/workflow:framework-init", says "init the workflow" or "set up the board
-  here", or invokes "use $framework-init". Never invoke this skill because a
-  different workflow skill found no workflow/AGENTS.md. A repo with an existing
-  legacy markdown board must be migrated to status folders by hand first.
+  Explicit invocation only. Initialize the workflow board in a repo that does
+  not have one: create the workflow/ status folders, install the board-view
+  script and task template, and point the repo's instructions at the board.
+  Use only when the user explicitly invokes "/workflow:framework-init", says
+  "init the workflow" or "set up the board here", or invokes
+  "use $framework-init". Never invoke this skill because a different workflow
+  skill found no workflow/ board.
 ---
 
 # Framework Init
 
 Run only after the user explicitly requests initialization. Never inherit invocation from another workflow skill.
 
-Scaffold the workflow framework in a fresh repo. Templates live next to this skill in `templates/`. The folder a task sits in IS its status — there is no board file.
+Templates live next to this skill in `templates/`. The folder a task sits in is its status; there is no board file and no contract file.
 
-1. **Detect**: `workflow/AGENTS.md` exists → already initialized, route to `/workflow:framework-doctor` for a health check. Doctor owns every re-run concern (refreshing drifted shipped files, backfilling missing `tags:`, contract drift); this skill only ever scaffolds a repo that has no framework. A legacy markdown board (`docs/board.md` or `workflow/board.md`) exists → stop and tell the user to migrate it to status folders by hand first (the automated migrator was retired); don't scaffold a second system over it.
-2. **Create `workflow/`**:
-   - status folders `draft/`, `ready/`, `in-progress/`, `blocked/`, `done/`, plus `reports/` — each with a `.gitkeep` (git doesn't track empty dirs; the folders must exist for `mv` and the validator)
-   - `TEMPLATE.md` from `templates/TEMPLATE.md`
-   - `status` from `templates/status`, then `chmod +x workflow/status` — the board view is `./workflow/status`, and `./workflow/status --next-id` is where task ids come from (derived from files, worktrees, and git history; there is no counter file)
-3. **Write the contract** `workflow/AGENTS.md` from `templates/AGENTS.md`, pre-filled by inspecting the repo — project one-liner from the README, validation commands from `package.json` scripts / Makefile / existing CI, verify skills and doc leaves from what exists under `.claude/skills/` and `docs/`. Confirm the guesses with one question round (AskUserQuestion on Claude; plain chat questions on Codex): validation commands, verify mapping, decision log yes/no — defaults from the inspection.
-4. **Docs skeleton** (only what's missing, only if the user opted in during the question round): `docs/style.md` stub (one job per file, cross-link don't duplicate, no execution logs), empty `docs/areas/` and `docs/spec/` with a one-line README each. Content stays the repo's job.
-5. **Route the repo instructions**: add a `## Work tracking` section to the root `AGENTS.md` (create it, plus a `CLAUDE.md` containing `@AGENTS.md`, if missing — but follow the repo's existing pattern, e.g. `AGENTS.md` as a symlink to `CLAUDE.md`):
+1. **Detect.** `workflow/` already exists: run `/workflow:framework-doctor` instead.
+2. **Create `workflow/`**: `draft/ ready/ in-progress/ blocked/ done/ reports/`, each with a `.gitkeep`; `TEMPLATE.md` from `templates/TEMPLATE.md`; `status` from `templates/status`, then `chmod +x workflow/status`.
+3. **Point the repo's instructions at the board.** Add a `## Work tracking` section to the root `AGENTS.md` (create it, plus a `CLAUDE.md` containing `@AGENTS.md`, if missing; follow the repo's existing pattern). This section is also where the repo keeps its own board rules later, so start with the pointer only:
 
    ```markdown
    ## Work tracking
 
-   Managed by the `workflow` plugin. Tasks are files in `workflow/<status>/`
-   (draft, ready, in-progress, blocked, done) — the folder IS the status;
-   moving a task is `git mv`. Board view: `./workflow/status`. Repo contract:
-   `workflow/AGENTS.md`. Commands: `/workflow:groom`, `/workflow:work`,
-   `/workflow:batch-work`, `/workflow:status`, `/workflow:framework-doctor`.
+   Tasks are files in `workflow/<status>/` (draft, ready, in-progress, blocked,
+   done); the folder is the status, moving a task is `git mv`. Board:
+   `./workflow/status`. Skills: `/workflow:groom`, `/workflow:run`, `/workflow:status`,
+   `/workflow:decision`, `/workflow:framework-doctor`. Decision log: <docs/decisions.md or none>.
    ```
 
-6. **Validate**: run `python3 <plugin>/skills/framework-doctor/scripts/validate_workflow.py` (resolve via `${CLAUDE_PLUGIN_ROOT}` or relative to this skill file). Must pass — an empty board is valid.
-7. **Commit** everything as one commit: `workflow: initialize framework`.
+   Ask one round (AskUserQuestion on Claude, plain question on Codex): decision log location, and whether to run the guides wizard from `/workflow:framework-doctor` now to adopt any of the plugin's optional working guides.
+4. **Commit** as one commit: `workflow: initialize framework`.
 
-Codex: invoke as `use $framework-init`; identical flow.
+Codex: `use $framework-init`; identical flow.

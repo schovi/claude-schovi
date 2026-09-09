@@ -1,6 +1,6 @@
 # Workflow
 
-A task-board work framework for solo/hobby repos, shared as a plugin so every repo runs the same loop instead of maintaining its own copy of groom/work skills. Dual-runtime: Claude Code and Codex use the same skill files.
+A minimal task-board framework for solo/hobby repos, shared as a plugin so every repo runs the same lifecycle. The plugin ships the board model and the lifecycle; each repo's own instructions (`AGENTS.md`/`CLAUDE.md`) own how work is validated, documented, and committed. Dual-runtime: Claude Code and Codex use the same skill files.
 
 ## The model
 
@@ -8,79 +8,65 @@ A task-board work framework for solo/hobby repos, shared as a plugin so every re
 
 ```
 workflow/
-├── AGENTS.md          # repo contract (see below)
 ├── TEMPLATE.md        # task file template
-├── status             # executable board view: ./workflow/status
+├── status             # board view: ./workflow/status
 ├── draft/             # groom before pickup
-├── ready/             # ordered queue — priority: line, lowest = next
+├── ready/             # ordered queue: priority: line, lowest = next
 ├── in-progress/
 ├── blocked/           # each file names its gate:
-├── done/              # completed tasks, done: date — this IS the archive
-└── reports/           # batch-work reports
+├── done/              # done: date; this is the archive
+└── reports/           # orchestrated run reports
 ```
 
-Task file format — first line is the identity, metadata lines sit under it, only what the current folder needs:
+Task file: first line is the identity, metadata lines under it, only what the current folder needs:
 
 ```markdown
 # 054 — Seeded RNG
 
-priority: 20            # ready/ only; sparse (10, 20, 30), lowest = next
-depends: 041, 043       # optional; task IDs that must reach done/ first
-tags: rng, engine       # optional, any folder; lowercase slugs for search/grouping
-model: sonnet           # optional; cheaper tier for batch-work's worker on a mechanical task
+priority: 20            # ready/ only; sparse, lowest = next
+depends: 041, 043       # optional; tasks that should ship first
+tags: rng, engine       # optional; lowercase slugs for grouping
+model: sonnet           # optional; cheaper tier for run's isolated worker
 gate: upstream API v2   # blocked/ only; an observable fact
 done: 2026-07-10        # added on completion
 
 ## What & why
 ## Spec
-## Acceptance criteria   # required to leave draft/
-## Notes                 # never an execution log — git history is
+## Acceptance criteria
+## Notes
 ```
 
-No YAML frontmatter, no status written inside the file, no board file to keep in sync. Board view: `./workflow/status` (done hidden by default; `--done N|all` to list history; `--tag NAME`, repeatable, keeps only tasks carrying every named tag; `--tags` lists the tag vocabulary in use with counts, so tags get reused rather than reinvented; `--next-id` prints the id to mint the next task with). When other git worktrees exist, `status` also scans them and flags tasks in flight elsewhere (different section or uncommitted edits) that this checkout's folders don't yet reflect.
-
-Task ids are **derived, not stored**: `--next-id` takes the highest id across this checkout's task files, every sibling worktree's (uncommitted drafts included), and every id ever committed under `workflow/` on any ref, then adds one. So an id minted in another worktree or on a branch that never merged is never handed out twice, and there is no counter file to conflict on every merge.
+No frontmatter, no status inside the file, no board file to sync. `./workflow/status` prints the board (`--done N|all`, `--tag NAME`, `--tags`, `--next-id`). Task ids are derived from files, sibling worktrees, and git history, so there is no counter to conflict on.
 
 ## Lifecycle
 
 ```
-idea ──/groom──> draft/ ──spec + priority──> ready/ ──/work──> in-progress/ ──done gate──> done/
+idea ──/groom──> draft/ ──spec + priority──> ready/ ──/run──> in-progress/ ──> done/
                                 └─gate:──> blocked/
 ```
 
-- **`/workflow:groom [id]`** — mint an ID, interview the user until intent is clear, and use bounded codebase reconnaissance to identify ownership surfaces and load-bearing contracts. A Ready task is one cohesive, independently deliverable outcome sized for one `/work` loop; split independent outcomes before moving the spec to `ready/`. When a real cross-task dependency remains, flag it with a `depends:` line. Move externally gated work to `blocked/` with a `gate:`. One commit per groom session.
-- **`/workflow:work [id]`** — take the arg or the top Ready task (lowest priority, ties by ID). Refuses to start if the task's `depends:` aren't all in `done/`. Read the contract-routed docs, plan in chat, implement in `task NNN:` commits, validate per the contract, run the **acceptance-verifier gate**, then one atomic completion commit: `done:` date + move to `done/` + doc sync. If implementation discovers material scope outside the groomed ownership surfaces or contracts, hand the task back for re-grooming instead of expanding it. The in-progress move stays uncommitted until then.
-- **`/workflow:batch-work [ids|count|auto]`** — orchestrator-only runner: the main context just plans, dispatches, and records condensed returns while every task runs in its own isolated subagent (Claude `Agent` tool / Codex subagents), sequential (shared worktree), clean-tree gate between units, stop-on-failure, report in `workflow/reports/`. `auto` builds the batch from the `depends:` graph, deps before dependents: satisfied/in-batch → order it first; unselected Ready dep → pull it in whole; anything else (draft/in-progress not pullable whole, or blocked on an external gate) → drop the dependent and report it. A unit whose task carries a `model:` line dispatches its worker on that tier (Claude only); the tier is frozen into the plan, since the task file leaves `ready/` once its unit starts.
-- **`/workflow:status`** — default: a decision-oriented overview of the *current* repo (in progress, next up, batchable now, blockers ranked by how many tasks clearing them frees). `all`: one-row-per-repo table across every repo with a `workflow/`. Read-only.
-- **`/workflow:decision`** — append a `D<N>` record to the repo's decision log.
-- **`/workflow:framework-init`** — scaffold all of the above in a fresh repo (folders + `.gitkeep`s, status script, contract pre-filled by repo inspection, AGENTS.md routing).
-- **`/workflow:framework-doctor`** — validator + cleanup for an initialized repo: run the bundled zero-dependency `validate_workflow.py` (exit 0 valid / 1 issues / 2 no-framework), refresh shipped files that drifted from the plugin templates (`status`, `TEMPLATE.md`), propose `tags:` for untagged live tasks from the vocabulary already in use, sanity-check the contract, and check Codex agent parity. Reports first, applies on approval, re-runnable. Not a migrator — initialize a fresh repo with `/workflow:framework-init`.
+| Skill | What it does |
+|-------|--------------|
+| `/workflow:groom [id]` | Mint an id, ask until intent is clear, write the spec, move to `ready/` (with `priority:`), `blocked/` (with `gate:`), or keep in `draft/` with open questions. Capture mode turns exploration findings into tasks |
+| `/workflow:run [ids\|count\|auto\|"ask"]` | One entry point for doing work. One task runs in this context: move to `in-progress/`, implement the way the repo's instructions say, check acceptance criteria, one completion commit into `done/`. Several tasks run one isolated worker each, deps before dependents, stop on failure, report in `workflow/reports/`. A free-text ask is matched against the board, new work is groomed into tasks, overlapping tasks merge, then it runs. `--auto` skips the plan preview |
+| `/workflow:status [all]` | Decision-oriented overview of this repo's board, or one row per repo |
+| `/workflow:decision` | Append a `D<N>` record to the repo's decision log |
+| `/workflow:framework-init` | Scaffold `workflow/` and point the root `AGENTS.md` at the board. Explicit only |
+| `/workflow:framework-doctor` | Health check plus a guides wizard: offers the plugin's optional working guides for adoption into the repo's instructions. Adopting nothing is fine |
 
-Codex invocation: `use $groom`, `use $work`, etc.
+Codex: `use $groom`, `use $run`, etc.
 
-Skill discovery is conservative. Invoke workflow skills explicitly by default. `work`, `groom`, and `status` may be selected implicitly only when the current repo has `workflow/AGENTS.md` and the request unmistakably refers to that board. `framework-init` never runs as a missing-framework fallback; initialization always requires an explicit request.
+Skill discovery is conservative. Invoke workflow skills explicitly by default. `run`, `groom`, and `status` may be selected implicitly only when the current repo has a `workflow/` board and the request unmistakably refers to it. `framework-init` never runs as a missing-framework fallback.
 
-## The contract
+## Repo instructions, not plugin rules
 
-Skills carry the invariant process; each repo declares only its variable facts in `workflow/AGENTS.md`:
+The skills read the repo's own instructions and follow them. What to validate before done, which docs to read, commit style, when to stop and ask: all of that is the repo's call. The plugin only asks for a `## Work tracking` section in the root `AGENTS.md` that points at the board.
 
-- project one-liner (used to brief subagents)
-- validation commands (targeted + full gate)
-- verify mapping (touched paths → repo-local verify skills)
-- doc routing (path → doc leaf to read before editing)
-- decision log location, local notes
-
-Swapping where status lives (say, to GitHub Issues someday) would touch the skills' bookkeeping steps only — the loop, contract, and doc routing survive.
-
-## Subagent
-
-| Agent | Purpose |
-|-------|---------|
-| `workflow:acceptance-verifier:acceptance-verifier` | Fresh-context adversarial check before the completion commit: tries to falsify each acceptance criterion against the diff, evidence per verdict, PASS/FAIL/UNVERIFIABLE per criterion, `ready`/`not ready` overall. Report-only, max 800 tokens. `/work` requires `ready` to finish; `/batch-work` records the verdict per task |
+The rules earlier versions enforced (validation gate, fresh-context acceptance check, readiness gate, commit conventions, doc routing, dependency gate, and more) live in `skills/framework-doctor/references/guides.md`. Run `/workflow:framework-doctor` to adopt any of them into a repo, or none.
 
 ## Dashboard (cross-repo board)
 
-A single-file Bun/TypeScript web server that renders every repo's board as one Kanban. It reads the `workflow/` folders directly (the folder IS the status) and overlays live git-worktree state — no database, no config.
+A single-file Bun/TypeScript web server that renders every repo's board as one Kanban. It reads the `workflow/` folders directly and overlays live git-worktree state; no database, no config.
 
 ```bash
 bunx github:schovi/claude-schovi                 # run straight from GitHub
@@ -88,18 +74,16 @@ bunx github:schovi/claude-schovi --port 9000     # custom port
 bun run plugins/workflow/tools/board.ts          # local checkout
 ```
 
-Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root DIR` (repeatable) to scan elsewhere. Requires [Bun](https://bun.sh); no install step, no dependencies.
+Then open http://127.0.0.1:8787. Defaults to scanning `~/work/*`; pass `--root DIR` (repeatable) to scan elsewhere. Requires [Bun](https://bun.sh).
 
-- **Columns** `draft / ready / in-progress / blocked / done`. Done is collapsed to a count with a **show all** toggle (it's git history).
-- **Filter** by repo (click a chip to isolate, click again to clear) and a top text/number box that searches titles and IDs across every column — including done, even while it's collapsed.
-- **Card detail** opens on any card as rendered markdown in a wide panel. Draft/ready cards have an **Edit** button that swaps in the raw file for editing; in-progress/blocked/done are read-only.
-- **Sort** cards by id (default) or by `priority:` (lowest is next, unprioritised last, id breaks ties) — applies to every column.
-- **State is the URL** — `?repo=&tags=&q=&sort=priority&done=1&task=repo/59`. Every filter, the sort order, and the open card are in the query string, so a board view is a link you can share or bookmark, and Back closes the card.
-- **Badges** surface the framework's own signals: `priority:`, `waits: NNN` (unmet `depends:`), `gate:`, `#tag`s, and a worktree flag when a task is in flight in a sibling worktree.
-- **Tag chips** in the header filter the board (AND across selected tags, same semantics as `./workflow/status --tag`); clicking a `#tag` badge on a card toggles that tag. Tags also match the text filter.
-- **Write** is deliberately narrow — add a draft, edit a draft/ready card body, edit its `priority:`, and move draft↔ready. Each write auto-commits in that repo (`task NNN: … (dashboard)`). It does **not** touch in-progress/blocked/done — those transitions are `/work` and the acceptance gate, not file moves.
-- **Live updates**: the server watches each `workflow/` dir and pushes changes to open tabs over SSE, so any edit (yours, an agent's, another tab's) refreshes every board instantly. A 30s poll backs it up if a watch event drops.
-- **Change notifications**: each refresh diffs against the previous board and pops a toast for every new / moved / changed / done task. Click 🔔 to also get desktop notifications (so you see an agent finish a task while the tab is in the background).
+- **Columns** `draft / ready / in-progress / blocked / done`; done collapsed to a count with a **show all** toggle.
+- **Filter** by repo chip, tag chips (AND), and a text box over titles and ids.
+- **Card detail** as rendered markdown; draft/ready cards have an **Edit** button.
+- **Sort** by id or by `priority:`.
+- **State is the URL**: `?repo=&tags=&q=&sort=priority&done=1&task=repo/59`.
+- **Badges**: `priority:`, `waits: NNN`, `gate:`, `#tag`, worktree flag.
+- **Write** is narrow: add a draft, edit a draft/ready card, edit `priority:`, move draft↔ready. Each write auto-commits (`task NNN: … (dashboard)`).
+- **Live updates** over SSE, with toasts and optional desktop notifications.
 
 Self-check: `bun run plugins/workflow/tools/board.ts --selftest`.
 
@@ -114,13 +98,4 @@ Self-check: `bun run plugins/workflow/tools/board.ts --selftest`.
 codex plugin marketplace add ~/work/claude-schovi
 ```
 
-Then per repo: `/workflow:framework-init` (fresh), and `/workflow:framework-doctor` any time to validate, backfill missing tags, and keep the shipped files current.
-
-## Rules the framework enforces
-
-- Status lives in exactly one place — the folder. The validator rejects `status:` lines and frontmatter in task files.
-- Fewer tracker commits: groom = one commit per session; the in-progress move rides in the completion commit; completion is atomic (`task NNN:` prefix, done move + docs + tests in one commit). No git tags, no phase artifacts.
-- Never gate a commit on a piped test run.
-- Task files are specs, not execution logs — git history is the execution log.
-- A task is done only when its acceptance criteria survive the adversarial gate.
-- Ready tasks are one cohesive, independently deliverable outcome sized for one `/work` loop, with known ownership surfaces and load-bearing contracts. A real cross-task dependency is declared with `depends:`, and `/work` refuses to start until it is in `done/`.
+Then per repo: `/workflow:framework-init` (fresh), and `/workflow:framework-doctor` after a plugin upgrade or whenever you want to revisit which guides the repo adopts.

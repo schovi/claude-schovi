@@ -19,7 +19,7 @@
  *   bun run board.ts --selftest                      # built-in checks
  *
  * Not a Trello: in-progress/blocked/done are read-only (those transitions are
- * /work and the acceptance gate, not file moves). Only draft<->ready moves and
+ * /workflow:run, not file moves). Only draft<->ready moves and
  * body/priority edits happen here.
  */
 import {
@@ -96,7 +96,7 @@ function taskTimestamps(loc: string): Record<number, number> {
   return ts;
 }
 
-// Task ids with uncommitted changes under workflow/ in this checkout. A /work run
+// Task ids with uncommitted changes under workflow/ in this checkout. A /workflow:run
 // stages the `git mv` long before it commits, so without this the move is invisible.
 function dirtyTaskIds(loc: string): Set<number> {
   const ids = new Set<number>();
@@ -252,7 +252,7 @@ function serve(roots: string[], port: number) {
   const onChange = () => { if (timer) clearTimeout(timer); timer = setTimeout(broadcast, 250); };
 
   // Watch every workflow/ dir the last build consulted — main checkouts and worktrees
-  // alike, since a /work run moves task files inside a worktree. The set is re-synced
+  // alike, since /workflow:run moves task files inside a worktree. The set is re-synced
   // after each build, so a worktree added or removed mid-session is picked up.
   const watchers = new Map<string, FSWatcher>();
   const syncWatches = (dirs: Set<string>) => {
@@ -380,7 +380,7 @@ function selftest() {
     assert(t41.worktree[0] === "via demo-wt", "worktree origin badge: " + t41.worktree);
     assert(b2.tasks.filter((t: any) => t.id === 41).length === 1, "task 41 not duplicated across locations");
 
-    // An uncommitted move in the worktree (staged `git mv`, the state /work leaves
+    // An uncommitted move in the worktree (staged `git mv`, the state /workflow:run leaves
     // behind mid-task) wins too — commit times are equal there, so a tie would
     // otherwise hand the task back to main.
     mkdirSync(join(wt, "workflow", "in-progress"), { recursive: true });  // empty dirs aren't in git

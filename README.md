@@ -9,7 +9,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, four plugins, bot
 | `schovi` | Everyday engineering workflows: PR publishing, code review, debugging, Jira/GitHub/Datadog context detection |
 | `homebrew` | CI-gated GitHub release workflow for Homebrew-distributed repos. Install only where it applies |
 | `codex` | Claude Code only. Delegate self-contained tasks to Codex (GPT-5.6) subagents: a bundled `codex-delegate.sh` wrapper hides the event stream and returns only the final message plus a resumable session id. Routing guidance in [plugins/codex/docs/delegation.md](plugins/codex/docs/delegation.md), meant to be copied into your `~/.claude/CLAUDE.md`. Overview: [plugins/codex/README.md](plugins/codex/README.md) |
-| `workflow` | Task-board work framework for hobby/solo repos: tasks are files in `workflow/<status>/` folders (folder = status, moves are `git mv`), board view via `./workflow/status` or a cross-repo web Kanban (`bunx github:schovi/claude-schovi`), repo specifics in a `workflow/AGENTS.md` contract. Full model and lifecycle: [plugins/workflow/README.md](plugins/workflow/README.md) |
+| `workflow` | Minimal task-board framework for hobby/solo repos: tasks are files in `workflow/<status>/` folders (folder = status, moves are `git mv`), board view via `./workflow/status` or a cross-repo web Kanban (`bunx github:schovi/claude-schovi`). The plugin ships the lifecycle; validation and commit rules come from the repo's own `AGENTS.md`. Full model and lifecycle: [plugins/workflow/README.md](plugins/workflow/README.md) |
 
 ## Tools
 
@@ -27,17 +27,16 @@ Personal workflow plugins for Claude Code and Codex. One repo, four plugins, bot
 | `gh-pr-auto-detector` | schovi | automatic | Fetches condensed PR context when GitHub PRs are mentioned |
 | `release` | homebrew | `/homebrew:release` only | Cuts a CI-gated SemVer release: green-main gate, release notes, an approval gate before the tag push, tagging, optional GoReleaser, verification, then a follow-up docs-sync PR for the user to verify |
 | `delegate` | codex | `/codex:delegate` | Runs a self-contained task on a Codex subagent (`gpt-5.6-luna`/`terra`/`sol`, efforts low–max), returning only the final message plus a resumable session id and full-log path for follow-ups |
-| `groom` | workflow | `/workflow:groom [id]` | Uses an intent interview and bounded codebase reconnaissance to produce a Ready task with one cohesive, independently deliverable outcome sized for one work loop, then moves it to `ready/` or `blocked/`. With no id and exploration findings already in context, captures them as one task per outcome and promotes only those that pass the readiness gate, leaving the rest in `draft/` with their open questions |
-| `work` | workflow | `/workflow:work [id]` | Implements the top Ready task, or an ad-hoc ask when explicitly invoked, validates it through the acceptance-verifier gate, and hands material scope divergence back for re-grooming |
-| `batch-work` | workflow | `/workflow:batch-work [ids\|count\|auto]` | Orchestrator-only runner: main context plans + dispatches, all task work in isolated subagents; sequential, stop-on-failure, consolidated report. `auto` orders deps before dependents by the `depends:` graph, dropping any it can't satisfy in-batch |
-| `status` | workflow | `/workflow:status` | Current-repo work overview by default (next up, batchable, blockers ranked by unblock value); `all` for a combined across-repos table. Per-repo dump: `./workflow/status` |
+| `groom` | workflow | `/workflow:groom [id]` | Interviews until intent is clear and writes a task spec, then moves it to `ready/`, `blocked/`, or keeps it in `draft/` with open questions. With no id and exploration findings in context, captures them as one task per outcome |
+| `run` | workflow | `/workflow:run [ids\|count\|auto\|"ask"]` | Implements one task in this context, runs several in isolated workers, or takes a free-text ask, matches it onto the board, grooms the rest, and runs it. Stop-on-failure, report in `workflow/reports/` |
+| `status` | workflow | `/workflow:status` | Current-repo work overview by default (next up, batchable, blockers ranked by unblock value); `all` for one row per repo. Per-repo dump: `./workflow/status` |
 | `decision` | workflow | `/workflow:decision` | Appends a `D<N>` record to the repo's decision log |
-| `framework-init` | workflow | `/workflow:framework-init` | Scaffolds `workflow/` + repo contract + docs skeleton in a fresh repo |
-| `framework-doctor` | workflow | `/workflow:framework-doctor` | Validates an initialized repo (bundled script), refreshes drifted shipped files, backfills missing task `tags:`, and checks contract health, duplicated process docs, and Codex parity; reports first, applies on approval |
+| `framework-init` | workflow | `/workflow:framework-init` | Scaffolds `workflow/` and points the root `AGENTS.md` at the board |
+| `framework-doctor` | workflow | `/workflow:framework-doctor` | Health check plus a guides wizard: offers the plugin's optional working guides for adoption into the repo's own instructions; reports first, applies on approval, adopting nothing is fine |
 
-In Codex, invoke skills as `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`, `use $groom`, `use $work`, etc.
+In Codex, invoke skills as `use $publish`, `use $review`, `use $feedback`, `use $debug`, `use $release`, `use $groom`, `use $run`, etc.
 
-Workflow skill discovery is intentionally conservative. Invoke these skills explicitly by default. `work`, `groom`, and `status` may be selected implicitly only in repos with `workflow/AGENTS.md` and clear board-specific intent; `groom` may also trigger itself when an exploration or review turns up concrete work items to track. `framework-init` always requires an explicit request and is never an automatic fallback.
+Workflow skill discovery is intentionally conservative. Invoke these skills explicitly by default. `run`, `groom`, and `status` may be selected implicitly only in repos with a `workflow/` board and clear board-specific intent; `groom` may also trigger itself when an exploration or review turns up concrete work items to track. `framework-init` always requires an explicit request and is never an automatic fallback.
 
 ### Subagents (schovi)
 
@@ -53,12 +52,6 @@ Each agent is pinned to the cheapest tier that does its job (Claude only; Codex 
 | `gh-pr-reviewer` | haiku | GitHub PR (diff, reviews, CI) → max 15k token summary |
 | `datadog-analyzer` | sonnet | Datadog logs/traces/metrics → ~1.2k token summary |
 | `debug-executor` | inherit | Full debug workflow (fetch + explore + diagnose) → ~2.5k token result |
-
-### Subagents (workflow)
-
-| Agent | Model | What it does |
-|-------|-------|--------------|
-| `acceptance-verifier` | sonnet | Fresh-context adversarial check of a task's acceptance criteria before the completion commit → per-criterion verdict with evidence, ~800 tokens. Used by `/workflow:work` and `/workflow:batch-work`; report-only |
 
 ### Subagents (codex)
 

@@ -1,7 +1,7 @@
 {
   "name": "workflow",
-  "version": "3.9.0",
-  "description": "Task-board work framework for hobby/solo repos: groom, work, batch-work, acceptance-verifier gate, decision log, cross-repo status, plus framework-init scaffolding and framework-doctor validation/cleanup. Tasks are files in workflow/<status>/ folders (folder = status, moves are git mv), board view via a shipped ./workflow/status script, repo specifics in a workflow/AGENTS.md contract.",
+  "version": "4.1.0",
+  "description": "Minimal task-board framework for hobby/solo repos: groom, run (one task inline, many in isolated workers, or a free-text ask matched onto the board), decision log, cross-repo status, framework-init scaffolding, framework-doctor health check and guides wizard. Tasks are files in workflow/<status>/ folders (folder = status, moves are git mv), board view via a shipped ./workflow/status script; validation, docs, and commit rules come from the repo's own instructions.",
   "author": {
     "name": "David Schovanec",
     "email": "schovi@users.noreply.github.com",
@@ -21,8 +21,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Workflow Board",
-    "shortDescription": "Folder-based task board and work loop for solo/hobby repos",
-    "longDescription": "A unified work framework shared across repos. Tasks are single files in workflow/<status>/ folders — the folder IS the status, so every transition is one git mv. Ready is ordered by sparse priority lines; a shipped ./workflow/status script prints the board. Repo-specific facts (validation commands, verify skills, doc routing) live in a workflow/AGENTS.md contract the skills read first. Skills: groom refines a task into an implementable spec, work implements one task with an adversarial acceptance-verifier gate and an atomic completion commit, batch-work runs queued tasks unattended, decision appends to the repo's decision log, status shows all boards across repos, framework-init scaffolds a new repo, framework-doctor validates the structure and keeps shipped files current.",
+    "shortDescription": "Folder-based task board and lifecycle for solo/hobby repos",
+    "longDescription": "A minimal work framework shared across repos. Tasks are single files in workflow/<status>/ folders — the folder IS the status, so every transition is one git mv. Ready is ordered by sparse priority lines; a shipped ./workflow/status script prints the board. The plugin ships the lifecycle only; how work is validated, documented, and committed comes from the repo's own AGENTS.md. Skills: groom refines a task into a spec, run implements one task inline, runs several in isolated workers, or takes a free-text ask and matches it onto the board, decision appends to the repo's decision log, status shows the board here or across repos, framework-init scaffolds a new repo, framework-doctor checks the board and offers the plugin's optional working guides for adoption.",
     "developerName": "David Schovanec",
     "category": "Coding",
     "capabilities": [
@@ -33,7 +33,7 @@
     "privacyPolicyURL": "https://github.com/schovi/claude-schovi",
     "termsOfServiceURL": "https://github.com/schovi/claude-schovi",
     "defaultPrompt": [
-      "Use $work to implement the top Ready task from the board."
+      "Use $run to implement the top Ready task from the board."
     ],
     "brandColor": "#4F8EF7",
     "screenshots": []

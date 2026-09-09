@@ -294,7 +294,7 @@ function view(t){
   openModal(`<h3>${esc(t.repo)} · ${esc(t.file)} <span style="color:var(--muted);font-weight:400">— ${esc(t.section)}</span></h3>
     <div class="md">${md(t.body)}</div>
     <div class="row">${editable?`<button class="primary" id="editbtn">Edit</button>`
-      :`<span style="color:var(--muted);font-size:12px">read-only — /work and the acceptance gate own ${esc(t.section)}</span>`}
+      :`<span style="color:var(--muted);font-size:12px">read-only — /workflow:run owns ${esc(t.section)}</span>`}
     <button id="cancel">Close</button></div>`);
   document.getElementById("cancel").onclick=close;
   if(editable)document.getElementById("editbtn").onclick=()=>edit(t);

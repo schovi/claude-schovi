@@ -1,43 +1,38 @@
 ---
 name: status
 description: >
-  Show a decision-oriented overview of tracked workflow-board work in the
-  current repo, or a one-line-per-repo table with "all". Always use when the
-  user explicitly invokes "/workflow:status" or "use $status", including when
-  that invocation carries a follow-up question (scoped to a tag, which tasks
-  can run in parallel, what a chain waits on) — the question is the request,
-  not a reason to skip the skill. When workflow/AGENTS.md exists in this
-  initialized repo, also use for an unmistakable question about that board's
-  queue, progress, dependencies, or gates. Do not use for generic
-  project-status questions unrelated to that board. Read-only; never edits,
-  moves, commits, or initializes the framework.
+  Show a decision-oriented overview of the workflow/ board in the current repo,
+  or a one-line-per-repo table with "all". Always use when the user explicitly
+  invokes "/workflow:status" or "use $status", including with a follow-up
+  question (a tag scope, what can run in parallel, what a chain waits on).
+  When a workflow/ board exists in this initialized repo, also use for an
+  unmistakable question about that board's queue, progress, dependencies, or
+  gates. Do not use for generic project-status questions unrelated to that
+  board. Read-only; never edits, moves, commits, or initializes the framework.
 ---
 
 # Status
 
-Two modes. Read-only — never edit, move, or commit. Point at `/workflow:framework-doctor` for inconsistencies.
+Read-only. No `workflow/` here: say so and stop; the user can run `/workflow:framework-init` explicitly.
 
-If the invocation carries a question (a tag scope, "what can run in parallel to this", "what does this chain wait on"), still read the board the same way, then answer that question directly instead of emitting the full overview. Keep only the sections that bear on the answer.
+If the invocation carries a question, read the board the same way and answer that question instead of the full overview.
 
-## Default (no arg): current-repo overview
+## Default: current repo
 
-Turn this repo's board into a decision, not a dump. If there's no `workflow/` here, report that this repo has no workflow board and stop. The user can explicitly invoke `/workflow:framework-init` (`use $framework-init` in Codex) if they want one; never invoke it automatically.
+1. Run `./workflow/status` (fall back to `ls workflow/*/`). It shows `priority:` order, `depends:` state (`✓` met, `waits: N` unmet), `gate:` lines, `#tags`, and a Worktrees section when a sibling worktree has a task in flight.
+2. Write a short overview:
+   - **In progress**, including work in flight in another worktree
+   - **Next up**: the top runnable Ready tasks, what `/workflow:run` would pick
+   - **Batchable now**: what `/workflow:run auto` would run, and which units are independent
+   - **Blocked and waiting**: `gate:` tasks and Ready tasks with unmet `depends:`, each with what it waits on
+   - **Highest-value unblocks**: the blocker that frees the most downstream tasks
+3. Close with one recommended next action.
 
-1. **Read the board**: run `./workflow/status` (done is hidden by default — you don't need it here). Fall back to listing `workflow/<section>/*.md` if the script is missing. The output already carries what you need: `priority:` order, `depends:` edges (met = `depends: N ✓`, unmet = `(waits: N)`), blocked `gate:` lines, `#tag` labels, and a `Worktrees` section (only when other git worktrees exist) flagging tasks that sit in a different section or have uncommitted edits in a sibling worktree — that is live work this checkout's folders don't yet show.
-2. **Build the dependency picture** from the `depends:` annotations: which ready tasks are runnable now (no `waits:`), which wait on what, and where each awaited id sits (done/blocked/draft/in-progress).
-3. **Write the overview** in these sections, tight — ids + titles, no raw section-by-section echo:
-   - **In progress** — active tasks. Fold in anything from the `Worktrees` section: a task is in flight if it's `in-progress` or has uncommitted edits in a sibling worktree, even when this checkout still files it under Ready. Flag any that look stale (uncommitted move, or older than the newest done). When recommending the next action, don't send someone to a task already being worked in a worktree.
-   - **Next up** — the top few runnable Ready tasks in priority order (skip ones with unmet `waits:`). This is what `/workflow:work` would pick.
-   - **Batchable now** — the set `/workflow:batch-work auto` would run: runnable Ready tasks, deps-before-dependents. Note which are mutually independent (could parallelize) vs a forced chain.
-   - **Blocked & waiting** — `blocked/` tasks with their `gate:`, plus Ready tasks stuck on an unmet `depends:`. For each, name what it waits on and where that sits.
-   - **Highest-value unblocks** — rank each blocker (a blocked `gate:`, or an undone dependency) by how many downstream tasks clearing it would free (direct + transitive over the `depends:` edges). Recommend the one or two worth clearing first, with the count. A blocker that frees nothing downstream is low value even if it looks urgent.
-4. **Close** with a one-line recommendation: the single next action (run task N, groom the empty queue, clear gate X to free M tasks).
+Collapse empty sections to a word.
 
-Keep the whole thing scannable. If the board is tiny, collapse empty sections to a word.
+## `all`: across repos
 
-## `all`: cross-repo summary
-
-Discover repos under the configured roots (default `~/work/*`, plus the current repo; or the paths given after `all`) that have a `workflow/` status layout. **Read each repo's `workflow/<section>/*.md` files directly — don't execute other repos' `./workflow/status` scripts; only the current repo's shipped script is trusted.** One row per repo:
+Discover repos with a `workflow/` layout under `~/work/*` (or the paths given after `all`), plus the current repo. Read their `workflow/<status>/*.md` files directly; run only the current repo's `status` script.
 
 ```markdown
 | Repo | In progress | Next ready | Blocked | Done (7d) |
@@ -45,6 +40,4 @@ Discover repos under the configured roots (default `~/work/*`, plus the current 
 | rift-drifter | 051 — Title | 052 — Title (+4) | 1 (gate: …) | 3 |
 ```
 
-Next ready = lowest `priority:` runnable task in `ready/`. Done (7d) = `workflow/done/*.md` files whose `done:` date is within the last 7 days. Follow the table with a few bullets on anything that needs attention: stale in-progress, empty Ready queues, gates that look satisfiable, cross-repo pileups.
-
-Keep it to the table + a few bullets. No edits, no commits.
+Follow with a few bullets on what needs attention: stale in-progress, empty queues, gates that look satisfiable.

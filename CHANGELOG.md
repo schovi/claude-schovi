@@ -5,6 +5,29 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## workflow [4.1.0] - 2026-09-09
+
+### Changed
+- **`work` and `batch-work` merged into `run`.** One entry point for doing board work: a single task runs in this context (the old `work` loop), several tasks run one isolated worker each (the old `batch-work`), and a free-text ask is matched onto existing tasks, uncovered parts are groomed into new Ready tasks, overlapping tasks merge (acceptance-criteria subset rule; the absorbed file lands in `done/` with `Merged into NNN`), then it runs. Orchestrated runs preview the plan unless `--auto`; `--isolated` forces a worker for one task. Workers are told to run only the Task loop of the same file
+- A task file is created only when something must read it later (a worker, a multi-unit plan, an existing match, or the user asking to track it). A one-unit free-text ask runs untracked with an ordinary commit and mints a task mid-way only if it grows
+- Reports are `workflow/reports/run-<date>.md`; checkpoint commits are `run: checkpoint <id>`
+- Codex: `use $run` replaces `use $work` and `use $batch-work`
+
+## workflow [4.0.0] - 2026-09-09
+
+### Changed
+- **The plugin ships the lifecycle only.** Every skill is now a short guide to the board (mint, groom, move, implement, finish) and defers to the repo's own `AGENTS.md`/`CLAUDE.md` for validation, doc routing, test conventions, commit style, and fix-vs-ask. The `workflow/AGENTS.md` contract is no longer created or required; a legacy one is still read when present
+- `framework-init` scaffolds folders, `status`, and `TEMPLATE.md`, and writes the `## Work tracking` pointer in the root `AGENTS.md`; no contract, no docs skeleton, no validator run
+- `framework-doctor` is a light health check plus a **guides wizard**: the rules earlier versions enforced live in `references/guides.md` (validation before done, fresh-context acceptance check, readiness gate, commit conventions, doc routing, dependency gate, scope hand-back, specs-not-logs, tag vocabulary, batch runs, read discipline). The wizard classifies each guide against the repo's instructions, asks which to adopt, and writes the chosen ones under `## Work tracking`; it also offers to fold a legacy `workflow/AGENTS.md` into that section. Adopting nothing is a valid outcome
+- Skill descriptions detect an initialized repo by the `workflow/` board, not by `workflow/AGENTS.md`; `scripts/validate-workflow-skill-triggers.py` follows
+
+### Removed
+- `acceptance-verifier` agent and the mandatory acceptance gate in `work`/`batch-work`; `work` checks criteria inline with evidence, and the fresh-context variant is an optional guide
+- `validate_workflow.py` and its tests; no structural validation is enforced
+- batch-work runtime adapter files (`references/claude-instructions.md`, `codex-instructions.md`); the dispatch rules are two lines in the skill
+- `framework-doctor/references/codex-agents.md` (repo-local Codex agent parity is out of scope for a tracking framework)
+- `framework-init/templates/AGENTS.md` (the contract template)
+
 ## workflow [3.9.0] - 2026-08-03
 
 ### Added
