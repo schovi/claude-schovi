@@ -1,6 +1,6 @@
 ---
 name: address
-description: "Drive an open GitHub PR to green: fetch it, triage every unresolved review comment (fix it, decline it with evidence-backed reasoning when it's a false positive or low-value nit, or defer it to a human when it needs a decision) and diagnose every failing CI job, then (after you approve, or automatically with --auto) implement, push, reply to each thread with what changed or why not, and resolve the ones you addressed. Use when the user says \"/schovi:address\", \"address the PR comments\", \"resolve the review comments\", \"fix the failing CI and respond\", \"handle the review feedback on #123\", or points at a PR and asks to work through its open feedback. Previews the plan and waits for confirmation before changing code, unless --auto is given. Uses /schovi:publish to commit, push, and rewrite the PR description for the behaviour that changed."
+description: "Drive an open GitHub PR to green: fetch it, triage every unresolved review comment (fix it, decline it with evidence-backed reasoning when it's a false positive or low-value nit, or defer it to a human when it needs a decision) and diagnose every failing CI job, then (after you approve, or automatically with --auto) implement, push, reply to each thread with what changed or why not, and resolve the ones you addressed. Use when the user says \"/schovi:address\", \"address the PR comments\", \"resolve the review comments\", \"fix the failing CI and respond\", \"handle the review feedback on #123\", or points at a PR and asks to work through its open feedback. Previews the plan and waits for confirmation before changing code, unless --auto is given or the invocation says to skip approval (\"auto\", \"just do it\", \"don't ask\"). Uses /schovi:publish to commit, push, and rewrite the PR description for the behaviour that changed."
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -24,7 +24,7 @@ Subagent spawns (`Agent` tool) are Claude-native. In Codex, do the exploration a
 `/schovi:address [PR] [--auto]`
 
 - `PR` — a PR URL, `#123`, `owner/repo#123`, or nothing (defaults to the PR for the current branch).
-- `--auto` — skip the approval gate and run the whole loop unattended. Also triggered by the user saying "auto", "just do it", "no need to ask".
+- `--auto` — skip the approval gate and run the whole loop unattended. Any waiver in the invocation counts the same as the flag: "auto", "just do it", "no need to ask", "skip approval", "don't wait for me". Don't ask to confirm the waiver.
 
 ---
 
@@ -138,7 +138,9 @@ Description: will be regenerated via /schovi:publish after push.
 
 ### Phase 4 — Approval gate
 
-If `--auto` is **not** set: wait for explicit `yes` / `edit` / `cancel`. On `edit`, revise and re-show. **Never change code in the same turn you present the plan.** If `--auto` is set, skip straight to Phase 5 and note that you're running unattended.
+If `--auto` is set (flag or waiver phrase): print the plan, note that you're running unattended, and go straight to Phase 5 in the same turn.
+
+Otherwise wait for explicit `yes` / `edit` / `cancel`. On `edit`, revise and re-show. Never change code in the same turn you present the plan.
 
 ### Phase 5 — Implement and validate
 
@@ -203,7 +205,7 @@ Short summary: threads resolved (with links), CI status (was → now), items ski
 
 ## Implementation Notes
 
-1. The plan is always printed. Planning and changing code are separate turns gated by `yes`, except under `--auto`, which runs the whole loop (triage, fix, decline, resolve) unattended.
+1. The plan is always printed. Planning and changing code are separate turns gated by `yes`, except under `--auto` (flag or waiver phrase), which runs the whole loop (triage, fix, decline, resolve) unattended.
 2. Triage before fixing: FIX / DECLINE / SKIP. When you can't back a DECLINE with concrete evidence, it's a SKIP — never decline on a guess, and never fix on autopilot.
 3. Resolve only what you addressed: a FIX that's pushed and validated, or a DECLINE with a standing evidence-backed reason. Otherwise it's a SKIP, left unresolved.
 4. Replies teach: what changed and why, or why no change — with evidence, never "done". They're the git-visible record a human or a review bot learns from.

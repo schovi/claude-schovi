@@ -1,6 +1,6 @@
 ---
 name: feedback
-description: "Post feedback to a GitHub PR in either direction: as a reviewer (inline + general comments, optional Approve / Comment / Request-changes verdict), or as the author replying to change-request threads with what you changed. Use when the user says \"/schovi:feedback\", asks to \"post these comments to the PR\", \"send this review back\", \"reply to the review threads\", or \"I made the requested changes, respond on the PR\" — usually after /schovi:review or after pushing fixes. Always previews and waits for confirmation before posting; it replies to threads but never resolves them. With no PR link, writes the comments as text output instead."
+description: "Post feedback to a GitHub PR in either direction: as a reviewer (inline + general comments, optional Approve / Comment / Request-changes verdict), or as the author replying to change-request threads with what you changed. Use when the user says \"/schovi:feedback\", asks to \"post these comments to the PR\", \"send this review back\", \"reply to the review threads\", or \"I made the requested changes, respond on the PR\" — usually after /schovi:review or after pushing fixes. Previews and waits for confirmation before posting, unless --auto is given or the invocation says to skip approval (\"auto\", \"just post it\", \"don't ask\"); it replies to threads but never resolves them. With no PR link, writes the comments as text output instead."
 disable-model-invocation: false
 user-invocable: true
 ---
@@ -12,7 +12,7 @@ Writes feedback to a GitHub PR in a short, human voice, previews it, and posts i
 - **Reviewer mode** — you reviewed someone's PR. Turn findings (or comments you dictate) into inline + general comments, optionally bundled into one review with an Approve / Comment / Request-changes verdict. Pairs with `/schovi:review`: review lists findings, you pick which to send and how.
 - **Author mode** — someone requested changes on *your* PR and you pushed the fixes. Reply to each open thread describing what you changed, drawn from the commits since that review. Replies only — it never resolves threads (you do that in the UI).
 
-Both modes share the same machinery: thread/comment posting, the short voice, and the mandatory preview-then-confirm. The skill picks the mode from how you invoke it.
+Both modes share the same machinery: thread/comment posting, the short voice, and preview-then-confirm (skipped under `--auto`). The skill picks the mode from how you invoke it.
 
 Casual PR mentions ("what is #123 about?") belong to `gh-pr-auto-detector`, not this skill. Reviewing a PR belongs to `review`. This skill only writes feedback back.
 
@@ -22,7 +22,8 @@ No custom subagent is required. All posting uses the `gh` CLI directly. If ancho
 
 ## Trigger
 
-- User invokes `/schovi:feedback [PR]`
+- User invokes `/schovi:feedback [PR] [--auto]`
+- `--auto` skips the confirmation gate and posts right after drafting. Any waiver in the invocation counts the same as the flag: "auto", "just post it", "no need to ask", "skip approval", "don't wait for me". Don't ask to confirm the waiver.
 - Reviewer mode: "post these comments to the PR", "send this review back" — usually follows a `/schovi:review` whose findings are still in context
 - Author mode: "reply to the review threads", "I made the requested changes, respond on the PR", "reply to that thread with what we did"
 
@@ -115,9 +116,11 @@ Inline comments can only land on lines that appear in the PR diff. If a finding 
 
 Never pick `APPROVE` or `REQUEST_CHANGES` on your own; default to `COMMENT` unless the user signals otherwise.
 
-### Phase 4: Preview and Confirm (always)
+### Phase 4: Preview and Confirm
 
-Posting to a PR is outward-facing and hard to undo. Always show the full draft and wait for an explicit go-ahead. Never post in the same turn as drafting.
+Posting to a PR is outward-facing and hard to undo. Show the full draft and wait for an explicit go-ahead. Never post in the same turn as drafting.
+
+Under `--auto` (flag or waiver phrase): print the same draft as a record, then go straight to Phase 5 in the same turn. The verdict rule from Phase 3 still holds.
 
 ```
 Feedback for owner/repo#123  ·  mode: batched  ·  verdict: REQUEST_CHANGES
@@ -250,7 +253,7 @@ Voice rules from Phase 3 apply: short, human, peer-level.
 
 ### A4: Preview, confirm, post
 
-Show the same preview as Phase 4 — each open thread, the drafted reply, and the evidence (commit / "outdated" / "no evidence, needs your input"). Wait for the go-ahead, then post each with the reply command from Phase 5. Report what landed. Resolving is left to the user; say so in the closing summary.
+Show the same preview as Phase 4 — each open thread, the drafted reply, and the evidence (commit / "outdated" / "no evidence, needs your input"). Wait for the go-ahead, then post each with the reply command from Phase 5. Under `--auto`, post the evidence-backed replies right away and leave the "needs your input" threads unposted; list them in the report. Report what landed. Resolving is left to the user; say so in the closing summary.
 
 ```
 Replies for owner/repo#123 (you are the author) · 3 open threads
@@ -281,6 +284,7 @@ Post replies to the first two? Threads stay unresolved (resolve them yourself). 
 /schovi:feedback https://github.com/owner/repo/pull/123
 /schovi:feedback #123                 # repo from cwd or context
 /schovi:feedback owner/repo#45
+/schovi:feedback #123 --auto          # post without the confirmation gate
 /schovi:feedback                      # no PR → print comments as text
 ```
 
@@ -303,6 +307,6 @@ with what we changed. Keep it short.
 ## Why this skill is shaped the way it is
 
 1. **Voice over completeness.** The value is short, human, peer-level comments where optional vs blocking is obvious from the sentence. Anyone can generate a report; this generates a note a colleague would write.
-2. **Never post in the same turn as drafting.** Posting to a PR is irreversible and public. The preview gate is the only safety net there is.
+2. **Preview before posting, unless waived.** Posting to a PR is irreversible and public. The preview gate is the default safety net; `--auto` is the user's explicit choice to skip it, so the draft is still printed as a record.
 3. **Author replies are evidence-gated.** Never claim "Done" without a commit or diff behind it. No evidence means a neutral reply or a question back to the user. That's the difference between a useful response and a confidently wrong one on someone else's PR.
 4. **Never resolve threads.** Replies only; the user resolves. Don't call the resolve mutation. (`/schovi:address` is the skill that resolves, and only what it actually addressed.)
