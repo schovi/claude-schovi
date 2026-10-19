@@ -5,6 +5,16 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## schovi [1.26.0] - 2026-10-19
+
+### Added
+- `publish` checks the diff before writing the description: warns above 400 changed lines (or the repo's own limit, excluding lockfiles, generated code, snapshots, vendored files), on mixed concerns, and on noise (debug output, commented-out code, unrelated formatting) with `file:line`. Warnings only; it never blocks or edits
+- `publish` description rules: settled wording, the opening sentences name the decision the change follows, and an author's own call counts as a decision when its reason comes from the source, the code, or the user. Never invent a decision or a reason
+
+### Changed
+- `publish` no longer requires a source link. Links are still collected; none found means no Context section. A repo's `AGENTS.md`/`CLAUDE.md` can make a link mandatory, which brings back the prompt
+- `publish` targets the parent branch for a branch inside a `gh stack` (trunk for the bottom one) and opens the description with "Part N of M". Outside a stack the base stays the default branch
+
 ## workflow [4.1.0] - 2026-09-09
 
 ### Changed

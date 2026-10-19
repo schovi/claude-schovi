@@ -17,7 +17,7 @@ Personal workflow plugins for Claude Code and Codex. One repo, four plugins, bot
 
 | Skill | Plugin | Invocation | What it does |
 |-------|--------|------------|--------------|
-| `publish` | schovi | `/schovi:publish` or "create a PR" | Auto-commits, pushes, and creates/updates a GitHub PR with a generated description, sourced from a ticket key, GitHub reference, any source URL, a local spec, or the commits |
+| `publish` | schovi | `/schovi:publish` or "create a PR" | Auto-commits, pushes, warns on oversized or mixed-concern diffs, and creates/updates a GitHub PR with a decision-first description, sourced from a ticket key, GitHub reference, any source URL, a local spec, or the commits. Stacked branches target their `gh stack` parent |
 | `review` | schovi | `/schovi:review #123` | Structured code review of PRs, tracker tickets, any source URL, branches, or local files |
 | `feedback` | schovi | `/schovi:feedback #123 [--auto]` | Posts feedback to a PR both ways: as reviewer (inline + general comments, optional verdict) or as author replying to change-request threads with what you changed; previews before posting (skip with `--auto`) |
 | `address` | schovi | `/schovi:address #123 [--auto]` | Drives an open PR to green: triages every unresolved review thread (fix, decline with evidence, or defer to a human) and every failing CI job, implements on approval (or unattended with `--auto`), pushes via `/schovi:publish`, then replies with what changed or why not and resolves each thread it addressed |

@@ -8,7 +8,7 @@ disable-model-invocation: false
 
 Owns the whole "I'm done, ship it" pipeline: commit whatever is pending, push, then create or update a draft PR with a description worth reading.
 
-Always: draft PR, default branch as base (from `origin/HEAD`), auto-push, auto-commit pending changes first.
+Always: draft PR, auto-push, auto-commit pending changes first. The base is the default branch (from `origin/HEAD`), or the parent branch when the branch sits in a `gh stack`.
 
 ```bash
 /schovi:publish                 # from commit history
@@ -54,6 +54,15 @@ gh pr list --head "$(git branch --show-current)" --json number,url,title,isDraft
 
 Stop if you're on the default branch (they need a feature branch) or `gh` isn't authenticated. Commit any pending changes before continuing, and say that you're doing it. An existing PR for this head means UPDATE mode; nothing found means CREATE.
 
+Find the base. A branch in a `gh stack` targets the branch below it (the trunk for the bottom one). `STACK_POSITION` reads as "N of M". Outside a stack, or without the `gh stack` extension, the output is empty and the base stays the default branch:
+
+```bash
+read -r STACK_PARENT STACK_INDEX STACK_SIZE < <(gh stack view --json 2>/dev/null | jq -r --arg branch "$(git branch --show-current)" \
+  '.trunk as $trunk | (.branches | map(.name)) as $names | ($names | index($branch)) as $i
+   | if $i == null then empty else "\(if $i == 0 then $trunk else $names[$i-1] end) \($i+1) \($names|length)" end')
+BASE_BRANCH=${STACK_PARENT:-$DEFAULT_BRANCH}
+```
+
 ## 3. Push
 
 The local branch name must always equal the remote branch name, and therefore the PR's `headRefName`. An upstream pointing somewhere else (`origin/main` left over from a merge queue) has to be cleared first, or the push creates a mismatched remote branch.
@@ -70,7 +79,22 @@ git ls-remote --heads origin "$LOCAL_BRANCH"
 
 Never push with a `local:different-remote` refspec.
 
-## 4. Gather context
+## 4. Check the diff
+
+A small, single-purpose PR is fast to review and can be approved by an automated reviewer. Check the diff against the base and **warn, never block or edit**:
+
+```bash
+git diff origin/$BASE_BRANCH...HEAD --numstat
+git diff origin/$BASE_BRANCH...HEAD
+```
+
+- **Size**: sum the added and deleted lines. Skip lockfiles, generated code, snapshots, and vendored files. Above 400 lines, or the limit the repo's instructions set, say so and suggest a split into a `gh stack`
+- **Mixed concerns**: a refactor, a behavior change, and a migration in one PR. Name each part and suggest one PR per part
+- **Noise**: debug output, commented-out code, unrelated formatting or renames. List each with `file:line`
+
+Report the warnings in one short block and continue. The user decides whether to split or clean up.
+
+## 5. Gather context
 
 - **Any source type except `None`**: read `../../references/sources.md` and follow it. It picks the fetcher (ticket tracker, GitHub, observability vendor, doc tool, plain web page, local file) and hands back a canonical URL, a title, the what and why, and any acceptance criteria
 - **None**: read the commits
@@ -78,27 +102,28 @@ Never push with a `local:different-remote` refspec.
 A `TICKET_KEY` off the branch is also a source. Resolve it the same way when the input itself gave nothing, and keep publishing if it can't be resolved.
 
 ```bash
-git log origin/$DEFAULT_BRANCH..HEAD --format="%s%n%b" --reverse
-git diff origin/$DEFAULT_BRANCH..HEAD --stat
+git log origin/$BASE_BRANCH..HEAD --format="%s%n%b" --reverse
+git diff origin/$BASE_BRANCH..HEAD --stat
 ```
 
-**The Context section needs at least one real link.** Collect candidates from the input source, the `TICKET_KEY` off the branch, and any links in the commits or fetched content (dashboards, related PRs, specs, design docs). If you come up empty, ask for one before writing the description:
+**Collect links for the Context section** from the input source, the `TICKET_KEY` off the branch, and any links in the commits or fetched content (dashboards, related PRs, specs, design docs). In a stack, the PR for `STACK_PARENT` is one of them. None found: omit the section. Never invent a link.
+
+When the repo's instructions (`AGENTS.md`, `CLAUDE.md`) make a link mandatory and none was found, ask before writing the description:
 
 ```
 No source link found for this change. Paste a relevant link (ticket, dashboard,
-related PR, spec, design doc) so reviewers have context, or reply
-"skip" to publish without one.
+related PR, spec, design doc) so reviewers have context.
 ```
 
-Never invent a link. On "skip", omit the section.
-
-## 5. Write the description
+## 6. Write the description
 
 **The reviewer reads the code.** So the description does not explain how the code works or which files changed. It carries what a reader cannot recover from the diff: what was decided, and why.
 
 **Describe the final state, never the evolution.** "The API returns paginated results", not "changed the API to return paginated results". This matters most in UPDATE mode: rewrite the description from scratch for the code as it now stands. No "we changed X to Y", no "updated A to B".
 
 **Describe presence, never absence.** Drop "no schema change", "no behavior change", "nothing else touched" unless you have read the diff and confirmed it. Commit messages and file stats do not prove a negative, and an unverified absence claim waves the reviewer off exactly where they should look.
+
+**Settled wording.** "Moves the read path to X", not "tries to move" or "should fix". Every claim stays one you can back with the diff or a source.
 
 **No agent-process content.** The description is about the change, not about how you produced it. Leave out TODO checklists, validation narration ("tests pass", "verified locally"), workflow narration ("first I explored the codebase"), and self-reference ("I decided", "as requested"). If validation matters to a reviewer, it belongs in Review Notes as a fact.
 
@@ -107,7 +132,7 @@ Classify it as Bug, New Feature, Enhancement, or Chore, then:
 ```markdown
 ## [Bug | New Feature | Enhancement | Chore]
 
-[1-2 sentences on the problem or feature. Link to the spec/ticket/doc rather than restating it.]
+[In a stack, start with "Part N of M." Then 1-2 sentences: the decision this change follows, or the problem or feature. Link to the spec/ticket/doc rather than restating it.]
 
 ## Context
 
@@ -132,15 +157,17 @@ Be short. Cut anything the diff already shows.
 
 **Decisions** is the heart of it: the meaningful choices and the reason for each, one line as `decision — why`. The "why" has to add what the code can't (it solves a problem, it was forced by a constraint, it beat a specific alternative). No implementation detail. No decisions, no section.
 
+A decision needs no outside record. The author's call counts when the reason is real: `X over Y — Z` with Z taken from the source, the code, or the user. Never invent a decision or a reason. When the reason is unclear, ask.
+
 **Review Notes** is addressed to the reviewer about reviewing and merging. Test every bullet: could they get this from the diff or the sections above? Then cut it. What survives is required actions, merge sequencing, follow-ups, the single riskiest spot, and looks-wrong-but-intentional gotchas. Upgrade steps for consumers go under Notes > Migration instead.
 
 **Title**: `PROJ-123: Description` with a ticket key, otherwise just the description. 50-80 characters, active voice (Add, Fix, Implement, Update), no trailing period. Source it from the spec title, the source's own title, or the theme of the commits.
 
-## 6. Ship it
+## 7. Ship it
 
 ```bash
 # CREATE
-gh pr create --draft --title "[TITLE]" --base "$DEFAULT_BRANCH" --body "$(cat <<'EOF'
+gh pr create --draft --title "[TITLE]" --base "$BASE_BRANCH" --body "$(cat <<'EOF'
 [DESCRIPTION]
 EOF
 )"
