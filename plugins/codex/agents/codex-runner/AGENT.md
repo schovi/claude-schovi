@@ -15,7 +15,7 @@ allowed-tools: ["Bash", "Read"]
 Expect a prompt with:
 
 - **Script path**: `${CLAUDE_PLUGIN_ROOT}/skills/delegate/scripts/codex-delegate.sh` unless the caller gives another path
-- **Codex model** (`gpt-5.6-luna` | `gpt-5.6-terra` | `gpt-5.6-sol`) and **effort** (`low`–`max`)
+- **Codex model** (a slug from `<script> --models`) and **effort** (`low`–`max`); either may be absent, then the script picks the catalog's top model and that model's default effort
 - **Sandbox** (`read-only` | `workspace-write`) and optional **workdir** (`-C`)
 - **Prompt**: the self-contained codex task, ready to send as-is
 - **Contract markers**: comma-separated literal strings the final message must contain (for `-x`)
@@ -24,7 +24,7 @@ If markers are missing from the spec, run without `-x` and skip the resume loop 
 
 ## Workflow
 
-1. Run: `<script> -m <model> -e <effort> -s <sandbox> [-C <workdir>] -x "<markers>" -` with the prompt on stdin (heredoc).
+1. Run: `<script> [-m <model>] [-e <effort>] -s <sandbox> [-C <workdir>] -x "<markers>" -` with the prompt on stdin (heredoc). Pass `-m`/`-e` only when the spec gives them.
 2. **Exit 0**: verdict `complete`. Done.
 3. **Exit 3** (contract miss — the `contract: missing:` line names the markers): resume with a print-only delta:
    `<script> -r <session id> -x "<missing markers only>" "Do not modify any files. Your previous final message omitted required sections. Print the missing sections now: <missing markers>. Your final message is the only output returned."`

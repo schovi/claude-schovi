@@ -15,10 +15,14 @@ Codex runs on a separate, much larger token budget. When delegating, prefer Code
 
 ### Models and efforts
 
-All models accept reasoning efforts `low | medium | high | xhigh | max`. What an effort buys differs by model:
+Model slugs change with every Codex release, so route by role, not by name. `codex-delegate.sh --models` prints the live catalog: visible models by priority, each with its default effort, supported efforts, and description. Map the roles from that list:
 
-- `gpt-5.6-luna`, haiku-class: cheapest and fastest. `low`/`medium` for mechanical edits, boilerplate, format conversions; `high`/`xhigh` make it punch above its class on well-specified tasks while staying cheap; `max` is rarely better than switching to terra
-- `gpt-5.6-terra`, opus-class, the default: `low` for routine edits, `medium` for standard implementation and review, `high` for multi-file refactors and debugging; `xhigh`/`max` for sustained cross-file reasoning where switching to sol isn't warranted
-- `gpt-5.6-sol`, strongest tier (below Fable): already deep at `low`; every effort step is expensive. For the hardest cross-cutting reasoning: gnarly root causes, design review, multi-constraint planning
+- **Workhorse**, the default: the top-priority model ("latest workhorse"). Implementation, refactors, review, scoped debugging. The script picks it when `-m` is omitted
+- **Cheap**: the newest model described as fast and affordable. Mechanical edits, boilerplate, format conversions, fetch-and-condense. Higher efforts make it punch above its class while staying cheap
+- **Frontier**: the model described as frontier intelligence. Only the hardest cross-cutting reasoning: gnarly root causes, design review, multi-constraint planning. Expensive at every effort
+
+Models described as "previous" or "older" generation are superseded; skip them unless the user names one.
+
+Efforts: start at the model's catalog default (the script uses it when `-e` is omitted) and raise one step for sustained multi-file reasoning. Avoid `ultra` unless asked: it adds Codex-side task delegation, so cost and run shape get unpredictable.
 
 Before raising model or effort, tighten the prompt contract; a better-specified task on a cheaper tier usually beats a vague one on an expensive tier.

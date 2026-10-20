@@ -1,7 +1,7 @@
 ---
 name: delegate
 description: >
-  Delegate a self-contained task to a Codex (GPT-5.6) subagent through the
+  Delegate a self-contained task to a Codex subagent through the
   bundled codex-delegate.sh wrapper, which hides the event stream and returns
   only the final message plus a resumable session id. Use when the user says
   "/codex:delegate", "ask codex", "delegate this to codex", or when offloading
@@ -20,6 +20,7 @@ Codex runs on a separate, much larger token budget. Spend it on volume; keep Cla
 
 ```bash
 "${CLAUDE_PLUGIN_ROOT}/skills/delegate/scripts/codex-delegate.sh" [-m MODEL] [-e EFFORT] [-s SANDBOX] [-C DIR] [-r SESSION_ID] [-x MARKERS] "PROMPT"
+"${CLAUDE_PLUGIN_ROOT}/skills/delegate/scripts/codex-delegate.sh" --models
 ```
 
 - Output: a `session: <id>`, `log: <path>` and `context: <model> / <effort> / <sandbox> in <workdir>` header, then `---`, then the final message. Nothing else reaches your context. Check the `context:` line when a run behaves oddly; it is codex's own banner, so a wrong workspace shows up there.
@@ -37,15 +38,17 @@ Codex runs on a separate, much larger token budget. Spend it on volume; keep Cla
 
 ## Model and effort routing
 
-All models accept reasoning efforts `low | medium | high | xhigh | max`; what an effort buys differs by model. Full routing guidance lives in [docs/delegation.md](../../docs/delegation.md).
+Slugs change with every Codex release, so never hardcode one from memory. Run `codex-delegate.sh --models` for the live catalog (visible models by priority, default effort, supported efforts, description) and pick by role. Full routing guidance lives in [docs/delegation.md](../../docs/delegation.md).
 
-| Model | Class | Use for |
-|-------|-------|---------|
-| `gpt-5.6-luna` | haiku-class | mechanical edits, boilerplate, test scaffolding, format conversions, fetch-and-condense. Higher efforts make it punch above its class cheaply |
-| `gpt-5.6-terra` | opus-class | the default. Implementation, refactors, code review, debugging with a known scope |
-| `gpt-5.6-sol` | strongest (below Fable) | hard cross-cutting reasoning: gnarly root causes, design review, multi-constraint planning. Already deep at low effort; use sparingly |
+| Role | Pick from the catalog | Use for |
+|------|-----------------------|---------|
+| workhorse | top-priority model ("latest workhorse") | the default. Implementation, refactors, code review, debugging with a known scope |
+| cheap | newest "fast and affordable" model | mechanical edits, boilerplate, test scaffolding, format conversions, fetch-and-condense. Higher efforts make it punch above its class cheaply |
+| frontier | the "frontier intelligence" model | hard cross-cutting reasoning: gnarly root causes, design review, multi-constraint planning. Expensive; use sparingly |
 
-Defaults: `gpt-5.6-terra`, `medium`. Before raising model or effort, tighten the prompt contract; a better-specified task on a cheaper tier usually beats a vague one on an expensive tier. Escalate effort one step when the task needs sustained multi-file reasoning; jump to `sol` only when terra's result showed it's out of depth. User-stated effort caps (e.g. in CLAUDE.md) win over this table.
+Skip models described as "previous" or "older" generation unless the user names one.
+
+Defaults: omit `-m` for the workhorse and `-e` for its catalog default effort. Before raising model or effort, tighten the prompt contract; a better-specified task on a cheaper tier usually beats a vague one on an expensive tier. Escalate effort one step when the task needs sustained multi-file reasoning; jump to frontier only when the workhorse's result showed it's out of depth. Avoid `ultra` unless asked: it adds Codex-side task delegation. User-stated model or effort caps (e.g. in CLAUDE.md) win over this table.
 
 ## Prompt contract
 

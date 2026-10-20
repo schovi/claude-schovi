@@ -1,6 +1,6 @@
 # codex plugin
 
-Delegate self-contained tasks to Codex (GPT-5.6) subagents from Claude Code, without their event stream landing in your context.
+Delegate self-contained tasks to Codex subagents from Claude Code, without their event stream landing in your context.
 
 Codex runs on a separate, much larger token budget. Spend it on volume (bulk implementation, mechanical migrations, standalone investigation, throwaway research) and keep Claude tokens for judgment: architecture, tradeoffs, decisions, and reviewing what comes back.
 
@@ -40,11 +40,15 @@ Codex runs on a separate, much larger token budget. When delegating, prefer Code
 
 ### Models and efforts
 
-All models accept reasoning efforts `low | medium | high | xhigh | max`. What an effort buys differs by model:
+Model slugs change with every Codex release, so route by role, not by name. `codex-delegate.sh --models` prints the live catalog: visible models by priority, each with its default effort, supported efforts, and description. Map the roles from that list:
 
-- `gpt-5.6-luna`, haiku-class: cheapest and fastest. `low`/`medium` for mechanical edits, boilerplate, format conversions; `high`/`xhigh` make it punch above its class on well-specified tasks while staying cheap; `max` is rarely better than switching to terra
-- `gpt-5.6-terra`, opus-class, the default: `low` for routine edits, `medium` for standard implementation and review, `high` for multi-file refactors and debugging; `xhigh`/`max` for sustained cross-file reasoning where switching to sol isn't warranted
-- `gpt-5.6-sol`, strongest tier (below Fable): already deep at `low`; every effort step is expensive. For the hardest cross-cutting reasoning: gnarly root causes, design review, multi-constraint planning
+- **Workhorse**, the default: the top-priority model ("latest workhorse"). Implementation, refactors, review, scoped debugging. The script picks it when `-m` is omitted
+- **Cheap**: the newest model described as fast and affordable. Mechanical edits, boilerplate, format conversions, fetch-and-condense. Higher efforts make it punch above its class while staying cheap
+- **Frontier**: the model described as frontier intelligence. Only the hardest cross-cutting reasoning: gnarly root causes, design review, multi-constraint planning. Expensive at every effort
+
+Models described as "previous" or "older" generation are superseded; skip them unless the user names one.
+
+Efforts: start at the model's catalog default (the script uses it when `-e` is omitted) and raise one step for sustained multi-file reasoning. Avoid `ultra` unless asked: it adds Codex-side task delegation, so cost and run shape get unpredictable.
 
 Before raising model or effort, tighten the prompt contract; a better-specified task on a cheaper tier usually beats a vague one on an expensive tier.
 ````
@@ -76,9 +80,11 @@ That is the entire context cost of a delegation. The log stays on disk for when 
 
 ```bash
 codex-delegate.sh [-m MODEL] [-e EFFORT] [-s SANDBOX] [-C DIR] [-r SESSION_ID] [-x MARKERS] "PROMPT"
+codex-delegate.sh --models
 ```
 
-- `-m` / `-e`: model and reasoning effort (defaults `gpt-5.6-terra`, `medium`)
+- `--models`: the live Codex catalog (`codex debug models`): visible models by priority with default effort, efforts, and description
+- `-m` / `-e`: model and reasoning effort (defaults: the catalog's top-priority model and its default effort)
 - `-s`: `read-only` for review and research, `workspace-write` (default) for implementation
 - `-C DIR`: point Codex at another repo without changing your own cwd
 - `-r SESSION_ID`: resume a run and send only a delta instruction, replaying the session's own workspace, model, effort and sandbox (pass `-C`/`-m`/`-e`/`-s` alongside it only to override one)
@@ -88,13 +94,15 @@ Prompts must be self-contained, Codex sees nothing of the Claude session, and th
 
 ### Model routing
 
-| Model | Class | Use for |
-|-------|-------|---------|
-| `gpt-5.6-luna` | haiku-class | mechanical edits, boilerplate, format conversions. High efforts stay cheap |
-| `gpt-5.6-terra` | opus-class | the default: implementation, refactors, review, scoped debugging |
-| `gpt-5.6-sol` | strongest | hard cross-cutting reasoning. Already deep at `low`, use sparingly |
+Slugs change with every Codex release, so the skill routes by role and reads the slugs from `--models`:
 
-Efforts are `low | medium | high | xhigh | max`. Before raising model or effort, tighten the prompt contract: a well-specified task on a cheaper tier beats a vague one on an expensive tier. Full guidance in [`docs/delegation.md`](docs/delegation.md).
+| Role | Pick from the catalog | Use for |
+|------|-----------------------|---------|
+| workhorse | top-priority model | the default: implementation, refactors, review, scoped debugging |
+| cheap | newest "fast and affordable" model | mechanical edits, boilerplate, format conversions. High efforts stay cheap |
+| frontier | "frontier intelligence" model | hard cross-cutting reasoning. Expensive, use sparingly |
+
+Before raising model or effort, tighten the prompt contract: a well-specified task on a cheaper tier beats a vague one on an expensive tier. Full guidance in [`docs/delegation.md`](docs/delegation.md).
 
 ### codex-runner subagent
 

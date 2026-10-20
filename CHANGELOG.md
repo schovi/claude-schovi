@@ -5,6 +5,15 @@ All notable changes to the Schovi Workflow Plugin will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## codex [1.3.0] - 2026-10-20
+
+### Changed
+- Model routing reads the live Codex catalog (`codex debug models`) instead of hardcoded `gpt-5.6-*` slugs, so new Codex releases need no plugin update. Guidance names roles (workhorse default, cheap, frontier) and skips models marked "previous" or "older"
+- `codex-delegate.sh` without `-m` picks the catalog's top-priority model; without `-e` it uses that model's default effort. If the catalog is unreadable it omits `-m` and Codex uses its own config
+
+### Added
+- `codex-delegate.sh --models`: visible models by priority with default effort, supported efforts, and description
+
 ## schovi [1.26.0] - 2026-10-19
 
 ### Added

@@ -3,15 +3,17 @@
 #
 # Usage:
 #   codex-delegate.sh [-m MODEL] [-e EFFORT] [-s SANDBOX] [-C DIR] [-r SESSION_ID] [-x MARKERS] [PROMPT]
+#   codex-delegate.sh --models
 #
 #   PROMPT       task prompt; use '-' (or omit) to read it from stdin (heredoc-friendly)
-#   -m MODEL     gpt-5.6-luna | gpt-5.6-terra (default) | gpt-5.6-sol
-#   -e EFFORT    low | medium (default) | high | xhigh | max
+#   -m MODEL     model slug from --models (default: the catalog's top-priority model)
+#   -e EFFORT    low | medium | high | xhigh | max | ultra (default: the model's catalog default)
 #   -s SANDBOX   read-only | workspace-write (default) | danger-full-access
 #   -C DIR       working root for the agent, and its writable root under workspace-write
 #   -r SESSION   resume an earlier session by id; send only the delta instruction
 #   -x MARKERS   comma-separated literal strings that must appear in the final message
 #                (contract check); a miss prints 'contract: missing: ...' and exits 3
+#   --models     list the visible models by priority: slug, default effort, efforts, description
 #
 # Resume takes its workspace from the calling process's cwd and accepts no -C/-s of its own,
 # so this wrapper re-enters the resumed session's recorded cwd and replays its model, effort
@@ -24,8 +26,8 @@
 
 set -u
 
-model="gpt-5.6-terra"
-effort="medium"
+model=""
+effort=""
 sandbox="workspace-write"
 workdir=""
 resume_id=""
@@ -35,9 +37,48 @@ effort_given=""
 sandbox_given=""
 
 usage() {
-  sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//' >&2
+  sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//' >&2
   exit 2
 }
+
+# Reads Codex's own model catalog, so routing follows new releases without a plugin update.
+#   catalog list         visible models by priority
+#   catalog default      top-priority visible model slug
+#   catalog effort SLUG  that model's default effort
+catalog() {
+  command -v python3 >/dev/null 2>&1 || return 1
+  python3 - "$@" <<'PY'
+import json, subprocess, sys
+
+try:
+    raw = subprocess.run(["codex", "debug", "models"], capture_output=True, text=True, check=True).stdout
+    models = json.loads(raw).get("models", [])
+except (OSError, subprocess.CalledProcessError, ValueError):
+    sys.exit(1)
+visible = sorted((m for m in models if m.get("visibility") == "list"), key=lambda m: m.get("priority", 999))
+
+mode = sys.argv[1]
+if mode == "list":
+    for m in visible:
+        efforts = ",".join(level["effort"] for level in m.get("supported_reasoning_levels", []))
+        print(f"{m['slug']:<16} default={m.get('default_reasoning_level', '?'):<7} efforts={efforts:<36} {m.get('description', '')}")
+elif mode == "default" and visible:
+    print(visible[0]["slug"])
+elif mode == "effort":
+    match = next((m for m in models if m.get("slug") == sys.argv[2]), None)
+    if not match or not match.get("default_reasoning_level"):
+        sys.exit(1)
+    print(match["default_reasoning_level"])
+else:
+    sys.exit(1)
+PY
+}
+
+if [[ "${1:-}" == "--models" ]]; then
+  command -v codex >/dev/null 2>&1 || { echo "codex CLI not found" >&2; exit 127; }
+  catalog list || { echo "could not read the model catalog (codex debug models)" >&2; exit 1; }
+  exit 0
+fi
 
 while getopts ":m:e:s:C:r:x:h" opt; do
   case "$opt" in
@@ -114,11 +155,20 @@ if [[ -n "$resume_id" ]]; then
     echo "cannot enter workdir $workdir for resume" >&2
     exit 1
   fi
+fi
+
+# Without a resolvable catalog, -m is omitted and codex falls back to its own config.toml model.
+[[ -n "$model" ]] || model="$(catalog default)" || model=""
+[[ -n "$effort" ]] || effort="$(catalog effort "$model")" || effort="medium"
+model_args=()
+[[ -n "$model" ]] && model_args=(-m "$model")
+
+if [[ -n "$resume_id" ]]; then
   # resume has no -s; sandbox_mode is the config-level equivalent
-  cmd=(codex exec resume -m "$model" -c "model_reasoning_effort=\"$effort\"" \
+  cmd=(codex exec resume ${model_args[@]+"${model_args[@]}"} -c "model_reasoning_effort=\"$effort\"" \
     -c "sandbox_mode=\"$sandbox\"" -o "$out_file" --skip-git-repo-check "$resume_id" "$prompt")
 else
-  cmd=(codex exec -m "$model" -c "model_reasoning_effort=\"$effort\"" -o "$out_file" \
+  cmd=(codex exec ${model_args[@]+"${model_args[@]}"} -c "model_reasoning_effort=\"$effort\"" -o "$out_file" \
     --skip-git-repo-check -s "$sandbox")
   [[ -n "$workdir" ]] && cmd+=(-C "$workdir")
   cmd+=("$prompt")
